@@ -14,6 +14,9 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { auth, db } from '../../firebaseConfig';
 import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { awardXP } from '../utils/xpManager';
+import { XP_REWARDS } from '../data/levels';
+
 
 type DreamJournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -49,48 +52,42 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     setLoading(true);
 
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        Alert.alert('Error', 'You must be logged in');
-        return;
-      }
+    setLoading(true);
+    const user = auth.currentUser;
+    if (!user) return;
 
-      // Save dream to Firestore
-      await addDoc(collection(db, 'dreams'), {
-        userId: user.uid,
-        title: title.trim(),
-        content: content.trim(),
-        isLucid,
-        tags,
-        createdAt: new Date().toISOString(),
-        date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
-      });
+    // Save dream to Firestore
+    await addDoc(collection(db, 'dreams'), {
+      userId: user.uid,
+      title,
+      content,
+      isLucid,
+      tags,
+      createdAt: new Date().toISOString(),
+    });
 
-      // Update user stats
-      const userRef = doc(db, 'users', user.uid);
-      const updateData: any = {
-        totalDreams: increment(1),
-      };
+    // Award XP
+    const xpAmount = isLucid ? XP_REWARDS.LUCID_DREAM : XP_REWARDS.DREAM_LOGGED;
+    const xpReason = isLucid ? 'Logged a lucid dream' : 'Logged a dream';
+    await awardXP(user.uid, xpAmount, xpReason);
 
-      if (isLucid) {
-        updateData.lucidDreams = increment(1);
-      }
-
-      await updateDoc(userRef, updateData);
-
-      Alert.alert('Success! 🎉', 'Your dream has been saved', [
+    Alert.alert(
+      'Dream Saved! ✨',
+      `+${xpAmount} XP for logging a ${isLucid ? 'lucid ' : ''}dream!`,
+      [
         {
           text: 'OK',
           onPress: () => navigation.goBack(),
         },
-      ]);
-    } catch (error) {
-      console.error('Error saving dream:', error);
-      Alert.alert('Error', 'Failed to save dream. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      ]
+    );
+  } catch (error) {
+    console.error('Error saving dream:', error);
+    Alert.alert('Error', 'Failed to save dream. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView

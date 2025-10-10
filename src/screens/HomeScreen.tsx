@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,56 +7,23 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-
+import { LESSONS } from '../data/lessons';
+import { calculateStreak } from '../utils/streakCalculator';
+import { checkAchievements, getRecentAchievements } from '../utils/achievementChecker';
+import AchievementModal from '../components/AchievementModal';
+import { Achievement } from '../data/achievements';
+import { getUserXP } from '../utils/xpManager';
+import { calculateLevel, getLevelTier, getProgressToNextLevel } from '../data/levels';
 
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
-
-// Sample lessons data (we'll expand this later)
-const LESSONS = [
-  {
-    id: 1,
-    title: 'What is Lucid Dreaming?',
-    description: 'Learn the basics and what makes a dream "lucid"',
-    duration: '5 min',
-    locked: false,
-  },
-  {
-    id: 2,
-    title: 'Your First Reality Check',
-    description: 'Master the finger-through-palm technique',
-    duration: '4 min',
-    locked: false,
-  },
-  {
-    id: 3,
-    title: 'Dream Journaling 101',
-    description: 'Why writing dreams down changes everything',
-    duration: '6 min',
-    locked: false,
-  },
-  {
-    id: 4,
-    title: 'The MILD Technique',
-    description: 'Mnemonic Induction of Lucid Dreams',
-    duration: '8 min',
-    locked: true,
-  },
-  {
-    id: 5,
-    title: 'Dream Signs & Patterns',
-    description: 'Recognize your personal dream triggers',
-    duration: '7 min',
-    locked: true,
-  },
-];
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [userName, setUserName] = useState('');
@@ -65,56 +32,173 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     totalDreams: 0,
     lucidDreams: 0,
   });
+  const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [achievementModal, setAchievementModal] = useState<{
+    visible: boolean;
+    achievement: Achievement | null;
+  }>({
+    visible: false,
+    achievement: null,
+  });
+  const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
 
- useFocusEffect(
-  React.useCallback(() => {
-    loadUserData();
-  }, [])
-);
+  // Use useFocusEffect instead of useEffect to reload data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
 
+  const [userLevel, setUserLevel] = useState({
+    level: 1,
+    xp: 0,
+    tier: { title: 'Beginner Dreamer', icon: '😴', color: '#6b7280', minLevel: 1, maxLevel: 3 },
+    progress: { current: 0, required: 100, percentage: 0 },
+  });
 
-  const loadUserData = async () => {
+  const loadUserLevel = async (userId: string) => {
   try {
-    const user = auth.currentUser;
-    if (user) {
-      // Get user data
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setUserName(data.name);
-      }
+    const xp = await getUserXP(userId);
+    const level = calculateLevel(xp);
+    const tier = getLevelTier(level);
+    const progress = getProgressToNextLevel(xp);
 
-      // Calculate stats from dreams collection
-      const dreamsQuery = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid)
-      );
-      
-      const querySnapshot = await getDocs(dreamsQuery);
-      let totalDreams = 0;
-      let lucidDreams = 0;
-      
-      querySnapshot.forEach((doc) => {
-        totalDreams++;
-        if (doc.data().isLucid) {
-          lucidDreams++;
-        }
-      });
-      
-      setUserStats({
-        currentStreak: 0, // We'll implement this later
-        totalDreams,
-        lucidDreams,
-      });
-    }
+    setUserLevel({
+      level,
+      xp,
+      tier,
+      progress,
+    });
   } catch (error) {
-    console.error('Error loading user data:', error);
-  } finally {
-    setLoading(false);
+    console.error('Error loading user level:', error);
   }
 };
 
+
+
+  const loadUserData = async () => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        // Get user data
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserName(data.name);
+        }
+
+        // Calculate stats from dreams collection
+        const dreamsQuery = query(
+          collection(db, 'dreams'),
+          where('userId', '==', user.uid)
+        );
+        
+        const querySnapshot = await getDocs(dreamsQuery);
+        let totalDreams = 0;
+        let lucidDreams = 0;
+        const dreamEntries: any[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const dreamData = doc.data();
+          totalDreams++;
+          if (dreamData.isLucid) {
+            lucidDreams++;
+          }
+          dreamEntries.push({
+            createdAt: dreamData.createdAt,
+          });
+        });
+        
+        // Calculate current streak
+        const currentStreak = calculateStreak(dreamEntries);
+        
+        setUserStats({
+          currentStreak,
+          totalDreams,
+          lucidDreams,
+        });
+
+        // Load lesson progress and get the count
+        const lessonCount = await loadLessonProgress(user.uid);
+
+        await loadUserLevel(user.uid);
+
+        
+        // Check for new achievements AFTER lesson progress is loaded
+        const newAchievements = await checkAchievements(
+          user.uid,
+          { currentStreak, totalDreams, lucidDreams, completedLessons: lessonCount }
+        );
+
+        // Also check for recently unlocked achievements (within last 30 seconds)
+        // This handles cases where achievement was saved but modal didn't show
+        if (newAchievements.length === 0) {
+          const recentAchievements = await getRecentAchievements(user.uid, 0.5); // 30 seconds
+          if (recentAchievements.length > 0) {
+            setAchievementQueue(recentAchievements);
+            setAchievementModal({
+              visible: true,
+              achievement: recentAchievements[0],
+            });
+          }
+        } else if (newAchievements.length > 0) {
+          setAchievementQueue(newAchievements);
+          setAchievementModal({
+            visible: true,
+            achievement: newAchievements[0],
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLessonProgress = async (userId: string): Promise<number> => {
+    try {
+      const completed: number[] = [];
+      
+      for (const lesson of LESSONS) {
+        const progressDoc = await getDoc(
+          doc(db, 'users', userId, 'lessonProgress', `lesson_${lesson.id}`)
+        );
+        
+        if (progressDoc.exists() && progressDoc.data().completed) {
+          completed.push(lesson.id);
+        }
+      }
+      
+      setCompletedLessons(completed);
+      return completed.length;
+    } catch (error) {
+      console.error('Error loading lesson progress:', error);
+      return 0;
+    }
+  };
+
+  const handleCloseAchievement = () => {
+    // Remove first achievement from queue
+    const remaining = achievementQueue.slice(1);
+    setAchievementQueue(remaining);
+
+    if (remaining.length > 0) {
+      // Show next achievement
+      setTimeout(() => {
+        setAchievementModal({
+          visible: true,
+          achievement: remaining[0],
+        });
+      }, 300);
+    } else {
+      setAchievementModal({
+        visible: false,
+        achievement: null,
+      });
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -137,15 +221,43 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={{flex: 1}}>
             <Text style={styles.greeting}>Hello, {userName}! 👋</Text>
             <Text style={styles.subtitle}>Ready to practice lucid dreaming?</Text>
+            
+            {/* Level Badge */}
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelIcon}>{userLevel.tier.icon}</Text>
+              <View style={styles.levelInfo}>
+                <Text style={styles.levelTitle}>{userLevel.tier.title}</Text>
+                <Text style={styles.levelText}>Level {userLevel.level}</Text>
+              </View>
+            </View>
+            
+            {/* XP Progress Bar */}
+            <View style={styles.xpContainer}>
+              <View style={styles.xpBar}>
+                <View 
+                  style={[
+                    styles.xpProgress, 
+                    { 
+                      width: `${userLevel.progress.percentage}%`,
+                      backgroundColor: userLevel.tier.color,
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.xpText}>
+                {userLevel.progress.current} / {userLevel.progress.required} XP
+              </Text>
+            </View>
           </View>
+          
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
-
+        
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -162,6 +274,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
         </View>
 
+        {/* Streak Motivation Banner */}
+        {userStats.currentStreak > 0 && (
+          <View style={styles.streakBanner}>
+            <Text style={styles.streakBannerText}>
+              {userStats.currentStreak === 1 
+                ? '🎉 Great start! Log a dream tomorrow to build your streak!' 
+                : userStats.currentStreak < 7
+                ? `🔥 ${userStats.currentStreak} days strong! Keep it going!`
+                : userStats.currentStreak < 30
+                ? `⭐ Amazing ${userStats.currentStreak}-day streak! You're building a real habit!`
+                : `🏆 Incredible ${userStats.currentStreak}-day streak! You're a dream master!`
+              }
+            </Text>
+          </View>
+        )}
+
+        {userStats.currentStreak === 0 && userStats.totalDreams > 0 && (
+          <View style={styles.streakWarningBanner}>
+            <Text style={styles.streakWarningText}>
+              ⚠️ Your streak ended. Log a dream today to start a new one!
+            </Text>
+          </View>
+        )}
+
         {/* Quick Actions */}
         <TouchableOpacity
           style={styles.journalButton}
@@ -169,38 +305,63 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         >
           <Text style={styles.journalButtonText}>📝 Log Your Dream</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
-            style={styles.historyButton}
-            onPress={() => navigation.navigate('DreamHistory')}
+          style={styles.historyButton}
+          onPress={() => navigation.navigate('DreamHistory')}
         >
-            <Text style={styles.historyButtonText}>📚 View Dream History</Text>
+          <Text style={styles.historyButtonText}>📚 View Dream History</Text>
         </TouchableOpacity>
 
         {/* Daily Lessons */}
         <Text style={styles.sectionTitle}>Daily Lessons</Text>
         
-        {LESSONS.map((lesson) => (
-          <TouchableOpacity
-            key={lesson.id}
-            style={[styles.lessonCard, lesson.locked && styles.lessonCardLocked]}
-            onPress={() => {
-              if (!lesson.locked) {
-                navigation.navigate('Lesson', { lessonId: lesson.id });
-              }
-            }}
-            disabled={lesson.locked}
-          >
-            <View style={styles.lessonContent}>
-              <Text style={[styles.lessonTitle, lesson.locked && styles.lessonTitleLocked]}>
-                {lesson.locked && '🔒 '}
-                {lesson.title}
-              </Text>
-              <Text style={styles.lessonDescription}>{lesson.description}</Text>
-              <Text style={styles.lessonDuration}>{lesson.duration}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {LESSONS.map((lesson, index) => {
+          const isCompleted = completedLessons.includes(lesson.id);
+          
+          // Check if previous lesson is completed (to unlock this one)
+          const previousLessonId = index > 0 ? LESSONS[index - 1].id : null;
+          const isPreviousCompleted = previousLessonId 
+            ? completedLessons.includes(previousLessonId) 
+            : true;
+          
+          // First lesson is always unlocked, others unlock when previous is complete
+          const isLocked = index > 0 && !isPreviousCompleted;
+          
+          return (
+            <TouchableOpacity
+              key={lesson.id}
+              style={[styles.lessonCard, isLocked && styles.lessonCardLocked]}
+              onPress={() => {
+                if (!isLocked) {
+                  navigation.navigate('Lesson', { lessonId: lesson.id });
+                }
+              }}
+              disabled={isLocked}
+            >
+              <View style={styles.lessonContent}>
+                <View style={styles.lessonHeader}>
+                  <Text style={[styles.lessonTitle, isLocked && styles.lessonTitleLocked]}>
+                    {isLocked && '🔒 '}
+                    {lesson.title}
+                  </Text>
+                  {isCompleted && <Text style={styles.completedBadge}>✅</Text>}
+                </View>
+                <Text style={[styles.lessonDescription, isLocked && styles.lessonDescriptionLocked]}>
+                  {isLocked ? 'Complete the previous lesson to unlock' : lesson.description}
+                </Text>
+                <Text style={styles.lessonDuration}>{lesson.duration}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
+
+      <AchievementModal
+        visible={achievementModal.visible}
+        achievement={achievementModal.achievement}
+        onClose={handleCloseAchievement}
+      />
     </View>
   );
 }
@@ -272,17 +433,64 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
   },
+  streakBanner: {
+    marginHorizontal: 20,
+    marginBottom: 15,
+    backgroundColor: '#1a3229',
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+    padding: 15,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  streakBannerText: {
+    color: '#10b981',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  streakWarningBanner: {
+    marginHorizontal: 20,
+    marginBottom: 15,
+    backgroundColor: '#3a2a1a',
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+    padding: 15,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  streakWarningText: {
+    color: '#f59e0b',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   journalButton: {
     marginHorizontal: 20,
     backgroundColor: '#6366f1',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 15,
   },
   journalButtonText: {
     color: '#fff',
     fontSize: 18,
+    fontWeight: '600',
+  },
+  historyButton: {
+    marginHorizontal: 20,
+    backgroundColor: '#1a1a2e',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  historyButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
   sectionTitle: {
@@ -307,37 +515,89 @@ const styles = StyleSheet.create({
   lessonContent: {
     gap: 8,
   },
+  lessonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   lessonTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
+    flex: 1,
   },
   lessonTitleLocked: {
     color: '#666',
+  },
+  completedBadge: {
+    fontSize: 16,
+    marginLeft: 10,
   },
   lessonDescription: {
     fontSize: 14,
     color: '#888',
     lineHeight: 20,
   },
+  lessonDescriptionLocked: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
   lessonDuration: {
     fontSize: 12,
     color: '#6366f1',
     marginTop: 5,
   },
-  historyButton: {
-  marginHorizontal: 20,
-  backgroundColor: '#1a1a2e',
-  paddingVertical: 16,
-  borderRadius: 12,
+  levelBadge: {
+  flexDirection: 'row',
   alignItems: 'center',
-  marginBottom: 30,
+  marginTop: 15,
+  backgroundColor: '#1a1a2e',
+  paddingVertical: 8,
+  paddingHorizontal: 12,
+  borderRadius: 20,
+  alignSelf: 'flex-start',
   borderWidth: 1,
   borderColor: '#333',
-    },
-    historyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    },
+  },
+  levelIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  levelInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  levelTitle: {
+    fontSize: 13,
+    color: '#aaa',
+    fontWeight: '500',
+  },
+  levelText: {
+    fontSize: 13,
+    color: '#6366f1',
+    fontWeight: '700',
+  },
+  xpContainer: {
+    marginTop: 10,
+    width: '100%',
+  },
+  xpBar: {
+    height: 8,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 5,
+  },
+  xpProgress: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  xpText: {
+    fontSize: 11,
+    color: '#888',
+  },
+
 });
