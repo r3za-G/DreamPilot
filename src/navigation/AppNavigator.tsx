@@ -15,6 +15,9 @@ import LessonScreen from '../screens/LessonScreen';
 import DreamHistoryScreen from '../screens/DreamHistoryScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import DreamDetailScreen from '../screens/DreamDetailScreen';
+import RealityCheckScreen from '../screens/RealityCheckScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -83,7 +86,21 @@ export default function AppNavigator() {
               component={DreamDetailScreen}
               options={{ title: 'Dream Details' }}
             />
-
+           <Stack.Screen 
+              name="RealityCheck" 
+              component={RealityCheckScreen}
+              options={{ title: 'Reality Check Reminders' }}
+            />
+            <Stack.Screen 
+              name="Achievements" 
+              component={AchievementsScreen}
+              options={{ title: 'Achievements' }}
+            />
+            <Stack.Screen 
+              name="Profile" 
+              component={ProfileScreen}
+              options={{ title: 'Profile' }}
+            />
           </>
         ) : (
           // Auth screens

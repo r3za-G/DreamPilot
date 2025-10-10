@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { signOut } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +18,7 @@ import AchievementModal from '../components/AchievementModal';
 import { Achievement } from '../data/achievements';
 import { getUserXP } from '../utils/xpManager';
 import { calculateLevel, getLevelTier, getProgressToNextLevel } from '../data/levels';
+import { ACHIEVEMENTS } from '../data/achievements';
 
 
 type HomeScreenProps = {
@@ -42,6 +42,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     achievement: null,
   });
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
+  const [achievementCount, setAchievementCount] = useState(0); 
 
   // Use useFocusEffect instead of useEffect to reload data when screen is focused
   useFocusEffect(
@@ -58,37 +59,44 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   });
 
   const loadUserLevel = async (userId: string) => {
-  try {
-    const xp = await getUserXP(userId);
-    const level = calculateLevel(xp);
-    const tier = getLevelTier(level);
-    const progress = getProgressToNextLevel(xp);
+    try {
+      const xp = await getUserXP(userId);
+      const level = calculateLevel(xp);
+      const tier = getLevelTier(level);
+      const progress = getProgressToNextLevel(xp);
 
-    setUserLevel({
-      level,
-      xp,
-      tier,
-      progress,
-    });
-  } catch (error) {
-    console.error('Error loading user level:', error);
-  }
-};
-
-
+      setUserLevel({
+        level,
+        xp,
+        tier,
+        progress,
+      });
+    } catch (error) {
+      console.error('Error loading user level:', error);
+    }
+  };
 
   const loadUserData = async () => {
-    try {
-      const user = auth.currentUser;
-      if (user) {
-        // Get user data
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserName(data.name);
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      // Get user data
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUserName(data.name);
+        
+        // FIX: Load achievement count from subcollection
+        const achievementsDoc = await getDoc(doc(db, 'users', user.uid, 'data', 'achievements'));
+        if (achievementsDoc.exists()) {
+          const achievementData = achievementsDoc.data();
+          const achievements = achievementData?.achievements || [];
+          setAchievementCount(achievements.length);
+        } else {
+          setAchievementCount(0);
         }
+      }
 
-        // Calculate stats from dreams collection
         const dreamsQuery = query(
           collection(db, 'dreams'),
           where('userId', '==', user.uid)
@@ -123,32 +131,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         const lessonCount = await loadLessonProgress(user.uid);
 
         await loadUserLevel(user.uid);
-
         
         // Check for new achievements AFTER lesson progress is loaded
         const newAchievements = await checkAchievements(
           user.uid,
           { currentStreak, totalDreams, lucidDreams, completedLessons: lessonCount }
         );
-
-        // Also check for recently unlocked achievements (within last 30 seconds)
-        // This handles cases where achievement was saved but modal didn't show
-        if (newAchievements.length === 0) {
-          const recentAchievements = await getRecentAchievements(user.uid, 0.5); // 30 seconds
-          if (recentAchievements.length > 0) {
-            setAchievementQueue(recentAchievements);
-            setAchievementModal({
-              visible: true,
-              achievement: recentAchievements[0],
-            });
-          }
-        } else if (newAchievements.length > 0) {
+        if (newAchievements.length > 0) {
           setAchievementQueue(newAchievements);
           setAchievementModal({
             visible: true,
             achievement: newAchievements[0],
           });
-        }
+      }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -200,14 +195,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -233,7 +220,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 <Text style={styles.levelText}>Level {userLevel.level}</Text>
               </View>
             </View>
-            
             {/* XP Progress Bar */}
             <View style={styles.xpContainer}>
               <View style={styles.xpBar}>
@@ -253,18 +239,21 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             </View>
           </View>
           <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('Settings')} 
+              style={styles.settingsButton}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity 
-            onPress={() => navigation.navigate('Settings')} 
+            onPress={() => navigation.navigate('Profile')} 
             style={styles.settingsButton}
           >
-            <Text style={styles.settingsIcon}>⚙️</Text>
+            <Text style={styles.settingsIcon}>👤</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-          </View>
         </View>
+
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -280,6 +269,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <Text style={styles.statLabel}>✨ Lucid Dreams</Text>
           </View>
         </View>
+
+        {/* NEW: Achievements Card */}
+        <TouchableOpacity 
+          style={styles.achievementCard}
+          onPress={() => navigation.navigate('Achievements')}
+        >
+          <View style={styles.achievementHeader}>
+            <Text style={styles.achievementIcon}>🏆</Text>
+            <Text style={styles.achievementCount}>{achievementCount}/{ACHIEVEMENTS.length}</Text>
+          </View>
+          <Text style={styles.achievementLabel}>Achievements Unlocked</Text>
+          <Text style={styles.achievementSubtext}>Tap to view all badges</Text>
+        </TouchableOpacity>
 
         {/* Streak Motivation Banner */}
         {userStats.currentStreak > 0 && (
@@ -404,21 +406,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
   },
-  logoutButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 8,
-  },
-  logoutText: {
-    color: '#888',
-    fontSize: 14,
-  },
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 15,
   },
   statCard: {
     flex: 1,
@@ -439,6 +431,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     textAlign: 'center',
+  },
+  achievementCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+  },
+  achievementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  achievementIcon: {
+    fontSize: 32,
+    marginRight: 8,
+  },
+  achievementCount: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#f59e0b',
+  },
+  achievementLabel: {
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  achievementSubtext: {
+    fontSize: 13,
+    color: '#888',
   },
   streakBanner: {
     marginHorizontal: 20,
@@ -557,16 +582,16 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   levelBadge: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginTop: 15,
-  backgroundColor: '#1a1a2e',
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderRadius: 20,
-  alignSelf: 'flex-start',
-  borderWidth: 1,
-  borderColor: '#333',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    backgroundColor: '#1a1a2e',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#333',
   },
   levelIcon: {
     fontSize: 20,
@@ -607,8 +632,8 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   headerButtons: {
-  flexDirection: 'row',
-  gap: 10,
+    flexDirection: 'row',
+    gap: 10,
   },
   settingsButton: {
     paddingHorizontal: 12,
@@ -621,6 +646,4 @@ const styles = StyleSheet.create({
   settingsIcon: {
     fontSize: 20,
   },
-
-
 });

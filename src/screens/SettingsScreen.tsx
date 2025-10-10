@@ -1,230 +1,281 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   ScrollView,
   TouchableOpacity,
-  Switch,
   Alert,
+  Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../../firebaseConfig';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import {
-  requestNotificationPermissions,
-  scheduleCustomIntervalReminders,
-  cancelAllReminders,
-  getScheduledNotifications,
-  testNotification,
-} from '../utils/notificationManager';
+import { signOut, deleteUser } from 'firebase/auth';
+import { doc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import * as Notifications from 'expo-notifications';
 
 type SettingsScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
-const INTERVAL_OPTIONS = [
-  { label: 'Every 30 minutes', value: 30 },
-  { label: 'Every hour', value: 60 },
-  { label: 'Every 2 hours', value: 120 },
-  { label: 'Every 3 hours', value: 180 },
-  { label: 'Every 4 hours', value: 240 },
-];
-
 export default function SettingsScreen({ navigation }: SettingsScreenProps) {
-  const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [selectedInterval, setSelectedInterval] = useState(120); // 2 hours default
-  const [scheduledCount, setScheduledCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const user = auth.currentUser;
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const settingsDoc = await getDoc(doc(db, 'users', user.uid, 'data', 'settings'));
-      if (settingsDoc.exists()) {
-        const data = settingsDoc.data();
-        setRemindersEnabled(data.remindersEnabled || false);
-        setSelectedInterval(data.reminderInterval || 120);
-      }
-
-      const count = await getScheduledNotifications();
-      setScheduledCount(count);
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
-  };
-
-  const saveSettings = async (enabled: boolean, interval: number) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      await setDoc(
-        doc(db, 'users', user.uid, 'data', 'settings'),
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
         {
-          remindersEnabled: enabled,
-          reminderInterval: interval,
-          updatedAt: new Date().toISOString(),
+          text: 'Cancel',
+          style: 'cancel',
         },
-        { merge: true }
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await signOut(auth);
+              // Navigation will be handled by auth state listener in App.tsx
+            } catch (error) {
+              console.error('Error logging out:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      '⚠️ WARNING: This will permanently delete your account and all data including:\n\n• All dream journal entries\n• Your progress and achievements\n• All settings and preferences\n\nThis action cannot be undone!',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'I understand, delete my account',
+          style: 'destructive',
+          onPress: () => confirmDeleteAccount(),
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Final Confirmation',
+      'Type your email to confirm account deletion.\n\nAre you absolutely sure?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              if (!user) return;
+
+              // Delete all user data from Firestore
+              await deleteUserData(user.uid);
+
+              // Delete the Firebase Auth account
+              await deleteUser(user);
+
+              Alert.alert(
+                'Account Deleted',
+                'Your account and all data have been permanently deleted.',
+                [{ text: 'OK' }]
+              );
+            } catch (error: any) {
+              console.error('Error deleting account:', error);
+              
+              if (error.code === 'auth/requires-recent-login') {
+                Alert.alert(
+                  'Re-authentication Required',
+                  'For security, please logout and login again, then try deleting your account.'
+                );
+              } else {
+                Alert.alert('Error', 'Failed to delete account. Please try again.');
+              }
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteUserData = async (userId: string) => {
+    try {
+      // Delete all dreams
+      const dreamsQuery = query(
+        collection(db, 'dreams'),
+        where('userId', '==', userId)
       );
+      const dreamsSnapshot = await getDocs(dreamsQuery);
+      const deletePromises = dreamsSnapshot.docs.map((doc) => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      // Delete user profile data
+      await deleteDoc(doc(db, 'users', userId));
+
+      console.log('All user data deleted successfully');
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error('Error deleting user data:', error);
+      throw error;
     }
   };
 
-  const handleToggleReminders = async (value: boolean) => {
-    setLoading(true);
-
-    if (value) {
-      // Request permissions
-      const hasPermission = await requestNotificationPermissions();
-      
-      if (!hasPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Please enable notifications in your device settings to receive reality check reminders.'
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Schedule notifications
-      await scheduleCustomIntervalReminders(selectedInterval);
-      const count = await getScheduledNotifications();
-      setScheduledCount(count);
-
-      Alert.alert(
-        'Reminders Enabled! 🔔',
-        `You'll receive reality check reminders every ${selectedInterval} minutes between 8 AM and 10 PM.`
-      );
-    } else {
+  const toggleNotifications = async (value: boolean) => {
+    setNotificationsEnabled(value);
+    
+    if (!value) {
       // Cancel all notifications
-      await cancelAllReminders();
-      setScheduledCount(0);
-      Alert.alert('Reminders Disabled', 'All reality check reminders have been cancelled.');
-    }
-
-    setRemindersEnabled(value);
-    await saveSettings(value, selectedInterval);
-    setLoading(false);
-  };
-
-  const handleChangeInterval = async (interval: number) => {
-    setSelectedInterval(interval);
-
-    if (remindersEnabled) {
-      setLoading(true);
-      await scheduleCustomIntervalReminders(interval);
-      const count = await getScheduledNotifications();
-      setScheduledCount(count);
-      await saveSettings(true, interval);
-      setLoading(false);
-
-      Alert.alert(
-        'Interval Updated',
-        `Reality check reminders will now occur every ${interval} minutes.`
-      );
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      Alert.alert('Notifications Disabled', 'All reality check reminders have been cancelled.');
     } else {
-      await saveSettings(false, interval);
+      Alert.alert(
+        'Notifications Enabled',
+        'Go to Reality Check Reminders in Settings to set up your schedule.'
+      );
     }
   };
 
-  const handleTestNotification = async () => {
-    await testNotification();
-    Alert.alert('Test Sent!', 'You should receive a test notification in 2 seconds.');
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6366f1" />
+        <Text style={styles.loadingText}>Processing...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>Customize your Dream Pilot experience</Text>
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          
+          <View style={styles.infoCard}>
+            <Ionicons name="person-circle" size={24} color="#6366f1" />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{user?.email || 'Not available'}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => navigation.navigate('RealityCheck')}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="notifications" size={22} color="#888" />
+              <Text style={styles.settingText}>Reality Check Reminders</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
         </View>
 
-        {/* Reality Check Reminders Section */}
+        {/* Preferences Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Reality Check Reminders</Text>
-          
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Enable Reminders</Text>
-              <Text style={styles.settingDescription}>
-                Get reminded to do reality checks throughout the day
-              </Text>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="moon" size={22} color="#888" />
+              <Text style={styles.settingText}>Notifications</Text>
             </View>
             <Switch
-              value={remindersEnabled}
-              onValueChange={handleToggleReminders}
+              value={notificationsEnabled}
+              onValueChange={toggleNotifications}
               trackColor={{ false: '#333', true: '#6366f1' }}
-              thumbColor={remindersEnabled ? '#fff' : '#888'}
-              disabled={loading}
+              thumbColor={notificationsEnabled ? '#fff' : '#888'}
             />
           </View>
-
-          {remindersEnabled && (
-            <>
-              <View style={styles.divider} />
-              
-              <Text style={styles.intervalTitle}>Reminder Frequency</Text>
-              
-              {INTERVAL_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.intervalOption,
-                    selectedInterval === option.value && styles.intervalOptionSelected,
-                  ]}
-                  onPress={() => handleChangeInterval(option.value)}
-                  disabled={loading}
-                >
-                  <Text
-                    style={[
-                      styles.intervalLabel,
-                      selectedInterval === option.value && styles.intervalLabelSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  {selectedInterval === option.value && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>
-                  📊 {scheduledCount} reminders currently scheduled
-                </Text>
-                <Text style={styles.infoSubtext}>
-                  Active between 8:00 AM and 10:00 PM daily
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.testButton}
-                onPress={handleTestNotification}
-              >
-                <Text style={styles.testButtonText}>🧪 Send Test Notification</Text>
-              </TouchableOpacity>
-            </>
-          )}
         </View>
 
-        {/* Future sections can go here */}
+        {/* Data Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data & Privacy</Text>
+
+          <TouchableOpacity style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <MaterialIcons name="file-download" size={22} color="#888" />
+              <Text style={styles.settingText}>Export Dreams</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <MaterialIcons name="privacy-tip" size={22} color="#888" />
+              <Text style={styles.settingText}>Privacy Policy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <MaterialIcons name="description" size={22} color="#888" />
+              <Text style={styles.settingText}>Terms of Service</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+
+        {/* About Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>Dream Pilot v1.0</Text>
-            <Text style={styles.infoSubtext}>Your lucid dreaming companion</Text>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="information-circle" size={22} color="#888" />
+              <Text style={styles.settingText}>App Version</Text>
+            </View>
+            <Text style={styles.versionText}>1.0.0</Text>
           </View>
+        </View>
+
+        {/* Danger Zone */}
+        <View style={styles.section}>
+
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={22} color="#f59e0b" />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteAccount}
+          >
+            <MaterialIcons name="delete-forever" size={22} color="#ef4444" />
+            <Text style={styles.deleteText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Dream Pilot</Text>
+          <Text style={styles.footerSubtext}>Your journey to lucid dreaming</Text>
         </View>
       </ScrollView>
     </View>
@@ -236,123 +287,137 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f0f23',
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0f0f23',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#888',
+    fontSize: 16,
+    marginTop: 10,
+  },
   scrollView: {
     flex: 1,
   },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#888',
-  },
   section: {
-    padding: 20,
-    paddingTop: 10,
+    marginTop: 20,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 15,
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 5,
-  },
-  settingDescription: {
     fontSize: 14,
-    color: '#888',
-    lineHeight: 20,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#333',
-    marginVertical: 20,
-  },
-  intervalTitle: {
-    fontSize: 16,
     fontWeight: '600',
-    color: '#aaa',
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
     marginBottom: 15,
   },
-  intervalOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1a1a2e',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  intervalOptionSelected: {
-    borderColor: '#6366f1',
-    backgroundColor: '#1a1a3e',
-  },
-  intervalLabel: {
-    fontSize: 16,
-    color: '#aaa',
-  },
-  intervalLabelSelected: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  checkmark: {
-    fontSize: 18,
-    color: '#6366f1',
-    fontWeight: 'bold',
-  },
-  infoBox: {
-    backgroundColor: '#1a1a2e',
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#6366f1',
-  },
-  infoText: {
+  dangerTitle: {
     fontSize: 14,
-    color: '#fff',
     fontWeight: '600',
-    marginBottom: 5,
+    color: '#ef4444',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 15,
   },
-  infoSubtext: {
-    fontSize: 12,
-    color: '#888',
-  },
-  testButton: {
+  infoCard: {
     backgroundColor: '#1a1a2e',
-    padding: 15,
     borderRadius: 12,
+    padding: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 15,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#333',
   },
-  testButtonText: {
-    color: '#6366f1',
+  infoContent: {
+    marginLeft: 15,
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 4,
+  },
+  infoValue: {
     fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  settingItem: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingText: {
+    fontSize: 16,
+    color: '#fff',
+    marginLeft: 15,
+  },
+  versionText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  logoutButton: {
+    backgroundColor: '#2a2410',
+    borderRadius: 12,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+  },
+  logoutText: {
+    fontSize: 16,
+    color: '#f59e0b',
     fontWeight: '600',
+    marginLeft: 10,
+  },
+  deleteButton: {
+    backgroundColor: '#3a1a1a',
+    borderRadius: 12,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#ef4444',
+  },
+  deleteText: {
+    fontSize: 16,
+    color: '#ef4444',
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  footer: {
+    alignItems: 'center',
+    padding: 40,
+    marginTop: 20,
+  },
+  footerText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6366f1',
+    marginBottom: 5,
+  },
+  footerSubtext: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
