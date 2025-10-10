@@ -94,7 +94,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
           <TouchableOpacity
             style={styles.linkButton}
-            onPress={() => navigation.navigate('SignUp')}
+            onPress={() => navigation.navigate('Signup')}
           >
             <Text style={styles.linkText}>
               Don't have an account? <Text style={styles.linkTextBold}>Sign up</Text>

@@ -6,15 +6,13 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
-import { DreamAnalysis } from '../services/dreamAnalysisService';
-import { Alert } from 'react-native';
-import { deleteDoc } from 'firebase/firestore';
-import { MaterialIcons } from '@expo/vector-icons';
-
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '../../firebaseConfig';
+import { DreamAnalysis, analyzeDream, saveDreamAnalysis } from '../services/dreamAnalysisService';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 type DreamDetailScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -35,6 +33,7 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
   const { dreamId } = route.params;
   const [dream, setDream] = useState<Dream | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reanalyzing, setReanalyzing] = useState(false);
 
   useEffect(() => {
     loadDream();
@@ -53,6 +52,99 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
     }
   };
 
+  const handleReanalyze = async () => {
+    if (!dream) return;
+    
+    Alert.alert(
+      'Re-analyze Dream',
+      'This will generate a fresh AI analysis of your dream. Continue?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Re-analyze',
+          onPress: async () => {
+            try {
+              setReanalyzing(true);
+              const user = auth.currentUser;
+              if (!user) return;
+
+              const analysis = await analyzeDream(dream.title, dream.content, dream.isLucid);
+              
+              if (analysis) {
+                await saveDreamAnalysis(user.uid, dreamId, analysis);
+                await loadDream(); // Reload dream with new analysis
+                
+                Alert.alert(
+                  'Analysis Complete! 🎉',
+                  'Your dream has been re-analyzed with fresh insights.',
+                  [{ text: 'Great!' }]
+                );
+              } else {
+                Alert.alert('Error', 'Failed to analyze dream. Please try again.');
+              }
+            } catch (error) {
+              console.error('Error re-analyzing dream:', error);
+              Alert.alert('Error', 'Something went wrong. Please try again.');
+            } finally {
+              setReanalyzing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteDream = async () => {
+    Alert.alert(
+      'Delete Dream',
+      'Are you sure you want to delete this dream? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await deleteDoc(doc(db, 'dreams', dreamId));
+              
+              Alert.alert(
+                'Dream Deleted',
+                'Your dream has been removed from your journal.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => navigation.goBack(),
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('Error deleting dream:', error);
+              Alert.alert('Error', 'Failed to delete dream. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const getPotentialColor = (potential: string) => {
+    switch (potential) {
+      case 'high': return '#10b981';
+      case 'medium': return '#f59e0b';
+      case 'low': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -68,55 +160,6 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
       </View>
     );
   }
-
-  const deleteDream = async () => {
-  Alert.alert(
-    'Delete Dream',
-    'Are you sure you want to delete this dream? This action cannot be undone.',
-    [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setLoading(true);
-            await deleteDoc(doc(db, 'dreams', dreamId));
-            
-            Alert.alert(
-              'Dream Deleted',
-              'Your dream has been removed from your journal.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => navigation.goBack(),
-                },
-              ]
-            );
-          } catch (error) {
-            console.error('Error deleting dream:', error);
-            Alert.alert('Error', 'Failed to delete dream. Please try again.');
-          } finally {
-            setLoading(false);
-          }
-        },
-      },
-    ]
-  );
-};
-
-
-  const getPotentialColor = (potential: string) => {
-    switch (potential) {
-      case 'high': return '#10b981';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -138,6 +181,7 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
             )}
           </View>
         </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dream Content</Text>
           <Text style={styles.content}>{dream.content}</Text>
@@ -159,7 +203,23 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
         {dream.analyzed && dream.analysis ? (
           <>
             <View style={styles.aiSection}>
-              <Text style={styles.aiTitle}>🤖 AI Analysis</Text>
+              <View style={styles.aiHeader}>
+                <Text style={styles.aiTitle}>🤖 AI Analysis</Text>
+                <TouchableOpacity
+                  style={styles.reanalyzeButton}
+                  onPress={handleReanalyze}
+                  disabled={reanalyzing}
+                >
+                  <Ionicons 
+                    name={reanalyzing ? "hourglass" : "refresh"} 
+                    size={18} 
+                    color="#6366f1" 
+                  />
+                  <Text style={styles.reanalyzeText}>
+                    {reanalyzing ? 'Analyzing...' : 'Re-analyze'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               
               {/* Lucidity Potential */}
               <View style={styles.potentialCard}>
@@ -234,6 +294,16 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
                   ))}
                 </View>
               )}
+
+              {/* Analysis timestamp */}
+              <Text style={styles.analysisTimestamp}>
+                Analyzed {new Date(dream.analysis.analyzedAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit'
+                })}
+              </Text>
             </View>
           </>
         ) : (
@@ -246,14 +316,14 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
             </Text>
           </View>
         )}
+
         {/* Delete Button at Bottom */}
         <View style={styles.deleteSection}>
           <TouchableOpacity 
             style={styles.deleteButtonBottom}
             onPress={deleteDream}
           >
-      <MaterialIcons name="delete" size={28} color="#fff" />
-          
+            <MaterialIcons name="delete" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.deleteWarning}>
             This action cannot be undone
@@ -349,11 +419,32 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
   },
+  aiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   aiTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 20,
+  },
+  reanalyzeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#6366f1',
+    gap: 6,
+  },
+  reanalyzeText: {
+    fontSize: 13,
+    color: '#6366f1',
+    fontWeight: '600',
   },
   potentialCard: {
     backgroundColor: '#1a1a2e',
@@ -439,6 +530,13 @@ const styles = StyleSheet.create({
     color: '#ccc',
     lineHeight: 24,
   },
+  analysisTimestamp: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 10,
+    fontStyle: 'italic',
+  },
   noAnalysisCard: {
     margin: 20,
     backgroundColor: '#1a1a2e',
@@ -458,9 +556,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   deleteSection: {
-  padding: 20,
-  paddingTop: 10,
-  paddingBottom: 40,
+    padding: 20,
+    paddingTop: 10,
+    paddingBottom: 40,
   },
   deleteButtonBottom: {
     backgroundColor: '#3a1a1a',
@@ -470,11 +568,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#ef4444',
   },
-  deleteButtonText: {
-    color: '#ef4444',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   deleteWarning: {
     color: '#888',
     fontSize: 12,
@@ -482,6 +575,4 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontStyle: 'italic',
   },
-
-
 });

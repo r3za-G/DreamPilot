@@ -206,14 +206,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
           <TouchableOpacity style={styles.settingItem}>
             <View style={styles.settingLeft}>
-              <MaterialIcons name="file-download" size={22} color="#888" />
-              <Text style={styles.settingText}>Export Dreams</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
               <MaterialIcons name="privacy-tip" size={22} color="#888" />
               <Text style={styles.settingText}>Privacy Policy</Text>
             </View>

@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
@@ -31,6 +32,8 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
   const [dreams, setDreams] = useState<Dream[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'lucid' | 'recent'>('all');
+  const [searchQuery, setSearchQuery] = useState(''); 
+  const [isSearching, setIsSearching] = useState(false); 
 
   useFocusEffect(
     React.useCallback(() => {
@@ -68,21 +71,58 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
     }
   };
 
+  // NEW: Search and filter logic
   const getFilteredDreams = () => {
+    let filtered = dreams;
+
+    // Apply filter
     switch (filter) {
       case 'lucid':
-        return dreams.filter(d => d.isLucid);
+        filtered = filtered.filter(d => d.isLucid);
+        break;
       case 'recent':
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        return dreams.filter(d => new Date(d.createdAt) > sevenDaysAgo);
-      default:
-        return dreams;
+        filtered = filtered.filter(d => new Date(d.createdAt) > sevenDaysAgo);
+        break;
     }
+
+    // Apply search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(dream => {
+        // Search in title
+        if (dream.title.toLowerCase().includes(query)) return true;
+        
+        // Search in content
+        if (dream.content.toLowerCase().includes(query)) return true;
+        
+        // Search in tags
+        if (dream.tags.some(tag => tag.toLowerCase().includes(query))) return true;
+        
+        return false;
+      });
+    }
+
+    return filtered;
   };
 
   const filteredDreams = getFilteredDreams();
   const lucidCount = dreams.filter(d => d.isLucid).length;
+
+  // NEW: Highlight matching text
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight.trim()) return text;
+    
+    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    return parts.map((part, index) => 
+      part.toLowerCase() === highlight.toLowerCase() ? (
+        <Text key={index} style={styles.highlight}>{part}</Text>
+      ) : (
+        part
+      )
+    );
+  };
 
   const renderDream = ({ item }: { item: Dream }) => {
     const date = new Date(item.createdAt);
@@ -97,18 +137,29 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
         <View style={styles.dreamHeader}>
           <Text style={styles.dreamTitle}>
             {item.isLucid && '✨ '}
-            {item.title}
+            {searchQuery ? highlightText(item.title, searchQuery) : item.title}
           </Text>
           <Text style={styles.dreamDate}>{formattedDate}</Text>
         </View>
         <Text style={styles.dreamContent} numberOfLines={3}>
-          {item.content}
+          {searchQuery ? highlightText(item.content, searchQuery) : item.content}
         </Text>
         {item.tags.length > 0 && (
           <View style={styles.dreamTags}>
             {item.tags.slice(0, 3).map((tag, index) => (
-              <View key={index} style={styles.dreamTag}>
-                <Text style={styles.dreamTagText}>{tag}</Text>
+              <View 
+                key={index} 
+                style={[
+                  styles.dreamTag,
+                  searchQuery && tag.toLowerCase().includes(searchQuery.toLowerCase()) && styles.dreamTagHighlighted
+                ]}
+              >
+                <Text style={[
+                  styles.dreamTagText,
+                  searchQuery && tag.toLowerCase().includes(searchQuery.toLowerCase()) && styles.dreamTagTextHighlighted
+                ]}>
+                  {tag}
+                </Text>
               </View>
             ))}
             {item.tags.length > 3 && (
@@ -132,7 +183,44 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
     <View style={styles.container}>
       {/* Header with Stats */}
       <View style={styles.header}>
-        <Text style={styles.title}>Dream Journal</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Dream Journal</Text>
+          {/* NEW: Search toggle button */}
+          <TouchableOpacity
+            style={styles.searchToggle}
+            onPress={() => {
+              setIsSearching(!isSearching);
+              if (isSearching) setSearchQuery('');
+            }}
+          >
+            <Ionicons 
+              name={isSearching ? "close" : "search"} 
+              size={22} 
+              color="#6366f1" 
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* NEW: Search bar */}
+        {isSearching && (
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search dreams, tags..."
+              placeholderTextColor="#666"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         <View style={styles.statsRow}>
           <View style={styles.statChip}>
             <Text style={styles.statNumber}>{dreams.length}</Text>
@@ -175,13 +263,28 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
         </TouchableOpacity>
       </View>
 
+      {/* Search results count */}
+      {searchQuery.trim() && (
+        <View style={styles.searchResultsBar}>
+          <Text style={styles.searchResultsText}>
+            {filteredDreams.length} {filteredDreams.length === 1 ? 'result' : 'results'} found
+          </Text>
+        </View>
+      )}
+
       {/* Dreams List */}
       {filteredDreams.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📖</Text>
-          <Text style={styles.emptyTitle}>No dreams yet</Text>
+          <Text style={styles.emptyIcon}>
+            {searchQuery ? '🔍' : '📖'}
+          </Text>
+          <Text style={styles.emptyTitle}>
+            {searchQuery ? 'No matches found' : 'No dreams yet'}
+          </Text>
           <Text style={styles.emptyText}>
-            {filter === 'all' 
+            {searchQuery 
+              ? `No dreams match "${searchQuery}"`
+              : filter === 'all' 
               ? 'Start your lucid dreaming journey by logging your first dream!'
               : filter === 'lucid'
               ? 'No lucid dreams yet. Keep practicing!'
@@ -224,11 +327,57 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 10,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  searchToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1a1a2e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#6366f1',
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+  },
+  searchResultsBar: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: '#1a1a2e',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#333',
+  },
+  searchResultsText: {
+    fontSize: 13,
+    color: '#888',
   },
   statsRow: {
     flexDirection: 'row',
@@ -319,6 +468,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
+  highlight: {
+    backgroundColor: '#6366f1',
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   dreamTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -332,9 +486,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
   },
+  dreamTagHighlighted: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+  },
   dreamTagText: {
     fontSize: 11,
     color: '#888',
+  },
+  dreamTagTextHighlighted: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   moreTagsText: {
     fontSize: 11,

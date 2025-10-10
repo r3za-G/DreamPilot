@@ -214,7 +214,6 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
             </View>
           </View>
         </View>
-
         {/* Achievements Section */}
         <TouchableOpacity 
           style={styles.achievementsSection}
@@ -243,6 +242,37 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
           </View>
 
           <Text style={styles.viewAllText}>Tap to view all achievements →</Text>
+        </TouchableOpacity>
+
+        {/* Dream Insights Section - NEW */}
+        <TouchableOpacity 
+          style={styles.insightsSection}
+          onPress={() => navigation.navigate('Insights')}
+        >
+          <View style={styles.insightsHeader}>
+            <Ionicons name="analytics" size={24} color="#a855f7" />
+            <Text style={styles.sectionTitle}>Dream Insights</Text>
+            <Ionicons name="chevron-forward" size={20} color="#888" />
+          </View>
+          
+          <Text style={styles.insightsDescription}>
+            Discover patterns and trends in your dreams
+          </Text>
+          
+          <View style={styles.insightsFeatures}>
+            <View style={styles.insightFeature}>
+              <Ionicons name="trending-up" size={18} color="#6366f1" />
+              <Text style={styles.insightFeatureText}>Activity Trends</Text>
+            </View>
+            <View style={styles.insightFeature}>
+              <Ionicons name="pie-chart" size={18} color="#10b981" />
+              <Text style={styles.insightFeatureText}>Common Themes</Text>
+            </View>
+            <View style={styles.insightFeature}>
+              <Ionicons name="calendar" size={18} color="#f59e0b" />
+              <Text style={styles.insightFeatureText}>Dream Patterns</Text>
+            </View>
+          </View>
         </TouchableOpacity>
 
         <View style={styles.footer} />
@@ -412,4 +442,45 @@ const styles = StyleSheet.create({
   footer: {
     height: 40,
   },
+  insightsSection: {
+  marginHorizontal: 20,
+  marginBottom: 20,
+  backgroundColor: '#1a1a2e',
+  borderRadius: 16,
+  padding: 20,
+  borderWidth: 1,
+  borderColor: '#a855f7',
+  },
+  insightsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 10,
+  },
+  insightsDescription: {
+    fontSize: 14,
+    color: '#aaa',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  insightsFeatures: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  insightFeature: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f0f23',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  insightFeatureText: {
+    fontSize: 11,
+    color: '#888',
+    fontWeight: '500',
+  },
+
 });

@@ -6,12 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
+  Share,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../../firebaseConfig';
-
 
 type ProfileScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -22,6 +23,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [joinedDate, setJoinedDate] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -43,6 +45,137 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportDreams = async () => {
+    try {
+      setExporting(true);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const dreamsQuery = query(
+        collection(db, 'dreams'),
+        where('userId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
+
+      const querySnapshot = await getDocs(dreamsQuery);
+      const dreams: any[] = [];
+
+      querySnapshot.forEach((doc) => {
+        dreams.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+
+      if (dreams.length === 0) {
+        Alert.alert('No Dreams', 'You have no dreams to export yet.');
+        return;
+      }
+
+      // Format as readable text
+      let textContent = `Dream Journal Export\n`;
+      textContent += `User: ${userName}\n`;
+      textContent += `Exported: ${new Date().toLocaleString()}\n`;
+      textContent += `Total Dreams: ${dreams.length}\n`;
+      textContent += `\n${'='.repeat(50)}\n\n`;
+
+      dreams.forEach((dream, index) => {
+        const date = new Date(dream.createdAt).toLocaleString();
+        textContent += `Dream #${index + 1}\n`;
+        textContent += `Date: ${date}\n`;
+        textContent += `Title: ${dream.title}\n`;
+        textContent += `Lucid: ${dream.isLucid ? 'Yes ✨' : 'No'}\n`;
+        if (dream.tags && dream.tags.length > 0) {
+          textContent += `Tags: ${dream.tags.join(', ')}\n`;
+        }
+        textContent += `\n${dream.content}\n`;
+        textContent += `\n${'-'.repeat(50)}\n\n`;
+      });
+
+      // Share directly
+      await Share.share({
+        message: textContent,
+        title: 'Dream Journal Export',
+      });
+    } catch (error) {
+      console.error('Error exporting dreams:', error);
+      Alert.alert('Error', 'Failed to export dreams. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportDreamsJSON = async () => {
+    try {
+      setExporting(true);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const dreamsQuery = query(
+        collection(db, 'dreams'),
+        where('userId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
+
+      const querySnapshot = await getDocs(dreamsQuery);
+      const dreams: any[] = [];
+
+      querySnapshot.forEach((doc) => {
+        dreams.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+
+      if (dreams.length === 0) {
+        Alert.alert('No Dreams', 'You have no dreams to export yet.');
+        return;
+      }
+
+      const exportData = {
+        user: {
+          name: userName,
+          email: userEmail,
+        },
+        exportDate: new Date().toISOString(),
+        totalDreams: dreams.length,
+        dreams: dreams,
+      };
+
+      // Share JSON as text
+      await Share.share({
+        message: JSON.stringify(exportData, null, 2),
+        title: 'Dream Journal Export (JSON)',
+      });
+    } catch (error) {
+      console.error('Error exporting dreams:', error);
+      Alert.alert('Error', 'Failed to export dreams. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const showExportOptions = () => {
+    Alert.alert(
+      'Export Dreams',
+      'Choose export format',
+      [
+        {
+          text: 'Text File (.txt)',
+          onPress: exportDreams,
+        },
+        {
+          text: 'JSON File (.json)',
+          onPress: exportDreamsJSON,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -87,6 +220,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           >
             <Ionicons name="notifications" size={24} color="#f59e0b" />
             <Text style={styles.actionText}>Reality Check Reminders</Text>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionButton, exporting && styles.actionButtonDisabled]}
+            onPress={showExportOptions}
+            disabled={exporting}
+          >
+            <Ionicons name="download" size={24} color="#10b981" />
+            <Text style={styles.actionText}>
+              {exporting ? 'Exporting...' : 'Export Dream Journal'}
+            </Text>
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
         </View>
@@ -169,6 +314,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     marginLeft: 15,
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
   footer: {
     height: 40,

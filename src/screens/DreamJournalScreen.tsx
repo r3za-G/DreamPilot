@@ -13,12 +13,10 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { auth, db } from '../../firebaseConfig';
-import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { awardXP } from '../utils/xpManager';
 import { XP_REWARDS } from '../data/levels';
-import { analyzeDream, saveDreamAnalysis } from '../services/dreamAnalysisService';
-
-
+import { analyzeDream, saveDreamAnalysis, getUserDreamPatterns } from '../services/dreamAnalysisService';
 
 type DreamJournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -71,7 +69,7 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
       const xpReason = isLucid ? 'Logged a lucid dream' : 'Logged a dream';
       await awardXP(user.uid, xpAmount, xpReason);
 
-      // Start AI analysis in background (don't await it)
+      // Start AI analysis in background with notification check
       analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
 
       // Navigate back immediately
@@ -80,8 +78,9 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
       // Show success message
       Alert.alert(
         'Dream Saved! ✨',
-        `+${xpAmount} XP earned!\n\nYour dream is being analyzed by AI. Check back in a moment to see insights!`
+        `+${xpAmount} XP earned!\n\n🤖 AI is analyzing your dream for patterns and insights...`
       );
+      
     } catch (error) {
       console.error('Error saving dream:', error);
       Alert.alert('Error', 'Failed to save dream. Please try again.');
@@ -90,29 +89,66 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     }
   };
 
-// Add this helper function
-const analyzeDreamInBackground = async (
-  userId: string,
-  dreamId: string,
-  title: string,
-  content: string,
-  isLucid: boolean
-) => {
-  try {
-    console.log('Starting background AI analysis...');
-    const analysis = await analyzeDream(title, content, isLucid);
-    
-    if (analysis) {
-      console.log('Analysis complete, saving to Firestore...');
-      await saveDreamAnalysis(userId, dreamId, analysis);
-      console.log('Analysis saved successfully');
+  // Enhanced background analysis with dream sign notification
+  const analyzeDreamInBackground = async (
+    userId: string,
+    dreamId: string,
+    title: string,
+    content: string,
+    isLucid: boolean
+  ) => {
+    try {
+      console.log('🤖 Starting AI analysis...');
+      
+      // Analyze the dream
+      const analysis = await analyzeDream(title, content, isLucid);
+      
+      if (analysis) {
+        console.log('✅ Analysis complete, saving...');
+        await saveDreamAnalysis(userId, dreamId, analysis);
+        console.log('💾 Analysis saved successfully');
+
+        // Check for recurring dream signs
+        if (analysis.dreamSigns.length > 0) {
+          const patterns = await getUserDreamPatterns(userId);
+          
+          // Find dream signs that appear 3+ times
+          const recurringSign = analysis.dreamSigns.find(sign => 
+            patterns.topDreamSigns.some(p => 
+              p.sign.toLowerCase() === sign.toLowerCase() && p.count >= 3
+            )
+          );
+          
+          if (recurringSign) {
+            // Get the count
+            const signData = patterns.topDreamSigns.find(p => 
+              p.sign.toLowerCase() === recurringSign.toLowerCase()
+            );
+            
+            // Show notification about recurring sign
+            setTimeout(() => {
+              Alert.alert(
+                '🎯 Recurring Dream Sign Detected!',
+                `"${recurringSign}" has appeared ${signData?.count} times in your dreams.\n\nThis is a perfect reality check trigger! Try checking if you're dreaming whenever you see this.`,
+                [
+                  {
+                    text: 'Got it!',
+                    style: 'default',
+                  },
+                  {
+                    text: 'View Insights',
+                    onPress: () => navigation.navigate('Insights'),
+                  }
+                ]
+              );
+            }, 2000); // Delay to avoid overlapping with save alert
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Background analysis error:', error);
     }
-  } catch (error) {
-    console.error('Background analysis error:', error);
-  }
-};
-
-
+  };
 
   return (
     <KeyboardAvoidingView

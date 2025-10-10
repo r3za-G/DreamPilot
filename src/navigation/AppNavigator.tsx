@@ -26,6 +26,8 @@ import DreamDetailScreen from '..//screens/DreamDetailScreen';
 import AchievementsScreen from '..//screens/AchievementsScreen';
 import SettingsScreen from '..//screens/SettingsScreen';
 import RealityCheckScreen from '..//screens/RealityCheckScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
+import InsightsScreen from '../screens/InsightsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,7 +74,7 @@ function TabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          title: 'Dashboard',
+          title: 'Dashboard', 
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -162,6 +164,11 @@ export default function App() {
         {!user ? (
           <>
             <Stack.Screen
+              name="Welcome"
+              component={WelcomeScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
               name="Login"
               component={LoginScreen}
               options={{ headerShown: false }}
@@ -208,6 +215,11 @@ export default function App() {
               name="RealityCheck"
               component={RealityCheckScreen}
               options={{ title: 'Reality Check Reminders' }}
+            />
+            <Stack.Screen
+              name="Insights"
+              component={InsightsScreen}
+              options={{ title: 'Dream Insights' }}
             />
           </>
         )}

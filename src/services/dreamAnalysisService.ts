@@ -25,20 +25,32 @@ Dream Content: "${dreamContent}"
 Was Lucid: ${isLucid ? 'Yes' : 'No'}
 
 Analyze this dream and provide:
-1. Dream Signs: Identify 2-4 specific unusual elements or patterns that could serve as reality check triggers (e.g., "flying", "deceased relative", "impossible physics", "changing locations")
-2. Themes: 2-3 main themes (e.g., "adventure", "anxiety", "exploration", "transformation")
-3. Emotions: 2-3 emotions experienced (e.g., "fear", "joy", "confusion", "excitement")
-4. Lucidity Potential: Rate as "low", "medium", or "high" based on how many dream signs and unusual elements were present
-5. Insights: One paragraph of insight about what this dream might mean and how it relates to lucid dreaming practice
-6. Suggestions: 2-3 specific, actionable suggestions for achieving lucidity based on this dream's patterns
+1. Dream Signs: Identify 2-4 specific unusual elements that could serve as reality check triggers. Be specific (e.g., "flying without wings", "deceased grandmother appearing", "smartphone with impossible features", "location morphing between home and school")
+
+2. Themes: 2-3 main psychological or narrative themes (e.g., "loss of control", "adventure seeking", "confronting fears", "wish fulfillment")
+
+3. Emotions: 2-4 emotions experienced (e.g., "anxiety", "exhilaration", "confusion", "peace")
+
+4. Lucidity Potential: Rate as:
+   - "high" if 3+ strong dream signs, vivid bizarre elements, or emotional intensity
+   - "medium" if 1-2 dream signs or moderate unusual elements
+   - "low" if mundane/realistic with few triggers
+
+5. Insights: Write 2-3 sentences about what this dream reveals about the dreamer's subconscious patterns and how it relates to their lucid dreaming journey. ${isLucid ? 'Explain what likely triggered lucidity and how to replicate it.' : 'Explain what dream signs were missed opportunities for lucidity.'}
+
+6. Suggestions: Provide 2-3 specific, actionable techniques:
+   - Which reality checks to practice based on this dream's patterns
+   - MILD/WILD technique recommendations
+   - Specific pre-sleep intentions to set
+   ${isLucid ? '- How to prolong and stabilize lucidity next time' : '- What to look for as lucidity triggers in future similar dreams'}
 
 Format your response as valid JSON with this exact structure:
 {
-  "dreamSigns": ["sign1", "sign2", "sign3"],
+  "dreamSigns": ["sign1", "sign2"],
   "themes": ["theme1", "theme2"],
   "emotions": ["emotion1", "emotion2"],
   "lucidityPotential": "medium",
-  "insights": "Your insight paragraph here",
+  "insights": "Your 2-3 sentence insight here",
   "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
 }`;
 
