@@ -85,8 +85,8 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
         : 'Well done! Keep up the great work!'}`,
       [
         {
-          text: 'Back to Home',
-          onPress: () => navigation.navigate('Home'),
+          text: 'Continue',
+          onPress: () => navigation.goBack(),
         },
       ]
     );

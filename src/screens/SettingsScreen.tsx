@@ -180,17 +180,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               <Text style={styles.infoValue}>{user?.email || 'Not available'}</Text>
             </View>
           </View>
-
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={() => navigation.navigate('RealityCheck')}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons name="notifications" size={22} color="#888" />
-              <Text style={styles.settingText}>Reality Check Reminders</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
         </View>
 
         {/* Preferences Section */}
