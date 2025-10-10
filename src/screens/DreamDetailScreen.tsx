@@ -11,6 +11,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { DreamAnalysis } from '../services/dreamAnalysisService';
+import { Alert } from 'react-native';
+import { deleteDoc } from 'firebase/firestore';
+import { MaterialIcons } from '@expo/vector-icons';
+
 
 type DreamDetailScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -65,6 +69,46 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
     );
   }
 
+  const deleteDream = async () => {
+  Alert.alert(
+    'Delete Dream',
+    'Are you sure you want to delete this dream? This action cannot be undone.',
+    [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setLoading(true);
+            await deleteDoc(doc(db, 'dreams', dreamId));
+            
+            Alert.alert(
+              'Dream Deleted',
+              'Your dream has been removed from your journal.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => navigation.goBack(),
+                },
+              ]
+            );
+          } catch (error) {
+            console.error('Error deleting dream:', error);
+            Alert.alert('Error', 'Failed to delete dream. Please try again.');
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]
+  );
+};
+
+
   const getPotentialColor = (potential: string) => {
     switch (potential) {
       case 'high': return '#10b981';
@@ -94,7 +138,6 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
             )}
           </View>
         </View>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dream Content</Text>
           <Text style={styles.content}>{dream.content}</Text>
@@ -203,6 +246,19 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
             </Text>
           </View>
         )}
+        {/* Delete Button at Bottom */}
+        <View style={styles.deleteSection}>
+          <TouchableOpacity 
+            style={styles.deleteButtonBottom}
+            onPress={deleteDream}
+          >
+      <MaterialIcons name="delete" size={28} color="#fff" />
+          
+          </TouchableOpacity>
+          <Text style={styles.deleteWarning}>
+            This action cannot be undone
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -401,4 +457,31 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+  deleteSection: {
+  padding: 20,
+  paddingTop: 10,
+  paddingBottom: 40,
+  },
+  deleteButtonBottom: {
+    backgroundColor: '#3a1a1a',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ef4444',
+  },
+  deleteButtonText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteWarning: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 10,
+    fontStyle: 'italic',
+  },
+
+
 });
