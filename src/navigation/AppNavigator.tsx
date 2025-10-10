@@ -13,6 +13,8 @@ import HomeScreen from '../screens/HomeScreen';
 import DreamJournalScreen from '../screens/DreamJournalScreen';
 import LessonScreen from '../screens/LessonScreen';
 import DreamHistoryScreen from '../screens/DreamHistoryScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import DreamDetailScreen from '../screens/DreamDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -71,6 +73,17 @@ export default function AppNavigator() {
               component={LessonScreen}
               options={{ title: 'Lesson' }}
             />
+            <Stack.Screen 
+              name="Settings" 
+              component={SettingsScreen}
+              options={{ title: 'Settings' }}
+            />
+            <Stack.Screen 
+              name="DreamDetail" 
+              component={DreamDetailScreen}
+              options={{ title: 'Dream Details' }}
+            />
+
           </>
         ) : (
           // Auth screens

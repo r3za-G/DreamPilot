@@ -64,36 +64,40 @@ export default function DreamHistoryScreen({ navigation }: DreamHistoryScreenPro
   };
 
   const renderDream = ({ item }: { item: Dream }) => {
-    const date = new Date(item.createdAt);
-    const formattedDate = format(date, 'MMM d, yyyy');
+  const date = new Date(item.createdAt);
+  const formattedDate = format(date, 'MMM d, yyyy');
 
-    return (
-      <TouchableOpacity style={styles.dreamCard}>
-        <View style={styles.dreamHeader}>
-          <Text style={styles.dreamTitle}>
-            {item.isLucid && '✨ '}
-            {item.title}
-          </Text>
-          <Text style={styles.dreamDate}>{formattedDate}</Text>
-        </View>
-        <Text style={styles.dreamContent} numberOfLines={3}>
-          {item.content}
+  return (
+    <TouchableOpacity 
+      style={styles.dreamCard}
+      onPress={() => navigation.navigate('DreamDetail', { dreamId: item.id })} // Use item.id, not dream.id
+    >
+      <View style={styles.dreamHeader}>
+        <Text style={styles.dreamTitle}>
+          {item.isLucid && '✨ '}
+          {item.title}
         </Text>
-        {item.tags.length > 0 && (
-          <View style={styles.dreamTags}>
-            {item.tags.slice(0, 3).map((tag, index) => (
-              <View key={index} style={styles.dreamTag}>
-                <Text style={styles.dreamTagText}>{tag}</Text>
-              </View>
-            ))}
-            {item.tags.length > 3 && (
-              <Text style={styles.moreTagsText}>+{item.tags.length - 3} more</Text>
-            )}
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
+        <Text style={styles.dreamDate}>{formattedDate}</Text>
+      </View>
+      <Text style={styles.dreamContent} numberOfLines={3}>
+        {item.content}
+      </Text>
+      {item.tags.length > 0 && (
+        <View style={styles.dreamTags}>
+          {item.tags.slice(0, 3).map((tag, index) => (
+            <View key={index} style={styles.dreamTag}>
+              <Text style={styles.dreamTagText}>{tag}</Text>
+            </View>
+          ))}
+          {item.tags.length > 3 && (
+            <Text style={styles.moreTagsText}>+{item.tags.length - 3} more</Text>
+          )}
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
 
   if (loading) {
     return (

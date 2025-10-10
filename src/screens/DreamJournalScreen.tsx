@@ -16,6 +16,8 @@ import { auth, db } from '../../firebaseConfig';
 import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { awardXP } from '../utils/xpManager';
 import { XP_REWARDS } from '../data/levels';
+import { analyzeDream, saveDreamAnalysis } from '../services/dreamAnalysisService';
+
 
 
 type DreamJournalScreenProps = {
@@ -45,49 +47,72 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
 
   const handleSaveDream = async () => {
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Error', 'Please add both a title and description');
+      Alert.alert('Error', 'Please fill in both title and content');
       return;
     }
 
-    setLoading(true);
-
     try {
-    setLoading(true);
-    const user = auth.currentUser;
-    if (!user) return;
+      setLoading(true);
+      const user = auth.currentUser;
+      if (!user) return;
 
-    // Save dream to Firestore
-    await addDoc(collection(db, 'dreams'), {
-      userId: user.uid,
-      title,
-      content,
-      isLucid,
-      tags,
-      createdAt: new Date().toISOString(),
-    });
+      // Save dream to Firestore
+      const dreamRef = await addDoc(collection(db, 'dreams'), {
+        userId: user.uid,
+        title,
+        content,
+        isLucid,
+        tags,
+        createdAt: new Date().toISOString(),
+      });
 
-    // Award XP
-    const xpAmount = isLucid ? XP_REWARDS.LUCID_DREAM : XP_REWARDS.DREAM_LOGGED;
-    const xpReason = isLucid ? 'Logged a lucid dream' : 'Logged a dream';
-    await awardXP(user.uid, xpAmount, xpReason);
+      // Award XP
+      const xpAmount = isLucid ? XP_REWARDS.LUCID_DREAM : XP_REWARDS.DREAM_LOGGED;
+      const xpReason = isLucid ? 'Logged a lucid dream' : 'Logged a dream';
+      await awardXP(user.uid, xpAmount, xpReason);
 
-    Alert.alert(
-      'Dream Saved! ✨',
-      `+${xpAmount} XP for logging a ${isLucid ? 'lucid ' : ''}dream!`,
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]
-    );
+      // Start AI analysis in background (don't await it)
+      analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
+
+      // Navigate back immediately
+      navigation.goBack();
+
+      // Show success message
+      Alert.alert(
+        'Dream Saved! ✨',
+        `+${xpAmount} XP earned!\n\nYour dream is being analyzed by AI. Check back in a moment to see insights!`
+      );
+    } catch (error) {
+      console.error('Error saving dream:', error);
+      Alert.alert('Error', 'Failed to save dream. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+// Add this helper function
+const analyzeDreamInBackground = async (
+  userId: string,
+  dreamId: string,
+  title: string,
+  content: string,
+  isLucid: boolean
+) => {
+  try {
+    console.log('Starting background AI analysis...');
+    const analysis = await analyzeDream(title, content, isLucid);
+    
+    if (analysis) {
+      console.log('Analysis complete, saving to Firestore...');
+      await saveDreamAnalysis(userId, dreamId, analysis);
+      console.log('Analysis saved successfully');
+    }
   } catch (error) {
-    console.error('Error saving dream:', error);
-    Alert.alert('Error', 'Failed to save dream. Please try again.');
-  } finally {
-    setLoading(false);
+    console.error('Background analysis error:', error);
   }
 };
+
+
 
   return (
     <KeyboardAvoidingView

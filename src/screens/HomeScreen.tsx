@@ -252,12 +252,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               </Text>
             </View>
           </View>
+          <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Settings')} 
+            style={styles.settingsButton}
+          >
+            <Text style={styles.settingsIcon}>⚙️</Text>
+          </TouchableOpacity>
           
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
+          </View>
         </View>
-        
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -599,5 +606,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#888',
   },
+  headerButtons: {
+  flexDirection: 'row',
+  gap: 10,
+  },
+  settingsButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsIcon: {
+    fontSize: 20,
+  },
+
 
 });

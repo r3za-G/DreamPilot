@@ -41,3 +41,11 @@ yarn-error.*
 /android
 
 package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Config files with secrets
+src/config/openai.ts.local
