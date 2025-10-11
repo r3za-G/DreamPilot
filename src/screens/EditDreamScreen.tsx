@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,22 +13,21 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { auth, db } from '../../firebaseConfig';
-import { collection, addDoc } from 'firebase/firestore';
-import { awardXP } from '../utils/xpManager';
-import { XP_REWARDS } from '../data/levels';
-import { analyzeDream, saveDreamAnalysis, getUserDreamPatterns } from '../services/dreamAnalysisService';
-import { useData } from '../contexts/DataContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { analyzeDream, saveDreamAnalysis } from '../services/dreamAnalysisService';
 
-type DreamJournalScreenProps = {
+type EditDreamScreenProps = {
   navigation: NativeStackNavigationProp<any>;
+  route: any;
 };
 
-export default function DreamJournalScreen({ navigation }: DreamJournalScreenProps) {
-  const { refreshDreams, refreshUserData } = useData();
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [isLucid, setIsLucid] = useState(false);
-  const [tags, setTags] = useState<string[]>([]);
+export default function EditDreamScreen({ navigation, route }: EditDreamScreenProps) {
+  const { dreamId, dream } = route.params;
+  
+  const [title, setTitle] = useState(dream.title);
+  const [content, setContent] = useState(dream.content);
+  const [isLucid, setIsLucid] = useState(dream.isLucid);
+  const [tags, setTags] = useState<string[]>(dream.tags || []);
   const [loading, setLoading] = useState(false);
 
   const commonTags = [
@@ -45,9 +44,21 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     }
   };
 
-  const handleSaveDream = async () => {
+  const handleUpdateDream = async () => {
     if (!title.trim() || !content.trim()) {
       Alert.alert('Error', 'Please fill in both title and content');
+      return;
+    }
+
+    // Check if anything changed
+    const hasChanges = 
+      title !== dream.title || 
+      content !== dream.content || 
+      isLucid !== dream.isLucid ||
+      JSON.stringify(tags) !== JSON.stringify(dream.tags);
+
+    if (!hasChanges) {
+      Alert.alert('No Changes', 'You haven\'t made any changes to this dream.');
       return;
     }
 
@@ -56,108 +67,86 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
       const user = auth.currentUser;
       if (!user) return;
 
-      // Save dream to Firestore
-      const dreamRef = await addDoc(collection(db, 'dreams'), {
-        userId: user.uid,
+      // Update dream in Firestore
+      await updateDoc(doc(db, 'dreams', dreamId), {
         title,
         content,
         isLucid,
         tags,
-        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
-      // Award XP
-      const xpAmount = isLucid ? XP_REWARDS.LUCID_DREAM : XP_REWARDS.DREAM_LOGGED;
-      const xpReason = isLucid ? 'Logged a lucid dream' : 'Logged a dream';
-      await awardXP(user.uid, xpAmount, xpReason);
-
-      // ✅ REFRESH CACHE - This is the key addition!
-      await Promise.all([
-        refreshDreams(),
-        refreshUserData()
-      ]);
-
-      // Start AI analysis in background with notification check
-      analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
-
-      // Navigate back immediately
-      navigation.goBack();
-
-      // Show success message
+      // Ask if user wants to re-analyze
       Alert.alert(
-        'Dream Saved! ✨',
-        `+${xpAmount} XP earned!\n\n🤖 AI is analyzing your dream for patterns and insights...`
+        'Dream Updated! ✅',
+        'Your dream has been saved. Would you like to re-analyze it with AI for updated insights?',
+        [
+          {
+            text: 'Not Now',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+          {
+            text: 'Re-analyze',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                const analysis = await analyzeDream(title, content, isLucid);
+                
+                if (analysis) {
+                  await saveDreamAnalysis(user.uid, dreamId, analysis);
+                  Alert.alert(
+                    'Analysis Complete! 🤖',
+                    'Your dream has been re-analyzed with fresh insights.',
+                    [{ text: 'Great!', onPress: () => navigation.goBack() }]
+                  );
+                } else {
+                  navigation.goBack();
+                }
+              } catch (error) {
+                console.error('Error re-analyzing:', error);
+                navigation.goBack();
+              } finally {
+                setLoading(false);
+              }
+            },
+          },
+        ]
       );
       
     } catch (error) {
-      console.error('Error saving dream:', error);
-      Alert.alert('Error', 'Failed to save dream. Please try again.');
+      console.error('Error updating dream:', error);
+      Alert.alert('Error', 'Failed to update dream. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Enhanced background analysis with dream sign notification
-  const analyzeDreamInBackground = async (
-    userId: string,
-    dreamId: string,
-    title: string,
-    content: string,
-    isLucid: boolean
-  ) => {
-    try {
-      console.log('🤖 Starting AI analysis...');
-      
-      // Analyze the dream
-      const analysis = await analyzeDream(title, content, isLucid);
-      
-      if (analysis) {
-        console.log('✅ Analysis complete, saving...');
-        await saveDreamAnalysis(userId, dreamId, analysis);
-        console.log('💾 Analysis saved successfully');
+  const handleCancel = () => {
+    const hasChanges = 
+      title !== dream.title || 
+      content !== dream.content || 
+      isLucid !== dream.isLucid ||
+      JSON.stringify(tags) !== JSON.stringify(dream.tags);
 
-        // ✅ REFRESH DREAMS AGAIN after analysis is saved
-        await refreshDreams();
-
-        // Check for recurring dream signs
-        if (analysis.dreamSigns.length > 0) {
-          const patterns = await getUserDreamPatterns(userId);
-          
-          // Find dream signs that appear 3+ times
-          const recurringSign = analysis.dreamSigns.find(sign => 
-            patterns.topDreamSigns.some(p => 
-              p.sign.toLowerCase() === sign.toLowerCase() && p.count >= 3
-            )
-          );
-          
-          if (recurringSign) {
-            // Get the count
-            const signData = patterns.topDreamSigns.find(p => 
-              p.sign.toLowerCase() === recurringSign.toLowerCase()
-            );
-            
-            // Show notification about recurring sign
-            setTimeout(() => {
-              Alert.alert(
-                '🎯 Recurring Dream Sign Detected!',
-                `"${recurringSign}" has appeared ${signData?.count} times in your dreams.\n\nThis is a perfect reality check trigger! Try checking if you're dreaming whenever you see this.`,
-                [
-                  {
-                    text: 'Got it!',
-                    style: 'default',
-                  },
-                  {
-                    text: 'View Insights',
-                    onPress: () => navigation.navigate('Insights'),
-                  }
-                ]
-              );
-            }, 2000); // Delay to avoid overlapping with save alert
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ Background analysis error:', error);
+    if (hasChanges) {
+      Alert.alert(
+        'Discard Changes?',
+        'You have unsaved changes. Are you sure you want to discard them?',
+        [
+          {
+            text: 'Keep Editing',
+            style: 'cancel',
+          },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    } else {
+      navigation.goBack();
     }
   };
 
@@ -225,17 +214,27 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
             ))}
           </View>
 
-          <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-            onPress={handleSaveDream}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Dream</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+              disabled={loading}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+              onPress={handleUpdateDream}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -331,19 +330,38 @@ const styles = StyleSheet.create({
   tagTextActive: {
     color: '#fff',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 30,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#1a1a2e',
+    paddingVertical: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  cancelButtonText: {
+    color: '#888',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   saveButton: {
+    flex: 1,
     backgroundColor: '#6366f1',
     paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 30,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
 });

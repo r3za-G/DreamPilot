@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,42 +10,17 @@ import {
   Share,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
-import { auth, db } from '../../firebaseConfig';
+import { auth } from '../../firebaseConfig';
+import { useData } from '../contexts/DataContext';
 
 type ProfileScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
-  const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [joinedDate, setJoinedDate] = useState('');
+  const { userData, dreams, loading } = useData();
   const [exporting, setExporting] = useState(false);
-
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      const userData = userDoc.data();
-
-      setUserName(userData?.name || 'Dreamer');
-      setUserEmail(user.email || '');
-      setJoinedDate(userData?.createdAt || new Date().toISOString());
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const exportDreams = async () => {
     try {
@@ -53,30 +28,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const dreamsQuery = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-
-      const querySnapshot = await getDocs(dreamsQuery);
-      const dreams: any[] = [];
-
-      querySnapshot.forEach((doc) => {
-        dreams.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
-
       if (dreams.length === 0) {
         Alert.alert('No Dreams', 'You have no dreams to export yet.');
         return;
       }
 
-      // Format as readable text
+      // Format as readable text using cached dreams
       let textContent = `Dream Journal Export\n`;
-      textContent += `User: ${userName}\n`;
+      textContent += `User: ${userData?.name || 'Dreamer'}\n`;
       textContent += `Exported: ${new Date().toLocaleString()}\n`;
       textContent += `Total Dreams: ${dreams.length}\n`;
       textContent += `\n${'='.repeat(50)}\n\n`;
@@ -113,22 +72,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const dreamsQuery = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-
-      const querySnapshot = await getDocs(dreamsQuery);
-      const dreams: any[] = [];
-
-      querySnapshot.forEach((doc) => {
-        dreams.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
-
       if (dreams.length === 0) {
         Alert.alert('No Dreams', 'You have no dreams to export yet.');
         return;
@@ -136,8 +79,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
       const exportData = {
         user: {
-          name: userName,
-          email: userEmail,
+          name: userData?.name || 'Dreamer',
+          email: userData?.email || user.email || '',
         },
         exportDate: new Date().toISOString(),
         totalDreams: dreams.length,
@@ -194,10 +137,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarIcon}>🌙</Text>
           </View>
-          <Text style={styles.userName}>{userName}</Text>
-          <Text style={styles.userEmail}>{userEmail}</Text>
+          <Text style={styles.userName}>{userData?.name || 'Dreamer'}</Text>
+          <Text style={styles.userEmail}>{userData?.email || ''}</Text>
           <Text style={styles.joinedText}>
-            Member since {new Date(joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            Member since {new Date(userData?.createdAt || new Date()).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Text>
         </View>
 

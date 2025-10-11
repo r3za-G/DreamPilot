@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,33 +6,25 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { auth, db } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LESSONS } from '../data/lessons';
+import { LESSONS, Lesson } from '../data/lessons';
 import { calculateStreak } from '../utils/streakCalculator';
 import { checkAchievements } from '../utils/achievementChecker';
 import AchievementModal from '../components/AchievementModal';
 import { Achievement } from '../data/achievements';
-import { getUserXP } from '../utils/xpManager';
-import { calculateLevel, getLevelTier, getProgressToNextLevel } from '../data/levels';
 import { Ionicons } from '@expo/vector-icons';
+import { useData } from '../contexts/DataContext';
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
-  const [userName, setUserName] = useState('');
-  const [userStats, setUserStats] = useState({
-    currentStreak: 0,
-    totalDreams: 0,
-    lucidDreams: 0,
-  });
-  const [nextLesson, setNextLesson] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { userData, dreams, completedLessons, loading, refreshData } = useData();
+  const [nextLesson, setNextLesson] = useState<Lesson | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [achievementModal, setAchievementModal] = useState<{
     visible: boolean;
     achievement: Achievement | null;
@@ -41,134 +33,57 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     achievement: null,
   });
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
-  const [userLevel, setUserLevel] = useState({
-    level: 1,
-    xp: 0,
-    tier: { title: 'Beginner Dreamer', icon: '😴', color: '#6b7280', minLevel: 1, maxLevel: 3 },
-    progress: { current: 0, required: 100, percentage: 0 },
-  });
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadUserData();
-    }, [])
-  );
-
-  const loadUserLevel = async (userId: string) => {
-    try {
-      const xp = await getUserXP(userId);
-      const level = calculateLevel(xp);
-      const tier = getLevelTier(level);
-      const progress = getProgressToNextLevel(xp);
-
-      setUserLevel({
-        level,
-        xp,
-        tier,
-        progress,
-      });
-    } catch (error) {
-      console.error('Error loading user level:', error);
+  useEffect(() => {
+    if (!loading && userData && dreams.length >= 0) {
+      checkForAchievements();
     }
-  };
+  }, [loading, userData, dreams, completedLessons]);
 
-  const loadUserData = async () => {
+  useEffect(() => {
+    // Find next incomplete lesson
+    const firstIncomplete = LESSONS.find(
+      lesson => !completedLessons.includes(lesson.id)
+    );
+    setNextLesson(firstIncomplete || null);
+  }, [completedLessons]);
+
+  const checkForAchievements = async () => {
     try {
       const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserName(data.name);
+      if (!user) return;
+
+      const dreamEntries = dreams.map(d => ({ createdAt: d.createdAt }));
+      const currentStreak = calculateStreak(dreamEntries);
+      const lucidDreams = dreams.filter(d => d.isLucid).length;
+
+      const newAchievements = await checkAchievements(
+        user.uid,
+        { 
+          currentStreak, 
+          totalDreams: dreams.length, 
+          lucidDreams, 
+          completedLessons: completedLessons.length 
         }
+      );
 
-        // Load dreams data
-        const dreamsQuery = query(
-          collection(db, 'dreams'),
-          where('userId', '==', user.uid)
-        );
-        
-        const querySnapshot = await getDocs(dreamsQuery);
-        let totalDreams = 0;
-        let lucidDreams = 0;
-        const dreamEntries: any[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const dreamData = doc.data();
-          totalDreams++;
-          if (dreamData.isLucid) {
-            lucidDreams++;
-          }
-          dreamEntries.push({
-            createdAt: dreamData.createdAt,
-          });
+      if (newAchievements.length > 0) {
+        setAchievementQueue(newAchievements);
+        setAchievementModal({
+          visible: true,
+          achievement: newAchievements[0],
         });
-        
-        const currentStreak = calculateStreak(dreamEntries);
-        
-        setUserStats({
-          currentStreak,
-          totalDreams,
-          lucidDreams,
-        });
-
-        // Load next lesson
-        const lessonCount = await loadNextLesson(user.uid);
-        await loadUserLevel(user.uid);
-        
-        // Check achievements
-        const newAchievements = await checkAchievements(
-          user.uid,
-          { currentStreak, totalDreams, lucidDreams, completedLessons: lessonCount }
-        );
-
-        if (newAchievements.length > 0) {
-          setAchievementQueue(newAchievements);
-          setAchievementModal({
-            visible: true,
-            achievement: newAchievements[0],
-          });
-        }
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error checking achievements:', error);
     }
   };
 
-  const loadNextLesson = async (userId: string): Promise<number> => {
-  try {
-    let completedCount = 0;
-    let foundNextLesson = false;
-    
-    for (const lesson of LESSONS) {
-      const progressDoc = await getDoc(
-        doc(db, 'users', userId, 'lessonProgress', `lesson_${lesson.id}`)
-      );
-      
-      if (progressDoc.exists() && progressDoc.data().completed) {
-        completedCount++;
-      } else if (!foundNextLesson) {
-        // This is the first uncompleted lesson - show this one
-        setNextLesson(lesson);
-        foundNextLesson = true;
-        // Don't break - we still need to count completed lessons
-      }
-    }
-    
-    // If all lessons are completed, don't show any lesson
-    if (completedCount === LESSONS.length) {
-      setNextLesson(null);
-    }
-    
-    return completedCount;
-  } catch (error) {
-    console.error('Error loading lessons:', error);
-    return 0;
-  }
-};
-
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setRefreshing(false);
+  };
 
   const handleCloseAchievement = () => {
     const remaining = achievementQueue.slice(1);
@@ -197,25 +112,44 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     );
   }
 
+  const lucidDreams = dreams.filter(d => d.isLucid).length;
+  const dreamEntries = dreams.map(d => ({ createdAt: d.createdAt }));
+  const currentStreak = calculateStreak(dreamEntries);
+
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6366f1"
+            colors={['#6366f1']}
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Hello, {userName}! 👋</Text>
+            <Text style={styles.greeting}>Hello, {userData?.name}! 👋</Text>
             <Text style={styles.subtitle}>Ready to explore your dreams?</Text>
           </View>
         </View>
 
         {/* Level Progress */}
         <View style={styles.levelSection}>
-          <View style={[styles.levelCard, { borderColor: userLevel.tier.color }]}>
-            <Text style={styles.levelIcon}>{userLevel.tier.icon}</Text>
+          <View style={[styles.levelCard, { borderColor: userData?.level ? getLevelTier(userData.level).color : '#6b7280' }]}>
+            <Text style={styles.levelIcon}>
+              {userData?.level ? getLevelTier(userData.level).icon : '😴'}
+            </Text>
             <View style={styles.levelInfo}>
-              <Text style={styles.levelTitle}>{userLevel.tier.title}</Text>
-              <Text style={[styles.levelText, { color: userLevel.tier.color }]}>
-                Level {userLevel.level}
+              <Text style={styles.levelTitle}>
+                {userData?.level ? getLevelTier(userData.level).title : 'Beginner Dreamer'}
+              </Text>
+              <Text style={[styles.levelText, { color: userData?.level ? getLevelTier(userData.level).color : '#6b7280' }]}>
+                Level {userData?.level || 1}
               </Text>
             </View>
           </View>
@@ -225,14 +159,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 style={[
                   styles.xpProgress, 
                   { 
-                    width: `${userLevel.progress.percentage}%`,
-                    backgroundColor: userLevel.tier.color,
+                    width: `${userData?.xp ? getProgressToNextLevel(userData.totalXP).percentage : 0}%`,
+                    backgroundColor: userData?.level ? getLevelTier(userData.level).color : '#6b7280',
                   }
                 ]} 
               />
             </View>
             <Text style={styles.xpText}>
-              {userLevel.progress.current} / {userLevel.progress.required} XP
+              {userData?.xp ? getProgressToNextLevel(userData.totalXP).current : 0} / {userData?.xp ? getProgressToNextLevel(userData.totalXP).required : 100} XP
             </Text>
           </View>
         </View>
@@ -241,30 +175,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>🔥</Text>
-            <Text style={styles.statNumber}>{userStats.currentStreak}</Text>
+            <Text style={styles.statNumber}>{currentStreak}</Text>
             <Text style={styles.statLabel}>Day Streak</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>📖</Text>
-            <Text style={styles.statNumber}>{userStats.totalDreams}</Text>
+            <Text style={styles.statNumber}>{dreams.length}</Text>
             <Text style={styles.statLabel}>Dreams</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>✨</Text>
-            <Text style={styles.statNumber}>{userStats.lucidDreams}</Text>
+            <Text style={styles.statNumber}>{lucidDreams}</Text>
             <Text style={styles.statLabel}>Lucid</Text>
           </View>
         </View>
 
         {/* Streak Motivation */}
-        {userStats.currentStreak > 0 && (
+        {currentStreak > 0 && (
           <View style={styles.motivationBanner}>
             <Text style={styles.motivationText}>
-              {userStats.currentStreak < 7
-                ? `🔥 ${userStats.currentStreak} day streak! Keep it going!`
-                : userStats.currentStreak < 30
-                ? `⭐ Amazing ${userStats.currentStreak}-day streak!`
-                : `🏆 Incredible ${userStats.currentStreak}-day streak!`}
+              {currentStreak < 7
+                ? `🔥 ${currentStreak} day streak! Keep it going!`
+                : currentStreak < 30
+                ? `⭐ Amazing ${currentStreak}-day streak!`
+                : `🏆 Incredible ${currentStreak}-day streak!`}
             </Text>
           </View>
         )}
@@ -312,6 +246,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     </View>
   );
 }
+
+// Import these helper functions at the top
+import { getLevelTier, getProgressToNextLevel } from '../data/levels';
+import { auth } from '../../firebaseConfig';
 
 const styles = StyleSheet.create({
   container: {

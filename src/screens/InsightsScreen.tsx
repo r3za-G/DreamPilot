@@ -1,18 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   ScrollView,
   ActivityIndicator,
-  Dimensions,
+  RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { getUserDreamPatterns } from '../services/dreamAnalysisService';
+import { useData } from '../contexts/DataContext';
 
 type InsightsScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -29,11 +26,9 @@ type DreamPattern = {
   dreamsByMonth: { month: string; count: number; lucidCount: number }[];
 };
 
-const { width } = Dimensions.get('window');
-
 export default function InsightsScreen({ navigation }: InsightsScreenProps) {
-  const lastLoadTime = useRef<number>(0);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const { dreams, dreamPatterns, loading, refreshData } = useData();
+  const [refreshing, setRefreshing] = useState(false);
   const [patterns, setPatterns] = useState<DreamPattern>({
     totalDreams: 0,
     lucidDreams: 0,
@@ -45,181 +40,125 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     dreamsByMonth: [],
   });
 
-  const [aiPatterns, setAiPatterns] = useState<{
-    topDreamSigns: Array<{ sign: string; count: number }>;
-    topThemes: Array<{ theme: string; count: number }>;
-    topEmotions: Array<{ emotion: string; count: number }>;
-  }>({
-    topDreamSigns: [],
-    topThemes: [],
-    topEmotions: [],
-  });
-
-  useFocusEffect(
-    React.useCallback(() => {
-      const now = Date.now();
-      const timeSinceLastLoad = now - lastLoadTime.current;
-      
-      if (lastLoadTime.current === 0 || timeSinceLastLoad > 2000) {
-        lastLoadTime.current = now;
-        loadAllData();
-      }
-    }, [])
-  );
-
-  const loadAllData = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    await Promise.all([
-      analyzeDreamPatterns(),
-      loadAIPatterns(user.uid),
-    ]);
-  };
-
-  const loadAIPatterns = async (userId: string) => {
-    try {
-      const patterns = await getUserDreamPatterns(userId);
-      setAiPatterns(patterns);
-    } catch (error) {
-      console.error('Error loading AI patterns:', error);
+  useEffect(() => {
+    if (!loading && dreams.length >= 0) {
+      analyzeDreamPatterns();
     }
+  }, [dreams, loading]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setRefreshing(false);
   };
 
-  const analyzeDreamPatterns = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
+  const analyzeDreamPatterns = () => {
+    if (dreams.length === 0) {
+      return;
+    }
 
-      const dreamsQuery = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid)
-      );
+    // Calculate patterns from cached dreams
+    const totalDreams = dreams.length;
+    const lucidDreams = dreams.filter(d => d.isLucid).length;
+    const lucidPercentage = Math.round((lucidDreams / totalDreams) * 100);
 
-      const querySnapshot = await getDocs(dreamsQuery);
-      const dreams: any[] = [];
-
-      querySnapshot.forEach((doc) => {
-        dreams.push({
-          id: doc.id,
-          ...doc.data(),
-        });
+    // Top tags analysis
+    const tagCounts: { [key: string]: number } = {};
+    dreams.forEach(dream => {
+      dream.tags?.forEach((tag: string) => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
       });
+    });
+    const topTags = Object.entries(tagCounts)
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
-      if (dreams.length === 0) {
-        setInitialLoading(false);
-        return;
-      }
+    // Day of week analysis
+    const dayCounts: { [key: string]: number } = {};
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    dreams.forEach(dream => {
+      const day = dayNames[new Date(dream.createdAt).getDay()];
+      dayCounts[day] = (dayCounts[day] || 0) + 1;
+    });
+    const mostActiveDayOfWeek = Object.entries(dayCounts)
+      .map(([day, count]) => ({ day, count }))
+      .sort((a, b) => b.count - a.count)[0] || { day: 'N/A', count: 0 };
 
-      // Calculate patterns
-      const totalDreams = dreams.length;
-      const lucidDreams = dreams.filter(d => d.isLucid).length;
-      const lucidPercentage = Math.round((lucidDreams / totalDreams) * 100);
+    // Average dreams per week
+    const sortedDates = dreams
+      .map(d => new Date(d.createdAt).getTime())
+      .sort((a, b) => a - b);
+    const firstDream = sortedDates[0];
+    const lastDream = sortedDates[sortedDates.length - 1];
+    const daysBetween = (lastDream - firstDream) / (1000 * 60 * 60 * 24);
+    const weeksBetween = Math.max(daysBetween / 7, 1);
+    const averageDreamsPerWeek = Math.round((totalDreams / weeksBetween) * 10) / 10;
 
-      // Top tags analysis
-      const tagCounts: { [key: string]: number } = {};
-      dreams.forEach(dream => {
-        dream.tags?.forEach((tag: string) => {
-          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-        });
-      });
-      const topTags = Object.entries(tagCounts)
-        .map(([tag, count]) => ({ tag, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
+    // Longest lucid streak
+    const lucidDates = dreams
+      .filter(d => d.isLucid)
+      .map(d => new Date(d.createdAt).toDateString())
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-      // Day of week analysis
-      const dayCounts: { [key: string]: number } = {};
-      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      dreams.forEach(dream => {
-        const day = dayNames[new Date(dream.createdAt).getDay()];
-        dayCounts[day] = (dayCounts[day] || 0) + 1;
-      });
-      const mostActiveDayOfWeek = Object.entries(dayCounts)
-        .map(([day, count]) => ({ day, count }))
-        .sort((a, b) => b.count - a.count)[0] || { day: 'N/A', count: 0 };
-
-      // Average dreams per week
-      const sortedDates = dreams
-        .map(d => new Date(d.createdAt).getTime())
-        .sort((a, b) => a - b);
-      const firstDream = sortedDates[0];
-      const lastDream = sortedDates[sortedDates.length - 1];
-      const daysBetween = (lastDream - firstDream) / (1000 * 60 * 60 * 24);
-      const weeksBetween = Math.max(daysBetween / 7, 1);
-      const averageDreamsPerWeek = Math.round((totalDreams / weeksBetween) * 10) / 10;
-
-      // Longest lucid streak
-      const lucidDates = dreams
-        .filter(d => d.isLucid)
-        .map(d => new Date(d.createdAt).toDateString())
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-      let longestLucidStreak = 0;
-      let currentStreak = 0;
-      for (let i = 0; i < lucidDates.length; i++) {
-        if (i === 0) {
-          currentStreak = 1;
-        } else {
-          const prevDate = new Date(lucidDates[i - 1]);
-          const currDate = new Date(lucidDates[i]);
-          const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (diffDays === 1) {
-            currentStreak++;
-          } else {
-            longestLucidStreak = Math.max(longestLucidStreak, currentStreak);
-            currentStreak = 1;
-          }
-        }
-      }
-      longestLucidStreak = Math.max(longestLucidStreak, currentStreak);
-
-      // Dreams by month (last 6 months)
-      const monthCounts: { [key: string]: { total: number; lucid: number } } = {};
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
-      dreams.forEach(dream => {
-        const date = new Date(dream.createdAt);
-        const monthKey = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+    let longestLucidStreak = 0;
+    let currentStreak = 0;
+    for (let i = 0; i < lucidDates.length; i++) {
+      if (i === 0) {
+        currentStreak = 1;
+      } else {
+        const prevDate = new Date(lucidDates[i - 1]);
+        const currDate = new Date(lucidDates[i]);
+        const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
         
-        if (!monthCounts[monthKey]) {
-          monthCounts[monthKey] = { total: 0, lucid: 0 };
+        if (diffDays === 1) {
+          currentStreak++;
+        } else {
+          longestLucidStreak = Math.max(longestLucidStreak, currentStreak);
+          currentStreak = 1;
         }
-        monthCounts[monthKey].total++;
-        if (dream.isLucid) {
-          monthCounts[monthKey].lucid++;
-        }
-      });
-
-      const dreamsByMonth = Object.entries(monthCounts)
-        .map(([month, counts]) => ({
-          month,
-          count: counts.total,
-          lucidCount: counts.lucid,
-        }))
-        .slice(-6);
-
-      setPatterns({
-        totalDreams,
-        lucidDreams,
-        lucidPercentage,
-        topTags,
-        mostActiveDayOfWeek,
-        averageDreamsPerWeek,
-        longestLucidStreak,
-        dreamsByMonth,
-      });
-    } catch (error) {
-      console.error('Error analyzing patterns:', error);
-    } finally {
-      if (initialLoading) {
-        setInitialLoading(false);
       }
     }
+    longestLucidStreak = Math.max(longestLucidStreak, currentStreak);
+
+    // Dreams by month (last 6 months)
+    const monthCounts: { [key: string]: { total: number; lucid: number } } = {};
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    dreams.forEach(dream => {
+      const date = new Date(dream.createdAt);
+      const monthKey = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      
+      if (!monthCounts[monthKey]) {
+        monthCounts[monthKey] = { total: 0, lucid: 0 };
+      }
+      monthCounts[monthKey].total++;
+      if (dream.isLucid) {
+        monthCounts[monthKey].lucid++;
+      }
+    });
+
+    const dreamsByMonth = Object.entries(monthCounts)
+      .map(([month, counts]) => ({
+        month,
+        count: counts.total,
+        lucidCount: counts.lucid,
+      }))
+      .slice(-6);
+
+    setPatterns({
+      totalDreams,
+      lucidDreams,
+      lucidPercentage,
+      topTags,
+      mostActiveDayOfWeek,
+      averageDreamsPerWeek,
+      longestLucidStreak,
+      dreamsByMonth,
+    });
   };
 
-  if (initialLoading) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6366f1" />
@@ -243,7 +182,18 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6366f1"
+            colors={['#6366f1']}
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Dream Insights</Text>
@@ -271,15 +221,15 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         </View>
 
-        {/* AI Dream Signs Section - NEW! */}
-        {aiPatterns.topDreamSigns.length > 0 && (
+        {/* AI Dream Signs Section */}
+        {dreamPatterns.topDreamSigns.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🎯 Your Personal Dream Signs</Text>
             <View style={styles.insightCard}>
               <Text style={styles.dreamSignDescription}>
                 AI detected these unusual elements in your dreams - perfect for reality checks!
               </Text>
-              {aiPatterns.topDreamSigns.slice(0, 5).map((item, index) => (
+              {dreamPatterns.topDreamSigns.slice(0, 5).map((item: { sign: string; count: number }) => (
                 <View key={item.sign} style={styles.dreamSignRow}>
                   <View style={styles.dreamSignBadge}>
                     <Text style={styles.dreamSignIcon}>✨</Text>
@@ -290,7 +240,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
                       <View 
                         style={[
                           styles.dreamSignBarFill, 
-                          { width: `${(item.count / aiPatterns.topDreamSigns[0].count) * 100}%` }
+                          { width: `${(item.count / dreamPatterns.topDreamSigns[0].count) * 100}%` }
                         ]} 
                       />
                     </View>
@@ -302,13 +252,13 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         )}
 
-        {/* Emotional Patterns - NEW! */}
-        {aiPatterns.topEmotions.length > 0 && (
+        {/* Emotional Patterns */}
+        {dreamPatterns.topEmotions.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>💭 Emotional Patterns</Text>
             <View style={styles.insightCard}>
               <View style={styles.emotionGrid}>
-                {aiPatterns.topEmotions.map((item) => (
+                {dreamPatterns.topEmotions.map((item: { emotion: string; count: number }) => (
                   <View key={item.emotion} style={styles.emotionChip}>
                     <Text style={styles.emotionName}>{item.emotion}</Text>
                     <Text style={styles.emotionCount}>{item.count}</Text>
@@ -319,13 +269,13 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         )}
 
-        {/* AI Themes - NEW! */}
-        {aiPatterns.topThemes.length > 0 && (
+        {/* AI Themes */}
+        {dreamPatterns.topThemes.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🎨 AI-Detected Themes</Text>
             <View style={styles.insightCard}>
               <View style={styles.themesContainer}>
-                {aiPatterns.topThemes.map((item, index) => (
+                {dreamPatterns.topThemes.map((item: { theme: string; count: number }) => (
                   <View key={item.theme} style={styles.themeRow}>
                     <View style={styles.themeIconContainer}>
                       <Text style={styles.themeIcon}>🌟</Text>

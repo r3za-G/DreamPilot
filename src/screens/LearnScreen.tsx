@@ -5,71 +5,45 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
 import { LESSONS } from '../data/lessons';
 import { Ionicons } from '@expo/vector-icons';
+import { useData } from '../contexts/DataContext';
 
 type LearnScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 export default function LearnScreen({ navigation }: LearnScreenProps) {
-  const [completedLessons, setCompletedLessons] = useState<number[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { completedLessons, refreshLessons } = useData();
+  const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadLessonProgress();
-    }, [])
-  );
-
-  const loadLessonProgress = async () => {
-    try {
-      setLoading(true);
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const completed: number[] = [];
-      
-      for (const lesson of LESSONS) {
-        const progressDoc = await getDoc(
-          doc(db, 'users', user.uid, 'lessonProgress', `lesson_${lesson.id}`)
-        );
-        
-        if (progressDoc.exists() && progressDoc.data().completed) {
-          completed.push(lesson.id);
-        }
-      }
-      
-      setCompletedLessons(completed);
-    } catch (error) {
-      console.error('Error loading lesson progress:', error);
-    } finally {
-      setLoading(false);
-    }
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshLessons();
+    setRefreshing(false);
   };
 
   const completedCount = completedLessons.length;
   const totalLessons = LESSONS.length;
   const progressPercentage = Math.round((completedCount / totalLessons) * 100);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Progress Header */}
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6366f1"
+            colors={['#6366f1']}
+          />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Learn Lucid Dreaming</Text>
           <Text style={styles.subtitle}>
@@ -90,7 +64,6 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
           </View>
         </View>
 
-        {/* Lessons List */}
         <View style={styles.lessonsSection}>
           {LESSONS.map((lesson, index) => {
             const isCompleted = completedLessons.includes(lesson.id);
@@ -153,6 +126,9 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
     </View>
   );
 }
+
+// ... keep your existing styles
+
 
 const styles = StyleSheet.create({
   container: {

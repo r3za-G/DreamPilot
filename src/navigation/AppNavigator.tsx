@@ -7,6 +7,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
 import * as Notifications from 'expo-notifications';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { DataProvider } from '../contexts/DataContext';
+
 
 // Auth Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -28,6 +30,9 @@ import SettingsScreen from '..//screens/SettingsScreen';
 import RealityCheckScreen from '..//screens/RealityCheckScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import InsightsScreen from '../screens/InsightsScreen';
+import EditDreamScreen from '../screens/EditDreamScreen';
+
+
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -142,89 +147,96 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: '#0f0f23',
-            },
-            headerTintColor: '#fff',
-            headerTitleStyle: {
-              fontWeight: 'bold',
-              color: '#fff', // ADD THIS
-            },
-            headerShadowVisible: false, // ADD THIS - removes shadow for cleaner look
-            contentStyle: {
-              backgroundColor: '#0f0f23',
-            },
-            animation: 'fade', // ADD THIS - smoother transitions
-          }}
-        >
-        {!user ? (
-          <>
-            <Stack.Screen
-              name="Welcome"
-              component={WelcomeScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Login"
-              component={LoginScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Signup"
-              component={SignupScreen}
-              options={{ headerShown: false }}
-            />
-          </>
-        ) : (
-          <>
-            <Stack.Screen
-              name="Back"
-              component={TabNavigator}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="DreamJournal"
-              component={DreamJournalScreen}
-              options={{ title: 'Log Dream' }}
-            />
-            <Stack.Screen
-              name="Lesson"
-              component={LessonScreen}
-              options={{ title: 'Lesson' }}
-            />
-            <Stack.Screen
-              name="DreamDetail"
-              component={DreamDetailScreen}
-              options={{ title: 'Dream Details' }}
-            />
-            <Stack.Screen
-              name="Achievements"
-              component={AchievementsScreen}
-              options={{ title: 'Achievements' }}
-            />
-            <Stack.Screen
-              name="Settings"
-              component={SettingsScreen}
-              options={{ title: 'Settings' }}
-            />
-            <Stack.Screen
-              name="RealityCheck"
-              component={RealityCheckScreen}
-              options={{ title: 'Reality Check Reminders' }}
-            />
-            <Stack.Screen
-              name="Insights"
-              component={InsightsScreen}
-              options={{ title: 'Dream Insights' }}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
-    </SafeAreaProvider>
+    <DataProvider>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator
+            screenOptions={{
+              headerStyle: {
+                backgroundColor: '#0f0f23',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+                color: '#fff', // ADD THIS
+              },
+              headerShadowVisible: false, // ADD THIS - removes shadow for cleaner look
+              contentStyle: {
+                backgroundColor: '#0f0f23',
+              },
+              animation: 'fade', // ADD THIS - smoother transitions
+            }}
+          >
+          {!user ? (
+            <>
+              <Stack.Screen
+                name="Welcome"
+                component={WelcomeScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Login"
+                component={LoginScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Signup"
+                component={SignupScreen}
+                options={{ headerShown: false }}
+              />
+            </>
+          ) : (
+            <>
+              <Stack.Screen
+                name="Back"
+                component={TabNavigator}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="DreamJournal"
+                component={DreamJournalScreen}
+                options={{ title: 'Log Dream' }}
+              />
+              <Stack.Screen
+                name="Lesson"
+                component={LessonScreen}
+                options={{ title: 'Lesson' }}
+              />
+              <Stack.Screen
+                name="DreamDetail"
+                component={DreamDetailScreen}
+                options={{ title: 'Dream Details' }}
+              />
+              <Stack.Screen
+                name="Achievements"
+                component={AchievementsScreen}
+                options={{ title: 'Achievements' }}
+              />
+              <Stack.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{ title: 'Settings' }}
+              />
+              <Stack.Screen
+                name="RealityCheck"
+                component={RealityCheckScreen}
+                options={{ title: 'Reality Check Reminders' }}
+              />
+              <Stack.Screen
+                name="Insights"
+                component={InsightsScreen}
+                options={{ title: 'Dream Insights' }}
+              />
+              <Stack.Screen
+                name="EditDream"
+                component={EditDreamScreen}
+                options={{ title: 'Edit Dream' }}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+      </SafeAreaProvider>
+    </DataProvider>
   );
 }

@@ -13,6 +13,7 @@ import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 import { DreamAnalysis, analyzeDream, saveDreamAnalysis } from '../services/dreamAnalysisService';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { useData } from '../contexts/DataContext';
 
 type DreamDetailScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -34,6 +35,7 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
   const [dream, setDream] = useState<Dream | null>(null);
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const { refreshDreams } = useData(); 
 
   useEffect(() => {
     loadDream();
@@ -113,17 +115,11 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
             try {
               setLoading(true);
               await deleteDoc(doc(db, 'dreams', dreamId));
+              await refreshDreams();
               
-              Alert.alert(
-                'Dream Deleted',
-                'Your dream has been removed from your journal.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => navigation.goBack(),
-                  },
-                ]
-              );
+              navigation.goBack();
+              
+              Alert.alert('Dream Deleted', 'Your dream has been removed from your journal.');
             } catch (error) {
               console.error('Error deleting dream:', error);
               Alert.alert('Error', 'Failed to delete dream. Please try again.');
@@ -135,6 +131,7 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
       ]
     );
   };
+
 
   const getPotentialColor = (potential: string) => {
     switch (potential) {
@@ -165,7 +162,15 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>{dream.title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{dream.title}</Text>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => navigation.navigate('EditDream', { dreamId, dream })}
+            >
+              <Ionicons name="pencil" size={20} color="#6366f1" />
+            </TouchableOpacity>
+          </View>
           <View style={styles.metaRow}>
             <Text style={styles.date}>
               {new Date(dream.createdAt).toLocaleDateString('en-US', {
@@ -181,7 +186,6 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
             )}
           </View>
         </View>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dream Content</Text>
           <Text style={styles.content}>{dream.content}</Text>
@@ -574,5 +578,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     fontStyle: 'italic',
+  },
+  titleRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  marginBottom: 10,
+  },
+  editButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1a1a2e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#6366f1',
   },
 });

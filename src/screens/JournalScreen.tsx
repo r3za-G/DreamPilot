@@ -5,15 +5,16 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   TextInput,
+  RefreshControl,
+  Alert, 
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { doc, deleteDoc } from 'firebase/firestore'; 
+import { db } from '../../firebaseConfig'; 
 import { format } from 'date-fns';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useData } from '../contexts/DataContext';
 
 type JournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -29,53 +30,21 @@ type Dream = {
 };
 
 export default function JournalScreen({ navigation }: JournalScreenProps) {
-  const [dreams, setDreams] = useState<Dream[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { dreams, refreshDreams } = useData();
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'lucid' | 'recent'>('all');
-  const [searchQuery, setSearchQuery] = useState(''); 
-  const [isSearching, setIsSearching] = useState(false); 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadDreams();
-    }, [])
-  );
-
-  const loadDreams = async () => {
-    try {
-      setLoading(true);
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const dreamsQuery = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-
-      const querySnapshot = await getDocs(dreamsQuery);
-      const dreamsData: Dream[] = [];
-
-      querySnapshot.forEach((doc) => {
-        dreamsData.push({
-          id: doc.id,
-          ...doc.data(),
-        } as Dream);
-      });
-
-      setDreams(dreamsData);
-    } catch (error) {
-      console.error('Error loading dreams:', error);
-    } finally {
-      setLoading(false);
-    }
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshDreams();
+    setRefreshing(false);
   };
 
-  // NEW: Search and filter logic
   const getFilteredDreams = () => {
     let filtered = dreams;
 
-    // Apply filter
     switch (filter) {
       case 'lucid':
         filtered = filtered.filter(d => d.isLucid);
@@ -87,19 +56,12 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
         break;
     }
 
-    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(dream => {
-        // Search in title
         if (dream.title.toLowerCase().includes(query)) return true;
-        
-        // Search in content
         if (dream.content.toLowerCase().includes(query)) return true;
-        
-        // Search in tags
         if (dream.tags.some(tag => tag.toLowerCase().includes(query))) return true;
-        
         return false;
       });
     }
@@ -110,7 +72,6 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
   const filteredDreams = getFilteredDreams();
   const lucidCount = dreams.filter(d => d.isLucid).length;
 
-  // NEW: Highlight matching text
   const highlightText = (text: string, highlight: string) => {
     if (!highlight.trim()) return text;
     
@@ -124,68 +85,99 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
     );
   };
 
-  const renderDream = ({ item }: { item: Dream }) => {
-    const date = new Date(item.createdAt);
-    const formattedDate = format(date, 'MMM d, yyyy');
-
-    return (
-      <TouchableOpacity
-        style={styles.dreamCard}
-        activeOpacity={0.9}
-        onPress={() => navigation.navigate('DreamDetail', { dreamId: item.id })}
-      >
-        <View style={styles.dreamHeader}>
-          <Text style={styles.dreamTitle}>
-            {item.isLucid && '✨ '}
-            {searchQuery ? highlightText(item.title, searchQuery) : item.title}
-          </Text>
-          <Text style={styles.dreamDate}>{formattedDate}</Text>
-        </View>
-        <Text style={styles.dreamContent} numberOfLines={3}>
-          {searchQuery ? highlightText(item.content, searchQuery) : item.content}
-        </Text>
-        {item.tags.length > 0 && (
-          <View style={styles.dreamTags}>
-            {item.tags.slice(0, 3).map((tag, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.dreamTag,
-                  searchQuery && tag.toLowerCase().includes(searchQuery.toLowerCase()) && styles.dreamTagHighlighted
-                ]}
-              >
-                <Text style={[
-                  styles.dreamTagText,
-                  searchQuery && tag.toLowerCase().includes(searchQuery.toLowerCase()) && styles.dreamTagTextHighlighted
-                ]}>
-                  {tag}
-                </Text>
-              </View>
-            ))}
-            {item.tags.length > 3 && (
-              <Text style={styles.moreTagsText}>+{item.tags.length - 3}</Text>
-            )}
-          </View>
-        )}
-      </TouchableOpacity>
+  const handleDeleteDream = async (dreamId: string) => {
+    Alert.alert(
+      'Delete Dream',
+      'Are you sure you want to delete this dream?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(db, 'dreams', dreamId));
+              await refreshDreams();
+              Alert.alert('Dream Deleted', 'Your dream has been removed.');
+            } catch (error) {
+              console.error('Error deleting dream:', error);
+              Alert.alert('Error', 'Failed to delete dream.');
+            }
+          },
+        },
+      ]
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+  const renderDream = ({ item }: { item: Dream }) => {
+  const date = new Date(item.createdAt);
+  const formattedDate = format(date, 'MMM d, yyyy');
+
+  return (
+    <TouchableOpacity
+      style={styles.dreamCard}
+      activeOpacity={0.9}
+      onPress={() => navigation.navigate('DreamDetail', { dreamId: item.id })}
+      onLongPress={() => handleDeleteDream(item.id)} // ✅ Long press to delete
+    >
+      <View style={styles.dreamHeader}>
+        <Text style={styles.dreamTitle}>
+          {item.isLucid && '✨ '}
+          {searchQuery ? highlightText(item.title, searchQuery) : item.title}
+        </Text>
+        <View style={styles.dreamHeaderRight}>
+          <Text style={styles.dreamDate}>{formattedDate}</Text>
+          {/* ✅ Add visible delete icon */}
+          <TouchableOpacity
+            style={styles.deleteIcon}
+            onPress={(e) => {
+              e.stopPropagation(); // Prevent dream detail navigation
+              handleDeleteDream(item.id);
+            }}
+          >
+            <Ionicons name="trash-outline" size={18} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
       </View>
-    );
-  }
+      <Text style={styles.dreamContent} numberOfLines={3}>
+        {searchQuery ? highlightText(item.content, searchQuery) : item.content}
+      </Text>
+      {item.tags.length > 0 && (
+        <View style={styles.dreamTags}>
+          {item.tags.slice(0, 3).map((tag, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.dreamTag,
+                searchQuery && tag.toLowerCase().includes(searchQuery.toLowerCase()) && styles.dreamTagHighlighted
+              ]}
+            >
+              <Text style={[
+                styles.dreamTagText,
+                searchQuery && tag.toLowerCase().includes(searchQuery.toLowerCase()) && styles.dreamTagTextHighlighted
+              ]}>
+                {tag}
+              </Text>
+            </View>
+          ))}
+          {item.tags.length > 3 && (
+            <Text style={styles.moreTagsText}>+{item.tags.length - 3}</Text>
+          )}
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
 
   return (
     <View style={styles.container}>
-      {/* Header with Stats */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Dream Journal</Text>
-          {/* NEW: Search toggle button */}
           <TouchableOpacity
             style={styles.searchToggle}
             onPress={() => {
@@ -201,7 +193,6 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
           </TouchableOpacity>
         </View>
 
-        {/* NEW: Search bar */}
         {isSearching && (
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
@@ -233,7 +224,6 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
         </View>
       </View>
 
-      {/* Filter Tabs */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
@@ -263,7 +253,6 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Search results count */}
       {searchQuery.trim() && (
         <View style={styles.searchResultsBar}>
           <Text style={styles.searchResultsText}>
@@ -272,7 +261,6 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
         </View>
       )}
 
-      {/* Dreams List */}
       {filteredDreams.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>
@@ -298,10 +286,16 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#6366f1"
+              colors={['#6366f1']}
+            />
+          }
         />
       )}
-
-      {/* Floating Action Button */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('DreamJournal')}
@@ -437,20 +431,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 100,
   },
-  dreamCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  dreamHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
   dreamTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -541,4 +521,28 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  dreamCard: {
+  backgroundColor: '#1a1a2e',
+  borderRadius: 12,
+  padding: 20,
+  marginBottom: 15,
+  borderWidth: 1,
+  borderColor: '#333',
+  },
+  dreamHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  marginBottom: 12,
+  },
+  dreamHeaderRight: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+  },
+  deleteIcon: {
+  padding: 4,
+  },
+
+
 });

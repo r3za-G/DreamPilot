@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,110 +6,56 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { calculateStreak } from '../utils/streakCalculator';
-import { getUserXP } from '../utils/xpManager';
-import { calculateLevel, getLevelTier } from '../data/levels';
+import { getLevelTier } from '../data/levels';
+import { useData } from '../contexts/DataContext';
 
 type ProgressScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 export default function ProgressScreen({ navigation }: ProgressScreenProps) {
-  const lastLoadTime = useRef<number>(0);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalDreams: 0,
-    lucidDreams: 0,
-    currentStreak: 0,
-    longestStreak: 0,
-    achievementsUnlocked: 0,
-    level: 1,
-    xp: 0,
-    tier: { title: 'Beginner Dreamer', icon: '😴', color: '#6b7280' },
-  });
+  const { userData, dreams, loading, refreshData } = useData();
+  const [refreshing, setRefreshing] = useState(false);
+  const [achievementsUnlocked, setAchievementsUnlocked] = useState(0);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      const now = Date.now();
-      const timeSinceLastLoad = now - lastLoadTime.current;
-      
-      if (lastLoadTime.current === 0 || timeSinceLastLoad > 2000) {
-        lastLoadTime.current = now;
-        loadProgressData();
-      }
-    }, [])
-  );
+  useEffect(() => {
+    if (!loading && userData) {
+      loadAchievements();
+    }
+  }, [loading, userData]);
 
-  const loadProgressData = async () => {
+  const loadAchievements = async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Load achievements
       const achievementsDoc = await getDoc(doc(db, 'users', user.uid, 'data', 'achievements'));
       const achievementData = achievementsDoc.exists() ? achievementsDoc.data() : {};
-      const achievementsUnlocked = achievementData?.achievements?.length || 0;
-
-      // Load dreams data
-      const dreamsQuery = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid)
-      );
-      
-      const querySnapshot = await getDocs(dreamsQuery);
-      let totalDreams = 0;
-      let lucidDreams = 0;
-      const dreamEntries: any[] = [];
-      
-      querySnapshot.forEach((doc) => {
-        const dreamData = doc.data();
-        totalDreams++;
-        if (dreamData.isLucid) {
-          lucidDreams++;
-        }
-        dreamEntries.push({
-          createdAt: dreamData.createdAt,
-        });
-      });
-      
-      const currentStreak = calculateStreak(dreamEntries);
-      const longestStreak = calculateLongestStreak(dreamEntries);
-
-      // Load level data
-      const xp = await getUserXP(user.uid);
-      const level = calculateLevel(xp);
-      const tier = getLevelTier(level);
-
-      setStats({
-        totalDreams,
-        lucidDreams,
-        currentStreak,
-        longestStreak,
-        achievementsUnlocked,
-        level,
-        xp,
-        tier,
-      });
+      setAchievementsUnlocked(achievementData?.achievements?.length || 0);
     } catch (error) {
-      console.error('Error loading progress:', error);
-    } finally {
-      if (initialLoading) {
-        setInitialLoading(false);
-      }
+      console.error('Error loading achievements:', error);
     }
   };
 
-  const calculateLongestStreak = (dreams: any[]): number => {
-    if (dreams.length === 0) return 0;
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    await loadAchievements();
+    setRefreshing(false);
+  };
 
-    const sortedDates = dreams
+  const calculateLongestStreak = (dreamsList: any[]): number => {
+    if (dreamsList.length === 0) return 0;
+
+    const sortedDates = dreamsList
       .map(d => new Date(d.createdAt).toDateString())
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
@@ -133,13 +79,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
     return longest;
   };
 
-  const lucidPercentage = stats.totalDreams > 0
-    ? Math.round((stats.lucidDreams / stats.totalDreams) * 100)
-    : 0;
-
-  const achievementProgress = Math.round((stats.achievementsUnlocked / ACHIEVEMENTS.length) * 100);
-
-  if (initialLoading) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6366f1" />
@@ -147,22 +87,44 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
     );
   }
 
+  // Calculate stats from cached data
+  const totalDreams = dreams.length;
+  const lucidDreams = dreams.filter(d => d.isLucid).length;
+  const dreamEntries = dreams.map(d => ({ createdAt: d.createdAt }));
+  const currentStreak = calculateStreak(dreamEntries);
+  const longestStreak = calculateLongestStreak(dreams);
+  const lucidPercentage = totalDreams > 0 ? Math.round((lucidDreams / totalDreams) * 100) : 0;
+  const achievementProgress = Math.round((achievementsUnlocked / ACHIEVEMENTS.length) * 100);
+  
+  const tier = userData?.level ? getLevelTier(userData.level) : { title: 'Beginner Dreamer', icon: '😴', color: '#6b7280' };
+
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6366f1"
+            colors={['#6366f1']}
+          />
+        }
+      >
         {/* Level Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Your Progress</Text>
-          <View style={[styles.levelCard, { borderColor: stats.tier.color }]}>
-            <Text style={styles.levelIcon}>{stats.tier.icon}</Text>
+          <View style={[styles.levelCard, { borderColor: tier.color }]}>
+            <Text style={styles.levelIcon}>{tier.icon}</Text>
             <View style={styles.levelInfo}>
-              <Text style={styles.levelTitle}>{stats.tier.title}</Text>
-              <Text style={[styles.levelText, { color: stats.tier.color }]}>
-                Level {stats.level}
+              <Text style={styles.levelTitle}>{tier.title}</Text>
+              <Text style={[styles.levelText, { color: tier.color }]}>
+                Level {userData?.level || 1}
               </Text>
             </View>
             <View style={styles.xpInfo}>
-              <Text style={styles.xpNumber}>{stats.xp}</Text>
+              <Text style={styles.xpNumber}>{userData?.totalXP || 0}</Text>
               <Text style={styles.xpLabel}>XP</Text>
             </View>
           </View>
@@ -174,13 +136,13 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
           
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{stats.totalDreams}</Text>
+              <Text style={styles.statNumber}>{totalDreams}</Text>
               <Text style={styles.statLabel}>Total Dreams</Text>
             </View>
 
             <View style={styles.statBox}>
               <Text style={[styles.statNumber, { color: '#a855f7' }]}>
-                {stats.lucidDreams}
+                {lucidDreams}
               </Text>
               <Text style={styles.statLabel}>Lucid Dreams</Text>
             </View>
@@ -194,26 +156,27 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
 
             <View style={styles.statBox}>
               <Text style={[styles.statNumber, { color: '#10b981' }]}>
-                {stats.currentStreak}
+                {currentStreak}
               </Text>
               <Text style={styles.statLabel}>Current Streak</Text>
             </View>
 
             <View style={styles.statBox}>
               <Text style={[styles.statNumber, { color: '#ef4444' }]}>
-                {stats.longestStreak}
+                {longestStreak}
               </Text>
               <Text style={styles.statLabel}>Longest Streak</Text>
             </View>
 
             <View style={styles.statBox}>
               <Text style={[styles.statNumber, { color: '#3b82f6' }]}>
-                {stats.xp}
+                {userData?.totalXP || 0}
               </Text>
               <Text style={styles.statLabel}>Total XP</Text>
             </View>
           </View>
         </View>
+
         {/* Achievements Section */}
         <TouchableOpacity 
           style={styles.achievementsSection}
@@ -227,7 +190,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
           <View style={styles.achievementProgress}>
             <View style={styles.achievementInfo}>
               <Text style={styles.achievementCount}>
-                {stats.achievementsUnlocked}/{ACHIEVEMENTS.length}
+                {achievementsUnlocked}/{ACHIEVEMENTS.length}
               </Text>
               <Text style={styles.achievementLabel}>Unlocked</Text>
             </View>
@@ -244,7 +207,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
           <Text style={styles.viewAllText}>Tap to view all achievements →</Text>
         </TouchableOpacity>
 
-        {/* Dream Insights Section - NEW */}
+        {/* Dream Insights Section */}
         <TouchableOpacity 
           style={styles.insightsSection}
           onPress={() => navigation.navigate('Insights')}
@@ -443,13 +406,13 @@ const styles = StyleSheet.create({
     height: 40,
   },
   insightsSection: {
-  marginHorizontal: 20,
-  marginBottom: 20,
-  backgroundColor: '#1a1a2e',
-  borderRadius: 16,
-  padding: 20,
-  borderWidth: 1,
-  borderColor: '#a855f7',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#a855f7',
   },
   insightsHeader: {
     flexDirection: 'row',
@@ -482,5 +445,4 @@ const styles = StyleSheet.create({
     color: '#888',
     fontWeight: '500',
   },
-
 });
