@@ -19,7 +19,7 @@ type ProfileScreenProps = {
 };
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
-  const { userData, dreams, loading } = useData();
+  const { userData, dreams, loading, isPremium } = useData(); // ✅ Added isPremium
   const [exporting, setExporting] = useState(false);
 
   const exportDreams = async () => {
@@ -138,15 +138,59 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Text style={styles.avatarIcon}>🌙</Text>
           </View>
           <Text style={styles.userName}>{userData?.name || 'Dreamer'}</Text>
+          
+          {/* ✅ NEW: Premium badge */}
+          {isPremium ? (
+            <View style={styles.premiumBadge}>
+              <Ionicons name="star" size={14} color="#fff" />
+              <Text style={styles.premiumBadgeText}>Premium Member</Text>
+            </View>
+          ) : (
+            <View style={styles.freeBadge}>
+              <Text style={styles.freeBadgeText}>Free Plan</Text>
+            </View>
+          )}
+          
           <Text style={styles.userEmail}>{userData?.email || ''}</Text>
           <Text style={styles.joinedText}>
             Member since {new Date(userData?.createdAt || new Date()).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Text>
         </View>
 
+        {/* ✅ NEW: Upgrade banner for free users */}
+        {!isPremium && (
+          <TouchableOpacity 
+            style={styles.upgradeCard}
+            onPress={() => navigation.navigate('Paywall')}
+          >
+            <View style={styles.upgradeCardContent}>
+              <Text style={styles.upgradeCardIcon}>⭐</Text>
+              <View style={styles.upgradeCardText}>
+                <Text style={styles.upgradeCardTitle}>Upgrade to Premium</Text>
+                <Text style={styles.upgradeCardSubtitle}>
+                  Unlock unlimited dreams, AI insights & more
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={24} color="#6366f1" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Quick Actions */}
         <View style={styles.actionsSection}>
           <Text style={styles.sectionTitle}>Account</Text>
+          
+          {/* ✅ NEW: Show "Manage Subscription" for premium users */}
+          {isPremium && (
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Paywall')}
+            >
+              <Ionicons name="star" size={24} color="#6366f1" />
+              <Text style={styles.actionText}>Manage Subscription</Text>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
+            </TouchableOpacity>
+          )}
           
           <TouchableOpacity 
             style={styles.actionButton}
@@ -222,7 +266,35 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 5,
+    marginBottom: 10,
+  },
+  // ✅ NEW: Badge styles
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    marginBottom: 10,
+  },
+  premiumBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  freeBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 10,
+  },
+  freeBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#888',
   },
   userEmail: {
     fontSize: 14,
@@ -232,6 +304,39 @@ const styles = StyleSheet.create({
   joinedText: {
     fontSize: 12,
     color: '#666',
+  },
+  // ✅ NEW: Upgrade card
+  upgradeCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#6366f1',
+    overflow: 'hidden',
+  },
+  upgradeCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    gap: 15,
+  },
+  upgradeCardIcon: {
+    fontSize: 40,
+  },
+  upgradeCardText: {
+    flex: 1,
+  },
+  upgradeCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  upgradeCardSubtitle: {
+    fontSize: 13,
+    color: '#888',
+    lineHeight: 18,
   },
   actionsSection: {
     padding: 20,

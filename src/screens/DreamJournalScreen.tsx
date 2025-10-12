@@ -26,7 +26,7 @@ type DreamJournalScreenProps = {
 };
 
 export default function DreamJournalScreen({ navigation }: DreamJournalScreenProps) {
-  const { refreshDreams, refreshUserData } = useData();
+  const { refreshDreams, refreshUserData, dreams, isPremium } = useData(); // ✅ Added isPremium
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isLucid, setIsLucid] = useState(false);
@@ -72,9 +72,47 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     }
   };
 
+  // ✅ NEW: Check if user has reached free tier limit
+  const checkDreamLimit = (): boolean => {
+    if (isPremium) return true; // Premium users have no limit
+
+    // Count dreams from current month
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const thisMonthDreams = dreams.filter(dream => {
+      const dreamDate = new Date(dream.createdAt);
+      return dreamDate.getMonth() === currentMonth && dreamDate.getFullYear() === currentYear;
+    });
+
+    if (thisMonthDreams.length >= 10) {
+      Alert.alert(
+        '🔒 Free Limit Reached',
+        `You've logged ${thisMonthDreams.length} dreams this month. Upgrade to Premium for unlimited dreams!`,
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { 
+            text: 'Upgrade to Premium', 
+            onPress: () => navigation.navigate('Paywall'),
+            style: 'default'
+          }
+        ]
+      );
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSaveDream = async () => {
     if (!title.trim() || !content.trim()) {
       Alert.alert('Error', 'Please fill in both title and content');
+      return;
+    }
+
+    // ✅ Check dream limit before saving
+    if (!checkDreamLimit()) {
       return;
     }
 
@@ -175,6 +213,39 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     }
   };
 
+  // ✅ NEW: Show premium banner at top if near limit
+  const renderLimitBanner = () => {
+    if (isPremium) return null;
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const thisMonthDreams = dreams.filter(dream => {
+      const dreamDate = new Date(dream.createdAt);
+      return dreamDate.getMonth() === currentMonth && dreamDate.getFullYear() === currentYear;
+    });
+
+    const remaining = 10 - thisMonthDreams.length;
+
+    if (remaining <= 3 && remaining > 0) {
+      return (
+        <TouchableOpacity 
+          style={styles.limitBanner}
+          onPress={() => navigation.navigate('Paywall')}
+        >
+          <Ionicons name="information-circle" size={20} color="#f59e0b" />
+          <Text style={styles.limitBannerText}>
+            {remaining} {remaining === 1 ? 'dream' : 'dreams'} remaining this month
+          </Text>
+          <Text style={styles.limitBannerLink}>Upgrade →</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -183,6 +254,9 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     >
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {/* ✅ NEW: Limit warning banner */}
+          {renderLimitBanner()}
+
           {/* Dismissible Voice Tip */}
           {showTip && (
             <View style={styles.tipBanner}>
@@ -194,6 +268,7 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
               </TouchableOpacity>
             </View>
           )}
+
           <Text style={styles.sectionTitle}>Dream Title</Text>
           <TextInput
             style={styles.titleInput}
@@ -278,6 +353,29 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+  },
+  // ✅ NEW: Limit banner styles
+  limitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f59e0b20',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    gap: 10,
+  },
+  limitBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#f59e0b',
+    fontWeight: '600',
+  },
+  limitBannerLink: {
+    fontSize: 13,
+    color: '#f59e0b',
+    fontWeight: 'bold',
   },
   tipBanner: {
     flexDirection: 'row',

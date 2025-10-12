@@ -24,6 +24,7 @@ type UserData = {
   currentStreak: number;
   lastDreamDate: string;
   createdAt: string;
+  isPremium: boolean; // ✅ Added
 };
 
 type DataContextType = {
@@ -32,6 +33,7 @@ type DataContextType = {
   completedLessons: number[];
   dreamPatterns: any;
   loading: boolean;
+  isPremium: boolean; // ✅ Added - easy access
   refreshData: () => Promise<void>;
   refreshDreams: () => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -46,6 +48,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [dreamPatterns, setDreamPatterns] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isPremium, setIsPremium] = useState(false); // ✅ Added
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -106,34 +109,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshUserData = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
 
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      
-      // Get XP from the XP manager (stored separately)
-      const totalXP = await getUserXP(user.uid);
-      const level = calculateLevel(totalXP);
-      
-      setUserData({
-        name: data.name || 'Dreamer',
-        email: user.email || '',
-        level: level,
-        xp: totalXP, // This is actually total XP
-        totalXP: totalXP,
-        currentStreak: data.currentStreak || 0,
-        lastDreamDate: data.lastDreamDate || '',
-        createdAt: data.createdAt || '',
-      });
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        
+        // Get XP from the XP manager (stored separately)
+        const totalXP = await getUserXP(user.uid);
+        const level = calculateLevel(totalXP);
+        
+        // ✅ Extract isPremium
+        const premiumStatus = data.isPremium || false;
+        setIsPremium(premiumStatus);
+        
+        setUserData({
+          name: data.name || 'Dreamer',
+          email: user.email || '',
+          level: level,
+          xp: totalXP,
+          totalXP: totalXP,
+          currentStreak: data.currentStreak || 0,
+          lastDreamDate: data.lastDreamDate || '',
+          createdAt: data.createdAt || '',
+          isPremium: premiumStatus, // ✅ Added
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
     }
-  } catch (error) {
-    console.error('Error refreshing user data:', error);
-  }
-};
-
+  };
 
   const refreshLessons = async () => {
     try {
@@ -171,6 +178,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         completedLessons,
         dreamPatterns,
         loading,
+        isPremium, // ✅ Added - now accessible everywhere
         refreshData,
         refreshDreams,
         refreshUserData,

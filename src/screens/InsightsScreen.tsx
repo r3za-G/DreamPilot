@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +28,7 @@ type DreamPattern = {
 };
 
 export default function InsightsScreen({ navigation }: InsightsScreenProps) {
-  const { dreams, dreamPatterns, loading, refreshData } = useData();
+  const { dreams, dreamPatterns, loading, refreshData, isPremium } = useData(); // ✅ Added isPremium
   const [refreshing, setRefreshing] = useState(false);
   const [patterns, setPatterns] = useState<DreamPattern>({
     totalDreams: 0,
@@ -57,7 +58,6 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
       return;
     }
 
-    // Calculate patterns from cached dreams
     const totalDreams = dreams.length;
     const lucidDreams = dreams.filter(d => d.isLucid).length;
     const lucidPercentage = Math.round((lucidDreams / totalDreams) * 100);
@@ -121,7 +121,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     }
     longestLucidStreak = Math.max(longestLucidStreak, currentStreak);
 
-    // Dreams by month (last 6 months)
+    // Dreams by month
     const monthCounts: { [key: string]: { total: number; lucid: number } } = {};
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
@@ -157,6 +157,30 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
       dreamsByMonth,
     });
   };
+
+  // ✅ NEW: Render premium locked section
+  const renderPremiumLockedSection = (title: string, icon: string) => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{icon} {title}</Text>
+      <TouchableOpacity 
+        style={styles.lockedCard}
+        onPress={() => navigation.navigate('Paywall')}
+        activeOpacity={0.8}
+      >
+        <View style={styles.lockedContent}>
+          <Ionicons name="lock-closed" size={40} color="#6366f1" />
+          <Text style={styles.lockedTitle}>Premium Feature</Text>
+          <Text style={styles.lockedDescription}>
+            Unlock AI-powered insights to discover patterns in your dreams
+          </Text>
+          <View style={styles.upgradeButton}>
+            <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+            <Ionicons name="arrow-forward" size={16} color="#fff" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
 
   if (loading) {
     return (
@@ -200,7 +224,26 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           <Text style={styles.subtitle}>Discover patterns in your dreams</Text>
         </View>
 
-        {/* Overview Cards */}
+        {/* ✅ Premium banner for free users */}
+        {!isPremium && (
+          <TouchableOpacity 
+            style={styles.premiumBanner}
+            onPress={() => navigation.navigate('Paywall')}
+          >
+            <View style={styles.premiumBannerContent}>
+              <Text style={styles.premiumBannerIcon}>🤖</Text>
+              <View style={styles.premiumBannerText}>
+                <Text style={styles.premiumBannerTitle}>Unlock AI Insights</Text>
+                <Text style={styles.premiumBannerSubtitle}>
+                  Get dream signs, emotional patterns & themes
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color="#6366f1" />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Overview Cards - FREE for all users */}
         <View style={styles.overviewSection}>
           <View style={styles.overviewCard}>
             <Ionicons name="bar-chart" size={28} color="#6366f1" />
@@ -221,8 +264,10 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         </View>
 
-        {/* AI Dream Signs Section */}
-        {dreamPatterns.topDreamSigns.length > 0 && (
+        {/* ✅ AI Dream Signs - PREMIUM ONLY */}
+        {!isPremium ? (
+          renderPremiumLockedSection('Your Personal Dream Signs', '🎯')
+        ) : dreamPatterns.topDreamSigns.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🎯 Your Personal Dream Signs</Text>
             <View style={styles.insightCard}>
@@ -252,8 +297,10 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         )}
 
-        {/* Emotional Patterns */}
-        {dreamPatterns.topEmotions.length > 0 && (
+        {/* ✅ Emotional Patterns - PREMIUM ONLY */}
+        {!isPremium ? (
+          renderPremiumLockedSection('Emotional Patterns', '💭')
+        ) : dreamPatterns.topEmotions.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>💭 Emotional Patterns</Text>
             <View style={styles.insightCard}>
@@ -269,8 +316,10 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         )}
 
-        {/* AI Themes */}
-        {dreamPatterns.topThemes.length > 0 && (
+        {/* ✅ AI Themes - PREMIUM ONLY */}
+        {!isPremium ? (
+          renderPremiumLockedSection('AI-Detected Themes', '🎨')
+        ) : dreamPatterns.topThemes.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🎨 AI-Detected Themes</Text>
             <View style={styles.insightCard}>
@@ -291,7 +340,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         )}
 
-        {/* Most Active Day */}
+        {/* Most Active Day - FREE */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📅 Most Active Day</Text>
           <View style={styles.insightCard}>
@@ -304,7 +353,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         </View>
 
-        {/* Top Dream Tags */}
+        {/* Top Dream Tags - FREE */}
         {patterns.topTags.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🏷️ Common Dream Tags</Text>
@@ -332,7 +381,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
           </View>
         )}
 
-        {/* Dreams Over Time */}
+        {/* Dreams Over Time - FREE */}
         {patterns.dreamsByMonth.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📈 Dream Activity</Text>
@@ -439,6 +488,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
   },
+  // ✅ Premium banner
+  premiumBanner: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#6366f1',
+    overflow: 'hidden',
+  },
+  premiumBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  premiumBannerIcon: {
+    fontSize: 32,
+  },
+  premiumBannerText: {
+    flex: 1,
+  },
+  premiumBannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  premiumBannerSubtitle: {
+    fontSize: 13,
+    color: '#888',
+  },
+  // ✅ Locked card styles
+  lockedCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 40,
+    borderWidth: 2,
+    borderColor: '#6366f1',
+    borderStyle: 'dashed',
+  },
+  lockedContent: {
+    alignItems: 'center',
+  },
+  lockedTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  lockedDescription: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    gap: 8,
+  },
+  upgradeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
   overviewSection: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -497,7 +618,7 @@ const styles = StyleSheet.create({
     color: '#aaa',
     textAlign: 'center',
   },
-  // Dream Signs Styles - NEW
+  // Dream Signs Styles
   dreamSignDescription: {
     fontSize: 13,
     color: '#aaa',
@@ -550,7 +671,7 @@ const styles = StyleSheet.create({
     minWidth: 36,
     textAlign: 'right',
   },
-  // Emotion Styles - NEW
+  // Emotion Styles
   emotionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -578,7 +699,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#666',
   },
-  // Theme Styles - NEW
+  // Theme Styles
   themesContainer: {
     gap: 12,
   },
@@ -615,7 +736,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
   },
-  // Existing Tag Styles
+  // Tag Styles
   tagRow: {
     flexDirection: 'row',
     alignItems: 'center',

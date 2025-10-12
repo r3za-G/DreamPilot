@@ -5,6 +5,7 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,7 +18,7 @@ type StreakCalendarScreenProps = {
 };
 
 export default function StreakCalendarScreen({ navigation }: StreakCalendarScreenProps) {
-  const { dreams, loading } = useData();
+  const { dreams, loading, isPremium } = useData(); // ✅ Added isPremium
   const [markedDates, setMarkedDates] = useState<any>({});
   const [stats, setStats] = useState({
     currentStreak: 0,
@@ -29,14 +30,22 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
     if (dreams.length > 0) {
       calculateCalendarData();
     }
-  }, [dreams]);
+  }, [dreams, isPremium]); // ✅ Added isPremium dependency
 
   const calculateCalendarData = () => {
     const marked: any = {};
     const dreamDates = new Set<string>();
     
+    // ✅ NEW: Filter dreams based on premium status
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const filteredDreams = isPremium 
+      ? dreams 
+      : dreams.filter(d => new Date(d.createdAt) >= thirtyDaysAgo);
+    
     // Mark all days with dreams
-    dreams.forEach(dream => {
+    filteredDreams.forEach(dream => {
       const date = new Date(dream.createdAt).toISOString().split('T')[0];
       dreamDates.add(date);
       
@@ -56,7 +65,7 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
       };
     });
 
-    // Calculate streaks
+    // Calculate streaks (use all dreams for accurate stats)
     const dreamEntries = dreams.map(d => ({ createdAt: d.createdAt }));
     const currentStreak = calculateStreak(dreamEntries);
     const longestStreak = calculateLongestStreak(dreams);
@@ -109,8 +118,29 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
         {/* Header Stats */}
         <View style={styles.header}>
           <Text style={styles.title}>Dream Streak Calendar</Text>
-          <Text style={styles.subtitle}>Track your daily dream journaling</Text>
+          <Text style={styles.subtitle}>
+            {isPremium ? 'Track your daily dream journaling' : 'Last 30 days'}
+          </Text>
         </View>
+
+        {/* ✅ NEW: Premium banner for free users */}
+        {!isPremium && (
+          <TouchableOpacity 
+            style={styles.premiumBanner}
+            onPress={() => navigation.navigate('Paywall')}
+          >
+            <View style={styles.premiumBannerContent}>
+              <Ionicons name="lock-closed" size={24} color="#6366f1" />
+              <View style={styles.premiumBannerText}>
+                <Text style={styles.premiumBannerTitle}>Unlock Full Calendar</Text>
+                <Text style={styles.premiumBannerSubtitle}>
+                  Upgrade to see your entire dream history
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color="#6366f1" />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Streak Stats */}
         <View style={styles.statsContainer}>
@@ -129,7 +159,9 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
           <View style={styles.statCard}>
             <Ionicons name="calendar" size={32} color="#6366f1" />
             <Text style={styles.statNumber}>{stats.totalDays}</Text>
-            <Text style={styles.statLabel}>Total Days</Text>
+            <Text style={styles.statLabel}>
+              {isPremium ? 'Total Days' : 'Last 30 Days'}
+            </Text>
           </View>
         </View>
 
@@ -138,6 +170,12 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
           <Calendar
             markedDates={markedDates}
             markingType="custom"
+            maxDate={new Date().toISOString().split('T')[0]}
+            minDate={
+              isPremium 
+                ? undefined 
+                : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            }
             theme={{
               calendarBackground: '#1a1a2e',
               textSectionTitleColor: '#888',
@@ -155,6 +193,17 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
             style={styles.calendar}
           />
         </View>
+
+        {/* ✅ NEW: Hint below calendar for free users */}
+        {!isPremium && (
+          <View style={styles.limitHint}>
+            <Ionicons name="lock-closed" size={16} color="#888" />
+            <Text style={styles.limitHintText}>
+              Showing last 30 days only • Upgrade for full history
+            </Text>
+          </View>
+        )}
+        
 
         {/* Legend */}
         <View style={styles.legendContainer}>
@@ -228,6 +277,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
   },
+  // ✅ NEW: Premium banner
+  premiumBanner: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#6366f1',
+    overflow: 'hidden',
+  },
+  premiumBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  premiumBannerText: {
+    flex: 1,
+  },
+  premiumBannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  premiumBannerSubtitle: {
+    fontSize: 13,
+    color: '#888',
+  },
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -263,6 +341,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 1,
     borderColor: '#333',
+    position: 'relative',
   },
   calendar: {
     borderRadius: 12,
@@ -327,5 +406,17 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: 40,
+  },
+  limitHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    gap: 8,
+  },
+  limitHintText: {
+    fontSize: 12,
+    color: '#888',
   },
 });

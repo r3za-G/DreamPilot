@@ -14,6 +14,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 type SignUpScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -26,56 +28,60 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!name.trim()) {
-      Alert.alert('Error', 'Please enter your name');
-      return;
+  if (!name.trim()) {
+    Alert.alert('Error', 'Please enter your name');
+    return;
+  }
+
+  if (!email.trim()) {
+    Alert.alert('Error', 'Please enter your email');
+    return;
+  }
+
+  if (password.length < 6) {
+    Alert.alert('Error', 'Password must be at least 6 characters');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // Create user account
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // Create user document in Firestore
+    await setDoc(doc(db, 'users', userCredential.user.uid), {
+      name: name.trim(),
+      email: email.trim(),
+      createdAt: new Date().toISOString(),
+      currentStreak: 0,
+      totalDreams: 0,
+      lucidDreams: 0,
+      currentLevel: 1,
+    });
+
+    // ✅ Clear onboarding flag for new users - they should see onboarding
+    await AsyncStorage.removeItem('onboardingCompleted');
+
+    // Navigation will happen automatically via auth state change
+  } catch (error: any) {
+    console.error('Sign up error:', error);
+    let errorMessage = 'Failed to create account';
+    
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = 'This email is already registered';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Invalid email address';
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = 'Password is too weak';
     }
+    
+    Alert.alert('Error', errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
 
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Create user account
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Create user document in Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        name: name.trim(),
-        email: email.trim(),
-        createdAt: new Date().toISOString(),
-        currentStreak: 0,
-        totalDreams: 0,
-        lucidDreams: 0,
-        currentLevel: 1,
-      });
-
-      // Navigation will happen automatically via auth state change
-    } catch (error: any) {
-      console.error('Sign up error:', error);
-      let errorMessage = 'Failed to create account';
-      
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak';
-      }
-      
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <KeyboardAvoidingView
