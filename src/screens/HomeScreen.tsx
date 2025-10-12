@@ -236,6 +236,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
         </View>
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('StreakCalendar')}
+          >
+            <Ionicons name="calendar" size={22} color="#f59e0b" />
+            <Text style={styles.actionText}>View Streak Calendar</Text>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
 
       <AchievementModal

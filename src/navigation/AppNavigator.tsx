@@ -31,6 +31,7 @@ import RealityCheckScreen from '..//screens/RealityCheckScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import EditDreamScreen from '../screens/EditDreamScreen';
+import StreakCalendarScreen from '../screens/StreakCalendarScreen';
 
 
 
@@ -231,6 +232,11 @@ export default function App() {
                 name="EditDream"
                 component={EditDreamScreen}
                 options={{ title: 'Edit Dream' }}
+              />
+              <Stack.Screen
+                name="StreakCalendar"
+                component={StreakCalendarScreen}
+                options={{ title: 'Streak Calendar' }}
               />
             </>
           )}

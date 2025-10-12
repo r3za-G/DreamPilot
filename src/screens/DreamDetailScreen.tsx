@@ -366,7 +366,8 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 10,
+    marginRight: 8, 
+    flex: 1,
   },
   metaRow: {
     flexDirection: 'row',
@@ -584,6 +585,7 @@ const styles = StyleSheet.create({
   justifyContent: 'space-between',
   alignItems: 'flex-start',
   marginBottom: 10,
+  gap: 12,
   },
   editButton: {
     width: 40,
@@ -594,5 +596,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#6366f1',
+    flexShrink: 0,
   },
 });

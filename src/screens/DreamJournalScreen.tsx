@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,12 +12,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../../firebaseConfig';
 import { collection, addDoc } from 'firebase/firestore';
 import { awardXP } from '../utils/xpManager';
 import { XP_REWARDS } from '../data/levels';
 import { analyzeDream, saveDreamAnalysis, getUserDreamPatterns } from '../services/dreamAnalysisService';
 import { useData } from '../contexts/DataContext';
+import { Ionicons } from '@expo/vector-icons';
 
 type DreamJournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -30,12 +32,37 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
   const [isLucid, setIsLucid] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showTip, setShowTip] = useState(true);
 
   const commonTags = [
     '🌊 Water', '✈️ Flying', '👥 People', '🏃 Running',
     '🏠 House', '🌳 Nature', '🐕 Animals', '🚗 Vehicles',
     '😨 Nightmare', '😊 Pleasant', '🤔 Confusing', '🎨 Vivid'
   ];
+
+  useEffect(() => {
+    loadTipPreference();
+  }, []);
+
+  const loadTipPreference = async () => {
+    try {
+      const dismissed = await AsyncStorage.getItem('voiceTipDismissed');
+      if (dismissed === 'true') {
+        setShowTip(false);
+      }
+    } catch (error) {
+      console.error('Error loading tip preference:', error);
+    }
+  };
+
+  const dismissTip = async () => {
+    try {
+      await AsyncStorage.setItem('voiceTipDismissed', 'true');
+      setShowTip(false);
+    } catch (error) {
+      console.error('Error saving tip preference:', error);
+    }
+  };
 
   const toggleTag = (tag: string) => {
     if (tags.includes(tag)) {
@@ -56,7 +83,6 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
       const user = auth.currentUser;
       if (!user) return;
 
-      // Save dream to Firestore
       const dreamRef = await addDoc(collection(db, 'dreams'), {
         userId: user.uid,
         title,
@@ -66,24 +92,19 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
         createdAt: new Date().toISOString(),
       });
 
-      // Award XP
       const xpAmount = isLucid ? XP_REWARDS.LUCID_DREAM : XP_REWARDS.DREAM_LOGGED;
       const xpReason = isLucid ? 'Logged a lucid dream' : 'Logged a dream';
       await awardXP(user.uid, xpAmount, xpReason);
 
-      // ✅ REFRESH CACHE - This is the key addition!
       await Promise.all([
         refreshDreams(),
         refreshUserData()
       ]);
 
-      // Start AI analysis in background with notification check
       analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
 
-      // Navigate back immediately
       navigation.goBack();
 
-      // Show success message
       Alert.alert(
         'Dream Saved! ✨',
         `+${xpAmount} XP earned!\n\n🤖 AI is analyzing your dream for patterns and insights...`
@@ -97,7 +118,6 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     }
   };
 
-  // Enhanced background analysis with dream sign notification
   const analyzeDreamInBackground = async (
     userId: string,
     dreamId: string,
@@ -108,7 +128,6 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     try {
       console.log('🤖 Starting AI analysis...');
       
-      // Analyze the dream
       const analysis = await analyzeDream(title, content, isLucid);
       
       if (analysis) {
@@ -116,14 +135,11 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
         await saveDreamAnalysis(userId, dreamId, analysis);
         console.log('💾 Analysis saved successfully');
 
-        // ✅ REFRESH DREAMS AGAIN after analysis is saved
         await refreshDreams();
 
-        // Check for recurring dream signs
         if (analysis.dreamSigns.length > 0) {
           const patterns = await getUserDreamPatterns(userId);
           
-          // Find dream signs that appear 3+ times
           const recurringSign = analysis.dreamSigns.find(sign => 
             patterns.topDreamSigns.some(p => 
               p.sign.toLowerCase() === sign.toLowerCase() && p.count >= 3
@@ -131,12 +147,10 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
           );
           
           if (recurringSign) {
-            // Get the count
             const signData = patterns.topDreamSigns.find(p => 
               p.sign.toLowerCase() === recurringSign.toLowerCase()
             );
             
-            // Show notification about recurring sign
             setTimeout(() => {
               Alert.alert(
                 '🎯 Recurring Dream Sign Detected!',
@@ -152,7 +166,7 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
                   }
                 ]
               );
-            }, 2000); // Delay to avoid overlapping with save alert
+            }, 2000);
           }
         }
       }
@@ -169,6 +183,17 @@ export default function DreamJournalScreen({ navigation }: DreamJournalScreenPro
     >
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {/* Dismissible Voice Tip */}
+          {showTip && (
+            <View style={styles.tipBanner}>
+              <Text style={styles.tipText}>
+                Tap the {<Ionicons name="mic" size={18} color="#6366f1" />} on your keyboard for voice input!
+              </Text>
+              <TouchableOpacity onPress={dismissTip} style={styles.dismissButton}>
+                <Ionicons name="close" size={20} color="#888" />
+              </TouchableOpacity>
+            </View>
+          )}
           <Text style={styles.sectionTitle}>Dream Title</Text>
           <TextInput
             style={styles.titleInput}
@@ -253,6 +278,27 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+  },
+  tipBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#6366f1',
+    gap: 10,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#aaa',
+    lineHeight: 18,
+  },
+  dismissButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   sectionTitle: {
     fontSize: 16,
