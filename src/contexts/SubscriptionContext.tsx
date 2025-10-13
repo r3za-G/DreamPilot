@@ -1,30 +1,25 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import Purchases, { PurchasesOffering, CustomerInfo } from 'react-native-purchases';
+import Purchases, { LOG_LEVEL, CustomerInfo, PurchasesPackage } from 'react-native-purchases';
+import { Platform, Alert } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
-import { doc, updateDoc } from 'firebase/firestore';
-import { Platform } from 'react-native';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
-type SubscriptionContextType = {
+interface SubscriptionContextType {
   isPremium: boolean;
-  offerings: PurchasesOffering | null;
-  purchasePackage: (packageToPurchase: any) => Promise<void>;
-  restorePurchases: () => Promise<void>;
   loading: boolean;
-};
+  checkSubscriptionStatus: () => Promise<void>;
+  purchasePackage: (pkg: PurchasesPackage) => Promise<boolean>;
+  restorePurchases: () => Promise<boolean>;
+  getOfferings: () => Promise<any>;
+}
 
-const SubscriptionContext = createContext<SubscriptionContextType>({
-  isPremium: false,
-  offerings: null,
-  purchasePackage: async () => {},
-  restorePurchases: async () => {},
-  loading: true,
-});
+  const IOS_API_KEY = process.env.EXPO_PUBLIC_IOS_REVENUECAT_API_KEY || '';
 
-export const useSubscription = () => useContext(SubscriptionContext);
 
-export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
+
+export const SubscriptionProvider = ({ children }: { children: React.ReactNode }) => {
   const [isPremium, setIsPremium] = useState(false);
-  const [offerings, setOfferings] = useState<PurchasesOffering | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,98 +27,122 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const initializePurchases = async () => {
-    try {
-      // Configure RevenueCat
-      // Replace with your actual API keys from RevenueCat dashboard
-      const apiKey = Platform.select({
-        ios: 'YOUR_IOS_API_KEY', // Get from RevenueCat
-        android: 'YOUR_ANDROID_API_KEY', // Get from RevenueCat
+  try {
+    console.log('🚀 Initializing RevenueCat...');
+    
+    // Set debug logs FIRST
+    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    
+    // Configure with API key
+    if (Platform.OS === 'ios') {
+      await Purchases.configure({ 
+        apiKey: IOS_API_KEY
       });
-
-      if (apiKey) {
-        await Purchases.configure({ apiKey });
-      }
-
-      // Set user ID if logged in
-      const user = auth.currentUser;
-      if (user) {
-        await Purchases.logIn(user.uid);
-      }
-
-      // Check subscription status
-      await checkSubscriptionStatus();
-
-      // Load offerings
-      const offerings = await Purchases.getOfferings();
-      if (offerings.current) {
-        setOfferings(offerings.current);
-      }
-    } catch (error) {
-      console.error('Error initializing purchases:', error);
-    } finally {
+    } else if (Platform.OS === 'android') {
+      // Skip Android for now
       setLoading(false);
+      return;
     }
-  };
+    
+    console.log('✅ RevenueCat configured successfully');
+    
+    // NOW check subscription (after configure completes)
+    await checkSubscriptionStatus();
+    
+  } catch (error) {
+    console.error('❌ Error initializing purchases:', error);
+    setLoading(false);
+  }
+};
+
 
   const checkSubscriptionStatus = async () => {
-    try {
-      const customerInfo = await Purchases.getCustomerInfo();
-      const isPro = customerInfo.entitlements.active['premium'] !== undefined;
-      setIsPremium(isPro);
-
-      // Update Firestore
-      const user = auth.currentUser;
-      if (user) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          isPremium: isPro,
-          subscriptionUpdatedAt: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('Error checking subscription:', error);
+  try {
+    console.log('🔍 Checking subscription status...');
+    
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('No user logged in');
       setIsPremium(false);
+      setLoading(false);
+      return;
+    }
+
+    // Get customer info from RevenueCat
+    const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
+    console.log('📦 Customer Info:', customerInfo);
+    
+    // Check if premium entitlement is active
+    const hasPremium = customerInfo.entitlements.active['premium'] !== undefined;
+    console.log('💎 Has Premium:', hasPremium);
+
+    setIsPremium(hasPremium);
+
+    // Sync with Firebase
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, { isPremium: hasPremium }, { merge: true });
+
+    setLoading(false);
+  } catch (error) {
+    console.error('❌ Error checking subscription:', error);
+    setIsPremium(false);
+    setLoading(false);
+  }
+};
+
+
+  const getOfferings = async () => {
+    try {
+      const offerings = await Purchases.getOfferings();
+      return offerings;
+    } catch (error) {
+      console.error('Error fetching offerings:', error);
+      return null;
     }
   };
 
-  const purchasePackage = async (packageToPurchase: any) => {
+  const purchasePackage = async (pkg: PurchasesPackage): Promise<boolean> => {
     try {
-      const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
-      const isPro = customerInfo.entitlements.active['premium'] !== undefined;
-      setIsPremium(isPro);
+      const { customerInfo } = await Purchases.purchasePackage(pkg);
+      const hasPremium = customerInfo.entitlements.active['premium'] !== undefined;
+      
+      setIsPremium(hasPremium);
 
-      // Update Firestore
+      // Update Firebase
       const user = auth.currentUser;
       if (user) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          isPremium: isPro,
-          subscriptionUpdatedAt: new Date().toISOString(),
-        });
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, { isPremium: hasPremium }, { merge: true });
       }
+
+      return hasPremium;
     } catch (error: any) {
-      if (!error.userCancelled) {
+      if (error.userCancelled) {
+        console.log('User cancelled purchase');
+      } else {
         console.error('Purchase error:', error);
-        throw error;
       }
+      return false;
     }
   };
 
-  const restorePurchases = async () => {
+  const restorePurchases = async (): Promise<boolean> => {
     try {
       const customerInfo = await Purchases.restorePurchases();
-      const isPro = customerInfo.entitlements.active['premium'] !== undefined;
-      setIsPremium(isPro);
+      const hasPremium = customerInfo.entitlements.active['premium'] !== undefined;
+      
+      setIsPremium(hasPremium);
 
-      // Update Firestore
       const user = auth.currentUser;
       if (user) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          isPremium: isPro,
-          subscriptionUpdatedAt: new Date().toISOString(),
-        });
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, { isPremium: hasPremium }, { merge: true });
       }
+
+      return hasPremium;
     } catch (error) {
       console.error('Restore error:', error);
-      throw error;
+      return false;
     }
   };
 
@@ -131,13 +150,22 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     <SubscriptionContext.Provider
       value={{
         isPremium,
-        offerings,
+        loading,
+        checkSubscriptionStatus,
         purchasePackage,
         restorePurchases,
-        loading,
+        getOfferings,
       }}
     >
       {children}
     </SubscriptionContext.Provider>
   );
+};
+
+export const useSubscription = () => {
+  const context = useContext(SubscriptionContext);
+  if (!context) {
+    throw new Error('useSubscription must be used within SubscriptionProvider');
+  }
+  return context;
 };

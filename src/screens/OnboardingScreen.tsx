@@ -116,11 +116,11 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
     if (currentIndex === slides.length - 1) {
       navigation.replace('RealityCheck', { fromOnboarding: true });
     } else {
-      navigation.replace('Back');
+      navigation.replace('MainTabs');
     }
   } catch (error) {
     console.error('Error completing onboarding:', error);
-    navigation.replace('Back');
+    navigation.replace('MainTabs');
   }
 };
 
@@ -128,10 +128,10 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
   const skipOnboarding = async () => {
     try {
       await AsyncStorage.setItem('onboardingCompleted', 'true');
-      navigation.replace('Back');
+      navigation.replace('MainTabs');
     } catch (error) {
       console.error('Error skipping onboarding:', error);
-      navigation.replace('Back');
+      navigation.replace('MainTabs');
     }
   };
 

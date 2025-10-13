@@ -21,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.gharooni.dreampilot"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +33,9 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#6366f1",
-          "sounds": ["./assets/notification-sound.wav"]
+          "sounds": [
+            "./assets/notification-sound.wav"
+          ]
         }
       ]
     ],
@@ -41,6 +44,11 @@
       "color": "#6366f1",
       "androidMode": "default",
       "androidCollapsedTitle": "Reality Check"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "62c4d091-81b1-461d-9388-6754987a3d7a"
+      }
     }
   }
 }

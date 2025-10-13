@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,7 +11,6 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { LinearGradient } from 'expo-linear-gradient';
 
 type PaywallScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -30,16 +29,42 @@ const PREMIUM_FEATURES = [
 ];
 
 export default function PaywallScreen({ navigation, route }: PaywallScreenProps) {
-  const { offerings, purchasePackage, restorePurchases, loading } = useSubscription();
+  const { getOfferings, purchasePackage, restorePurchases, loading } = useSubscription();
   const [purchasing, setPurchasing] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<string>('monthly');
+  const [offerings, setOfferings] = useState<any>(null);
+  const [loadingOfferings, setLoadingOfferings] = useState(true);
+
+  // ✅ Fetch offerings on mount
+  useEffect(() => {
+    loadOfferings();
+  }, []);
+
+  const loadOfferings = async () => {
+    try {
+      setLoadingOfferings(true);
+      const fetchedOfferings = await getOfferings();
+      console.log('📦 Offerings loaded:', fetchedOfferings);
+      
+      if (fetchedOfferings?.current) {
+        setOfferings(fetchedOfferings.current);
+      }
+    } catch (error) {
+      console.error('❌ Error loading offerings:', error);
+      Alert.alert('Error', 'Unable to load subscription options. Please try again.');
+    } finally {
+      setLoadingOfferings(false);
+    }
+  };
 
   const handlePurchase = async (pkg: any) => {
     try {
       setPurchasing(true);
-      await purchasePackage(pkg);
-      Alert.alert('Success! 🎉', 'Welcome to DreamPilot Premium!');
-      navigation.goBack();
+      const success = await purchasePackage(pkg);
+      if (success) {
+        Alert.alert('Success! 🎉', 'Welcome to DreamPilot Premium!');
+        navigation.goBack();
+      }
     } catch (error: any) {
       if (!error.userCancelled) {
         Alert.alert('Purchase Failed', 'Please try again or contact support.');
@@ -52,30 +77,50 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
   const handleRestore = async () => {
     try {
       setPurchasing(true);
-      await restorePurchases();
-      Alert.alert('Restored!', 'Your premium subscription has been restored.');
-      navigation.goBack();
+      const success = await restorePurchases();
+      if (success) {
+        Alert.alert('Restored!', 'Your premium subscription has been restored.');
+        navigation.goBack();
+      } else {
+        Alert.alert('No Purchases Found', 'No active subscriptions to restore.');
+      }
     } catch (error) {
-      Alert.alert('Restore Failed', 'No purchases found to restore.');
+      Alert.alert('Restore Failed', 'Please try again or contact support.');
     } finally {
       setPurchasing(false);
     }
   };
 
-  if (loading) {
+  // Show loading while fetching offerings
+  if (loading || loadingOfferings) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6366f1" />
+        <Text style={styles.loadingText}>Loading subscription options...</Text>
       </View>
     );
   }
 
-  const monthlyPackage = offerings?.availablePackages.find(pkg => 
-    pkg.identifier.includes('monthly')
+  // Get packages from offerings
+  const monthlyPackage = offerings?.availablePackages?.find((pkg: any) => 
+    pkg.identifier === '$rc_monthly'
   );
-  const yearlyPackage = offerings?.availablePackages.find(pkg => 
-    pkg.identifier.includes('yearly') || pkg.identifier.includes('annual')
+  const yearlyPackage = offerings?.availablePackages?.find((pkg: any) => 
+    pkg.identifier === '$rc_annual'
   );
+
+  // If no packages available
+  if (!monthlyPackage && !yearlyPackage) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#888" />
+        <Text style={styles.errorText}>Unable to load subscriptions</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadOfferings}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -129,7 +174,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
                     {yearlyPackage.product.priceString}/year
                   </Text>
                   <Text style={styles.pricingPerMonth}>
-                    Just $2.50/month
+                    Just $3.33/month
                   </Text>
                 </View>
                 <Ionicons
@@ -138,7 +183,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
                   color={selectedPackage === 'yearly' ? '#10b981' : '#888'}
                 />
               </View>
-              <Text style={styles.saveBadge}>💰 Save 50% vs monthly</Text>
+              <Text style={styles.saveBadge}>💰 Save 33% vs monthly</Text>
             </TouchableOpacity>
           )}
 
@@ -185,7 +230,9 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
           ) : (
             <>
               <Text style={styles.ctaButtonText}>Start Free Trial</Text>
-              <Text style={styles.ctaButtonSubtext}>7 days free, then {selectedPackage === 'yearly' ? '$29.99/year' : '$4.99/month'}</Text>
+              <Text style={styles.ctaButtonSubtext}>
+                7 days free, then {selectedPackage === 'yearly' ? yearlyPackage?.product.priceString : monthlyPackage?.product.priceString}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -384,5 +431,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     lineHeight: 16,
     marginTop: 10,
+  },loadingText: {
+    color: '#888',
+    marginTop: 12,
+    fontSize: 14,
+  },
+  errorText: {
+    color: '#888',
+    fontSize: 16,
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
