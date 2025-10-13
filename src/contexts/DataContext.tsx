@@ -1,9 +1,17 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
-import { getUserDreamPatterns } from '../services/dreamAnalysisService';
-import { calculateLevel } from '../data/levels';
-import { getUserXP } from '../utils/xpManager';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  doc,
+  getDoc,
+} from "firebase/firestore";
+import { auth, db } from "../../firebaseConfig";
+import { getUserDreamPatterns } from "../services/dreamAnalysisService";
+import { calculateLevel } from "../data/levels";
+import { getUserXP } from "../utils/xpManager";
 
 type Dream = {
   id: string;
@@ -24,7 +32,7 @@ type UserData = {
   currentStreak: number;
   lastDreamDate: string;
   createdAt: string;
-  isPremium: boolean; // ✅ Added
+  isPremium: boolean;
 };
 
 type DataContextType = {
@@ -33,7 +41,7 @@ type DataContextType = {
   completedLessons: number[];
   dreamPatterns: any;
   loading: boolean;
-  isPremium: boolean; // ✅ Added - easy access
+  isPremium: boolean;
   refreshData: () => Promise<void>;
   refreshDreams: () => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -65,13 +73,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const loadAllData = async () => {
     try {
       setLoading(true);
-      await Promise.all([
-        refreshDreams(),
-        refreshUserData(),
-        refreshLessons(),
-      ]);
+      await Promise.all([refreshDreams(), refreshUserData(), refreshLessons()]);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
     } finally {
       setLoading(false);
     }
@@ -83,9 +87,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (!user) return;
 
       const dreamsQuery = query(
-        collection(db, 'dreams'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
+        collection(db, "dreams"),
+        where("userId", "==", user.uid),
+        orderBy("createdAt", "desc")
       );
 
       const querySnapshot = await getDocs(dreamsQuery);
@@ -104,7 +108,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const patterns = await getUserDreamPatterns(user.uid);
       setDreamPatterns(patterns);
     } catch (error) {
-      console.error('Error refreshing dreams:', error);
+      console.error("Error refreshing dreams:", error);
     }
   };
 
@@ -113,32 +117,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
-        
+
         // Get XP from the XP manager (stored separately)
         const totalXP = await getUserXP(user.uid);
         const level = calculateLevel(totalXP);
-        
-        // ✅ Extract isPremium
+
         const premiumStatus = data.isPremium || false;
         setIsPremium(premiumStatus);
-        
+
         setUserData({
-          name: data.name || 'Dreamer',
-          email: user.email || '',
+          name: data.name || "Dreamer",
+          email: user.email || "",
           level: level,
           xp: totalXP,
           totalXP: totalXP,
           currentStreak: data.currentStreak || 0,
-          lastDreamDate: data.lastDreamDate || '',
-          createdAt: data.createdAt || '',
+          lastDreamDate: data.lastDreamDate || "",
+          createdAt: data.createdAt || "",
           isPremium: premiumStatus, // ✅ Added
         });
       }
     } catch (error) {
-      console.error('Error refreshing user data:', error);
+      console.error("Error refreshing user data:", error);
     }
   };
 
@@ -147,12 +150,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const { LESSONS } = require('../data/lessons');
+      const { LESSONS } = require("../data/lessons");
       const completed: number[] = [];
 
       for (const lesson of LESSONS) {
         const progressDoc = await getDoc(
-          doc(db, 'users', user.uid, 'lessonProgress', `lesson_${lesson.id}`)
+          doc(db, "users", user.uid, "lessonProgress", `lesson_${lesson.id}`)
         );
 
         if (progressDoc.exists() && progressDoc.data().completed) {
@@ -162,7 +165,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       setCompletedLessons(completed);
     } catch (error) {
-      console.error('Error refreshing lessons:', error);
+      console.error("Error refreshing lessons:", error);
     }
   };
 
@@ -193,7 +196,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 export function useData() {
   const context = useContext(DataContext);
   if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
+    throw new Error("useData must be used within a DataProvider");
   }
   return context;
 }

@@ -1,41 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../../firebaseConfig';
-import * as Notifications from 'expo-notifications';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { DataProvider } from '../contexts/DataContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SubscriptionProvider } from '../contexts/SubscriptionContext';
+import React, { useState, useEffect } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../firebaseConfig";
+import * as Notifications from "expo-notifications";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { DataProvider } from "../contexts/DataContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SubscriptionProvider } from "../contexts/SubscriptionContext";
 
 // Auth Screens
-import LoginScreen from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignUpScreen';
-
+import LoginScreen from "../screens/LoginScreen";
+import SignupScreen from "../screens/SignUpScreen";
 
 // Tab Screens
-import HomeScreen from '../screens/HomeScreen';
-import JournalScreen from '../screens/JournalScreen';
-import LearnScreen from '../screens/LearnScreen';
-import ProgressScreen from '../screens/ProgressScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import HomeScreen from "../screens/HomeScreen";
+import JournalScreen from "../screens/JournalScreen";
+import LearnScreen from "../screens/LearnScreen";
+import ProgressScreen from "../screens/ProgressScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 
 // Stack Screens
-import DreamJournalScreen from '../screens/DreamJournalScreen';
-import LessonScreen from '../screens/LessonScreen';
-import DreamDetailScreen from '../screens/DreamDetailScreen';
-import AchievementsScreen from '../screens/AchievementsScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import RealityCheckScreen from '../screens/RealityCheckScreen';
-import WelcomeScreen from '../screens/WelcomeScreen';
-import InsightsScreen from '../screens/InsightsScreen';
-import EditDreamScreen from '../screens/EditDreamScreen';
-import StreakCalendarScreen from '../screens/StreakCalendarScreen';
-import OnboardingScreen from '../screens/OnboardingScreen';
-import PaywallScreen from '../screens/PaywallScreen';
+import DreamJournalScreen from "../screens/DreamJournalScreen";
+import LessonScreen from "../screens/LessonScreen";
+import DreamDetailScreen from "../screens/DreamDetailScreen";
+import AchievementsScreen from "../screens/AchievementsScreen";
+import SettingsScreen from "../screens/SettingsScreen";
+import RealityCheckScreen from "../screens/RealityCheckScreen";
+import WelcomeScreen from "../screens/WelcomeScreen";
+import InsightsScreen from "../screens/InsightsScreen";
+import EditDreamScreen from "../screens/EditDreamScreen";
+import StreakCalendarScreen from "../screens/StreakCalendarScreen";
+import OnboardingScreen from "../screens/OnboardingScreen";
+import PaywallScreen from "../screens/PaywallScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -57,23 +56,23 @@ function TabNavigator() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: '#1a1a2e',
-          borderTopColor: '#333',
+          backgroundColor: "#1a1a2e",
+          borderTopColor: "#333",
           borderTopWidth: 1,
           height: 85,
           paddingBottom: 25,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#6366f1',
-        tabBarInactiveTintColor: '#888',
+        tabBarActiveTintColor: "#6366f1",
+        tabBarInactiveTintColor: "#888",
         headerStyle: {
-          backgroundColor: '#0f0f23',
-          borderBottomColor: '#333',
+          backgroundColor: "#0f0f23",
+          borderBottomColor: "#333",
           borderBottomWidth: 1,
         },
-        headerTintColor: '#fff',
+        headerTintColor: "#fff",
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontWeight: "bold",
         },
       }}
     >
@@ -81,7 +80,7 @@ function TabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          title: 'Dashboard',
+          title: "Dashboard",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -91,7 +90,7 @@ function TabNavigator() {
         name="Journal"
         component={JournalScreen}
         options={{
-          title: 'Journal',
+          title: "Journal",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="book" size={size} color={color} />
           ),
@@ -101,7 +100,7 @@ function TabNavigator() {
         name="Learn"
         component={LearnScreen}
         options={{
-          title: 'Learn',
+          title: "Learn",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="school" size={size} color={color} />
           ),
@@ -111,7 +110,7 @@ function TabNavigator() {
         name="Progress"
         component={ProgressScreen}
         options={{
-          title: 'Progress',
+          title: "Progress",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="trophy" size={size} color={color} />
           ),
@@ -121,7 +120,7 @@ function TabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: 'Profile',
+          title: "Profile",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
@@ -139,16 +138,16 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoading(true); // ✅ Keep loading while checking
-      
+
       if (user) {
         // Check if user has completed onboarding
-        const completed = await AsyncStorage.getItem('onboardingCompleted');
-        console.log('Onboarding completed:', completed); // Debug log
-        setShowOnboarding(completed !== 'true');
+        const completed = await AsyncStorage.getItem("onboardingCompleted");
+        console.log("Onboarding completed:", completed);
+        setShowOnboarding(completed !== "true");
       } else {
         setShowOnboarding(false);
       }
-      
+
       setUser(user);
       setLoading(false);
     });
@@ -160,29 +159,35 @@ export default function App() {
     return null;
   }
 
-  console.log('User:', user ? 'Logged in' : 'Not logged in', 'Show onboarding:', showOnboarding); // Debug log
+  console.log(
+    "User:",
+    user ? "Logged in" : "Not logged in",
+    "Show onboarding:",
+    showOnboarding
+  ); // Debug log
 
   return (
     <SubscriptionProvider>
+      r
       <DataProvider>
         <SafeAreaProvider>
           <NavigationContainer>
             <Stack.Navigator
               screenOptions={{
                 headerStyle: {
-                  backgroundColor: '#0f0f23',
+                  backgroundColor: "#0f0f23",
                 },
-                headerTintColor: '#fff',
+                headerTintColor: "#fff",
                 headerTitleStyle: {
-                  fontWeight: 'bold',
-                  color: '#fff',
+                  fontWeight: "bold",
+                  color: "#fff",
                 },
                 headerShadowVisible: false,
                 contentStyle: {
-                  backgroundColor: '#0f0f23',
+                  backgroundColor: "#0f0f23",
                 },
-                animation: 'slide_from_right',
-                headerBackButtonDisplayMode: 'minimal',
+                animation: "slide_from_right",
+                headerBackButtonDisplayMode: "minimal",
               }}
             >
               {!user ? (
@@ -215,7 +220,7 @@ export default function App() {
                   <Stack.Screen
                     name="RealityCheck"
                     component={RealityCheckScreen}
-                    options={{ title: 'Reality Check Reminders' }}
+                    options={{ title: "Reality Check Reminders" }}
                   />
                   <Stack.Screen
                     name="MainTabs"
@@ -234,55 +239,55 @@ export default function App() {
                   <Stack.Screen
                     name="Paywall"
                     component={PaywallScreen}
-                    options={{ 
-                      presentation: 'modal',
+                    options={{
+                      presentation: "modal",
                       headerShown: false,
                     }}
                   />
                   <Stack.Screen
                     name="DreamJournal"
                     component={DreamJournalScreen}
-                    options={{ title: 'Log Dream' }}
+                    options={{ title: "Log Dream" }}
                   />
                   <Stack.Screen
                     name="Lesson"
                     component={LessonScreen}
-                    options={{ title: 'Lesson' }}
+                    options={{ title: "Lesson" }}
                   />
                   <Stack.Screen
                     name="DreamDetail"
                     component={DreamDetailScreen}
-                    options={{ title: 'Dream Details' }}
+                    options={{ title: "Dream Details" }}
                   />
                   <Stack.Screen
                     name="Achievements"
                     component={AchievementsScreen}
-                    options={{ title: 'Achievements' }}
+                    options={{ title: "Achievements" }}
                   />
                   <Stack.Screen
                     name="Settings"
                     component={SettingsScreen}
-                    options={{ title: 'Settings' }}
+                    options={{ title: "Settings" }}
                   />
                   <Stack.Screen
                     name="RealityCheck"
                     component={RealityCheckScreen}
-                    options={{ title: 'Reality Check Reminders' }}
+                    options={{ title: "Reality Check Reminders" }}
                   />
                   <Stack.Screen
                     name="Insights"
                     component={InsightsScreen}
-                    options={{ title: 'Dream Insights' }}
+                    options={{ title: "Dream Insights" }}
                   />
                   <Stack.Screen
                     name="EditDream"
                     component={EditDreamScreen}
-                    options={{ title: 'Edit Dream' }}
+                    options={{ title: "Edit Dream" }}
                   />
                   <Stack.Screen
                     name="StreakCalendar"
                     component={StreakCalendarScreen}
-                    options={{ title: 'Streak Calendar' }}
+                    options={{ title: "Streak Calendar" }}
                   />
                 </>
               )}
