@@ -47,3 +47,5 @@ yarn-error.*
 
 # Config files with secrets
 src/config/openai.ts.local
+
+.vscode/
