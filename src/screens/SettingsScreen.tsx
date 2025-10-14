@@ -8,11 +8,20 @@ import {
   Alert,
   Switch,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../../firebaseConfig";
-import { signOut, deleteUser } from "firebase/auth";
+import {
+  signOut,
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+} from "firebase/auth";
 import {
   doc,
   deleteDoc,
@@ -30,6 +39,8 @@ type SettingsScreenProps = {
 export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [showPasswordModal, setShowPasswordModal] = useState(false); // ✅ Modal state
+  const [passwordInput, setPasswordInput] = useState(""); // ✅ Password input
   const user = auth.currentUser;
 
   const handleLogout = () => {
@@ -76,55 +87,68 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   };
 
   const confirmDeleteAccount = () => {
-    Alert.alert(
-      "Final Confirmation",
-      "Type your email to confirm account deletion.\n\nAre you absolutely sure?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete Forever",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setLoading(true);
+    // ✅ Show password modal instead of Alert.prompt
+    setShowPasswordModal(true);
+  };
 
-              if (!user) return;
+  // ✅ Handle delete with password re-authentication
+  const handleDeleteWithPassword = async () => {
+    if (!passwordInput.trim()) {
+      Alert.alert("Error", "Password is required to delete your account.");
+      return;
+    }
 
-              // Delete all user data from Firestore
-              await deleteUserData(user.uid);
+    try {
+      setLoading(true);
+      setShowPasswordModal(false);
 
-              // Delete the Firebase Auth account
-              await deleteUser(user);
+      if (!user || !user.email) {
+        Alert.alert("Error", "User not found.");
+        setLoading(false);
+        return;
+      }
 
-              Alert.alert(
-                "Account Deleted",
-                "Your account and all data have been permanently deleted.",
-                [{ text: "OK" }]
-              );
-            } catch (error: any) {
-              console.error("Error deleting account:", error);
+      // ✅ Re-authenticate user with their password
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        passwordInput
+      );
+      await reauthenticateWithCredential(user, credential);
 
-              if (error.code === "auth/requires-recent-login") {
-                Alert.alert(
-                  "Re-authentication Required",
-                  "For security, please logout and login again, then try deleting your account."
-                );
-              } else {
-                Alert.alert(
-                  "Error",
-                  "Failed to delete account. Please try again."
-                );
-              }
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+      // ✅ Delete all user data from Firestore
+      await deleteUserData(user.uid);
+
+      // ✅ Delete the Firebase Auth account
+      await deleteUser(user);
+
+      // ✅ Auth state listener will handle navigation automatically
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+
+      // ✅ Show modal again so user can retry
+      setShowPasswordModal(true);
+
+      if (
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/invalid-email"
+      ) {
+        Alert.alert(
+          "Incorrect Password",
+          "The password you entered is incorrect. Please try again."
+        );
+      } else if (error.code === "auth/requires-recent-login") {
+        Alert.alert(
+          "Re-authentication Required",
+          "For security, please logout and login again, then try deleting your account."
+        );
+      } else {
+        Alert.alert("Error", "Failed to delete account. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+      setPasswordInput(""); // Clear password for retry
+    }
   };
 
   const deleteUserData = async (userId: string) => {
@@ -154,7 +178,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     setNotificationsEnabled(value);
 
     if (!value) {
-      // Cancel all notifications
       await Notifications.cancelAllScheduledNotificationsAsync();
       Alert.alert(
         "Notifications Disabled",
@@ -273,6 +296,74 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           </Text>
         </View>
       </ScrollView>
+      <Modal
+        visible={showPasswordModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowPasswordModal(false);
+          setPasswordInput("");
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => {
+              // Optional: close modal when tapping outside
+              // setShowPasswordModal(false);
+              // setPasswordInput("");
+            }}
+          >
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.modalContent}>
+                <Ionicons
+                  name="warning"
+                  size={48}
+                  color="#ef4444"
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalTitle}>Confirm Deletion</Text>
+                <Text style={styles.modalText}>
+                  Enter your password to permanently delete your account and all
+                  data:
+                </Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Password"
+                  placeholderTextColor="#666"
+                  secureTextEntry
+                  value={passwordInput}
+                  onChangeText={setPasswordInput}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleDeleteWithPassword}
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.modalCancelButton}
+                    onPress={() => {
+                      setShowPasswordModal(false);
+                      setPasswordInput("");
+                    }}
+                  >
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalDeleteButton}
+                    onPress={handleDeleteWithPassword}
+                  >
+                    <Text style={styles.modalDeleteText}>Delete Forever</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -304,14 +395,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#888",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 15,
-  },
-  dangerTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ef4444",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 15,
@@ -414,5 +497,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     fontStyle: "italic",
+  },
+  // ✅ Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 16,
+    padding: 24,
+    width: "85%",
+    borderWidth: 1,
+    borderColor: "#ef4444",
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: 14,
+    color: "#aaa",
+    marginBottom: 20,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  passwordInput: {
+    backgroundColor: "#0f0f23",
+    borderWidth: 1,
+    borderColor: "#333",
+    borderRadius: 12,
+    padding: 14,
+    color: "#fff",
+    fontSize: 16,
+    marginBottom: 20,
+    width: 280, // ✅ Fixed width in pixels
+    height: 50, // ✅ Fixed height
+    alignSelf: "center",
+  },
+
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: "#333",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modalCancelText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalDeleteButton: {
+    flex: 1,
+    backgroundColor: "#ef4444",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modalDeleteText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { useSubscription } from "../contexts/SubscriptionContext";
 
 type PaywallScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -52,112 +51,53 @@ const PREMIUM_FEATURES = [
   { icon: "🚫", title: "Ad-Free", description: "Distraction-free experience" },
 ];
 
-export default function PaywallScreen({
-  navigation,
-  route,
-}: PaywallScreenProps) {
-  const { getOfferings, purchasePackage, restorePurchases, loading } =
-    useSubscription();
-  const [purchasing, setPurchasing] = useState(false);
+// 💡 Mock package data
+const MOCK_MONTHLY_PACKAGE = {
+  identifier: "$rc_monthly",
+  product: {
+    priceString: "$4.99",
+  },
+};
+
+const MOCK_YEARLY_PACKAGE = {
+  identifier: "$rc_annual",
+  product: {
+    priceString: "$39.99",
+  },
+};
+
+export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   const [selectedPackage, setSelectedPackage] = useState<string>("monthly");
-  const [offerings, setOfferings] = useState<any>(null);
-  const [loadingOfferings, setLoadingOfferings] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
 
-  // ✅ Fetch offerings on mount
-  useEffect(() => {
-    loadOfferings();
-  }, []);
-
-  const loadOfferings = async () => {
-    try {
-      setLoadingOfferings(true);
-      const fetchedOfferings = await getOfferings();
-      console.log("📦 Offerings loaded:", fetchedOfferings);
-
-      if (fetchedOfferings?.current) {
-        setOfferings(fetchedOfferings.current);
-      }
-    } catch (error) {
-      console.error("❌ Error loading offerings:", error);
+  // 🟢 Handlers just show alerts and navigate back
+  const handlePurchase = (pkg: any) => {
+    setPurchasing(true);
+    setTimeout(() => {
       Alert.alert(
-        "Error",
-        "Unable to load subscription options. Please try again."
+        "Mock Purchase",
+        `Pretend you purchased: ${pkg.identifier} (${pkg.product.priceString})`
       );
-    } finally {
-      setLoadingOfferings(false);
-    }
-  };
-
-  const handlePurchase = async (pkg: any) => {
-    try {
-      setPurchasing(true);
-      const success = await purchasePackage(pkg);
-      if (success) {
-        Alert.alert("Success! 🎉", "Welcome to DreamPilot Premium!");
-        navigation.goBack();
-      }
-    } catch (error: any) {
-      if (!error.userCancelled) {
-        Alert.alert("Purchase Failed", "Please try again or contact support.");
-      }
-    } finally {
       setPurchasing(false);
-    }
+      navigation.goBack();
+    }, 1000);
   };
 
-  const handleRestore = async () => {
-    try {
-      setPurchasing(true);
-      const success = await restorePurchases();
-      if (success) {
-        Alert.alert(
-          "Restored!",
-          "Your premium subscription has been restored."
-        );
-        navigation.goBack();
-      } else {
-        Alert.alert(
-          "No Purchases Found",
-          "No active subscriptions to restore."
-        );
-      }
-    } catch (error) {
-      Alert.alert("Restore Failed", "Please try again or contact support.");
-    } finally {
+  const handleRestore = () => {
+    setPurchasing(true);
+    setTimeout(() => {
+      Alert.alert(
+        "Mock Restore",
+        "Pretend your subscription has been restored."
+      );
       setPurchasing(false);
-    }
+      navigation.goBack();
+    }, 1000);
   };
 
-  // Show loading while fetching offerings
-  if (loading || loadingOfferings) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>Loading subscription options...</Text>
-      </View>
-    );
-  }
-
-  // Get packages from offerings
-  const monthlyPackage = offerings?.availablePackages?.find(
-    (pkg: any) => pkg.identifier === "$rc_monthly"
-  );
-  const yearlyPackage = offerings?.availablePackages?.find(
-    (pkg: any) => pkg.identifier === "$rc_annual"
-  );
-
-  // If no packages available
-  if (!monthlyPackage && !yearlyPackage) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Ionicons name="alert-circle-outline" size={64} color="#888" />
-        <Text style={styles.errorText}>Unable to load subscriptions</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadOfferings}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // Assign packages directly (mock)
+  const monthlyPackage = MOCK_MONTHLY_PACKAGE;
+  const yearlyPackage = MOCK_YEARLY_PACKAGE;
 
   return (
     <View style={styles.container}>
@@ -198,68 +138,64 @@ export default function PaywallScreen({
           <Text style={styles.sectionTitle}>Choose Your Plan</Text>
 
           {/* Yearly Plan */}
-          {yearlyPackage && (
-            <TouchableOpacity
-              style={[
-                styles.pricingCard,
-                selectedPackage === "yearly" && styles.pricingCardSelected,
-              ]}
-              onPress={() => setSelectedPackage("yearly")}
-            >
-              <View style={styles.popularBadge}>
-                <Text style={styles.popularText}>BEST VALUE</Text>
+          <TouchableOpacity
+            style={[
+              styles.pricingCard,
+              selectedPackage === "yearly" && styles.pricingCardSelected,
+            ]}
+            onPress={() => setSelectedPackage("yearly")}
+          >
+            <View style={styles.popularBadge}>
+              <Text style={styles.popularText}>BEST VALUE</Text>
+            </View>
+            <View style={styles.pricingHeader}>
+              <View>
+                <Text style={styles.pricingTitle}>Annual</Text>
+                <Text style={styles.pricingPrice}>
+                  {yearlyPackage.product.priceString}/year
+                </Text>
+                <Text style={styles.pricingPerMonth}>Just $3.33/month</Text>
               </View>
-              <View style={styles.pricingHeader}>
-                <View>
-                  <Text style={styles.pricingTitle}>Annual</Text>
-                  <Text style={styles.pricingPrice}>
-                    {yearlyPackage.product.priceString}/year
-                  </Text>
-                  <Text style={styles.pricingPerMonth}>Just $3.33/month</Text>
-                </View>
-                <Ionicons
-                  name={
-                    selectedPackage === "yearly"
-                      ? "radio-button-on"
-                      : "radio-button-off"
-                  }
-                  size={28}
-                  color={selectedPackage === "yearly" ? "#10b981" : "#888"}
-                />
-              </View>
-              <Text style={styles.saveBadge}>💰 Save 33% vs monthly</Text>
-            </TouchableOpacity>
-          )}
+              <Ionicons
+                name={
+                  selectedPackage === "yearly"
+                    ? "radio-button-on"
+                    : "radio-button-off"
+                }
+                size={28}
+                color={selectedPackage === "yearly" ? "#10b981" : "#888"}
+              />
+            </View>
+            <Text style={styles.saveBadge}>💰 Save 33% vs monthly</Text>
+          </TouchableOpacity>
 
           {/* Monthly Plan */}
-          {monthlyPackage && (
-            <TouchableOpacity
-              style={[
-                styles.pricingCard,
-                selectedPackage === "monthly" && styles.pricingCardSelected,
-              ]}
-              onPress={() => setSelectedPackage("monthly")}
-            >
-              <View style={styles.pricingHeader}>
-                <View>
-                  <Text style={styles.pricingTitle}>Monthly</Text>
-                  <Text style={styles.pricingPrice}>
-                    {monthlyPackage.product.priceString}/month
-                  </Text>
-                  <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
-                </View>
-                <Ionicons
-                  name={
-                    selectedPackage === "monthly"
-                      ? "radio-button-on"
-                      : "radio-button-off"
-                  }
-                  size={28}
-                  color={selectedPackage === "monthly" ? "#6366f1" : "#888"}
-                />
+          <TouchableOpacity
+            style={[
+              styles.pricingCard,
+              selectedPackage === "monthly" && styles.pricingCardSelected,
+            ]}
+            onPress={() => setSelectedPackage("monthly")}
+          >
+            <View style={styles.pricingHeader}>
+              <View>
+                <Text style={styles.pricingTitle}>Monthly</Text>
+                <Text style={styles.pricingPrice}>
+                  {monthlyPackage.product.priceString}/month
+                </Text>
+                <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
               </View>
-            </TouchableOpacity>
-          )}
+              <Ionicons
+                name={
+                  selectedPackage === "monthly"
+                    ? "radio-button-on"
+                    : "radio-button-off"
+                }
+                size={28}
+                color={selectedPackage === "monthly" ? "#6366f1" : "#888"}
+              />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* CTA Button */}
@@ -268,7 +204,7 @@ export default function PaywallScreen({
           onPress={() => {
             const pkg =
               selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
-            if (pkg) handlePurchase(pkg);
+            handlePurchase(pkg);
           }}
           disabled={purchasing}
         >
@@ -280,15 +216,19 @@ export default function PaywallScreen({
               <Text style={styles.ctaButtonSubtext}>
                 7 days free, then{" "}
                 {selectedPackage === "yearly"
-                  ? yearlyPackage?.product.priceString
-                  : monthlyPackage?.product.priceString}
+                  ? yearlyPackage.product.priceString
+                  : monthlyPackage.product.priceString}
               </Text>
             </>
           )}
         </TouchableOpacity>
 
         {/* Restore Purchases */}
-        <TouchableOpacity style={styles.restoreButton} onPress={handleRestore}>
+        <TouchableOpacity
+          style={styles.restoreButton}
+          onPress={handleRestore}
+          disabled={purchasing}
+        >
           <Text style={styles.restoreText}>Restore Purchases</Text>
         </TouchableOpacity>
 
@@ -304,6 +244,8 @@ export default function PaywallScreen({
     </View>
   );
 }
+
+// (Retain your styles block as-is)
 
 const styles = StyleSheet.create({
   container: {

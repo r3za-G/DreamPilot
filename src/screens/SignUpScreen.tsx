@@ -62,6 +62,7 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
         lucidDreams: 0,
         currentLevel: 1,
         isPremium: false,
+        lastDreamDate: "",
       });
 
       // ✅ Clear onboarding flag for new users - they should see onboarding

@@ -56,7 +56,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [dreamPatterns, setDreamPatterns] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isPremium, setIsPremium] = useState(false); // ✅ Added
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -95,11 +95,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const querySnapshot = await getDocs(dreamsQuery);
       const dreamsData: Dream[] = [];
 
-      querySnapshot.forEach((doc) => {
-        dreamsData.push({
-          id: doc.id,
-          ...doc.data(),
-        } as Dream);
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        // ✅ Filter out soft-deleted dreams client-side
+        if (data.isDeleted !== true) {
+          dreamsData.push({
+            id: docSnap.id,
+            ...data,
+          } as Dream);
+        }
       });
 
       setDreams(dreamsData);
@@ -137,7 +141,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           currentStreak: data.currentStreak || 0,
           lastDreamDate: data.lastDreamDate || "",
           createdAt: data.createdAt || "",
-          isPremium: premiumStatus, // ✅ Added
+          isPremium: premiumStatus,
         });
       }
     } catch (error) {
@@ -181,7 +185,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         completedLessons,
         dreamPatterns,
         loading,
-        isPremium, // ✅ Added - now accessible everywhere
+        isPremium,
         refreshData,
         refreshDreams,
         refreshUserData,
