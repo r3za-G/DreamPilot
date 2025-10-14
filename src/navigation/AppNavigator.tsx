@@ -168,7 +168,6 @@ export default function App() {
 
   return (
     <SubscriptionProvider>
-      r
       <DataProvider>
         <SafeAreaProvider>
           <NavigationContainer>
