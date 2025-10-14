@@ -7,6 +7,7 @@ import Purchases, {
 import { Platform, Alert } from "react-native";
 import { auth, db } from "../../firebaseConfig";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import Constants from "expo-constants";
 
 interface SubscriptionContextType {
   isPremium: boolean;
@@ -17,7 +18,7 @@ interface SubscriptionContextType {
   getOfferings: () => Promise<any>;
 }
 
-const IOS_API_KEY = process.env.EXPO_PUBLIC_IOS_REVENUECAT_API_KEY || "";
+const IOS_API_KEY = Constants.expoConfig?.extra?.revenueCatApiKey ?? "";
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
   undefined
