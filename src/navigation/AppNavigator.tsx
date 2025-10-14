@@ -50,6 +50,71 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const AppScreens = () => {
+  return (
+    <>
+      <Stack.Screen
+        name="MainTabs"
+        component={TabNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Paywall"
+        component={PaywallScreen}
+        options={{
+          presentation: "modal",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="DreamJournal"
+        component={DreamJournalScreen}
+        options={{ title: "Log Dream" }}
+      />
+      <Stack.Screen
+        name="Lesson"
+        component={LessonScreen}
+        options={{ title: "Lesson" }}
+      />
+      <Stack.Screen
+        name="DreamDetail"
+        component={DreamDetailScreen}
+        options={{ title: "Dream Details" }}
+      />
+      <Stack.Screen
+        name="Achievements"
+        component={AchievementsScreen}
+        options={{ title: "Achievements" }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: "Settings" }}
+      />
+      <Stack.Screen
+        name="RealityCheck"
+        component={RealityCheckScreen}
+        options={{ title: "Reality Check Reminders" }}
+      />
+      <Stack.Screen
+        name="Insights"
+        component={InsightsScreen}
+        options={{ title: "Dream Insights" }}
+      />
+      <Stack.Screen
+        name="EditDream"
+        component={EditDreamScreen}
+        options={{ title: "Edit Dream" }}
+      />
+      <Stack.Screen
+        name="StreakCalendar"
+        component={StreakCalendarScreen}
+        options={{ title: "Streak Calendar" }}
+      />
+    </>
+  );
+};
+
 // Bottom Tab Navigator
 function TabNavigator() {
   return (
@@ -159,13 +224,6 @@ export default function App() {
     return null;
   }
 
-  console.log(
-    "User:",
-    user ? "Logged in" : "Not logged in",
-    "Show onboarding:",
-    showOnboarding
-  ); // Debug log
-
   return (
     // <SubscriptionProvider>
     <DataProvider>
@@ -216,84 +274,16 @@ export default function App() {
                   component={OnboardingScreen}
                   options={{ headerShown: false }}
                 />
-                <Stack.Screen
-                  name="RealityCheck"
-                  component={RealityCheckScreen}
-                  options={{ title: "Reality Check Reminders" }}
-                />
-                <Stack.Screen
-                  name="MainTabs"
-                  component={TabNavigator}
-                  options={{ headerShown: false }}
-                />
+                {AppScreens()}
               </>
             ) : (
               // Logged in and completed onboarding - Show main app
-              <>
-                <Stack.Screen
-                  name="MainTabs"
-                  component={TabNavigator}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="Paywall"
-                  component={PaywallScreen}
-                  options={{
-                    presentation: "modal",
-                    headerShown: false,
-                  }}
-                />
-                <Stack.Screen
-                  name="DreamJournal"
-                  component={DreamJournalScreen}
-                  options={{ title: "Log Dream" }}
-                />
-                <Stack.Screen
-                  name="Lesson"
-                  component={LessonScreen}
-                  options={{ title: "Lesson" }}
-                />
-                <Stack.Screen
-                  name="DreamDetail"
-                  component={DreamDetailScreen}
-                  options={{ title: "Dream Details" }}
-                />
-                <Stack.Screen
-                  name="Achievements"
-                  component={AchievementsScreen}
-                  options={{ title: "Achievements" }}
-                />
-                <Stack.Screen
-                  name="Settings"
-                  component={SettingsScreen}
-                  options={{ title: "Settings" }}
-                />
-                <Stack.Screen
-                  name="RealityCheck"
-                  component={RealityCheckScreen}
-                  options={{ title: "Reality Check Reminders" }}
-                />
-                <Stack.Screen
-                  name="Insights"
-                  component={InsightsScreen}
-                  options={{ title: "Dream Insights" }}
-                />
-                <Stack.Screen
-                  name="EditDream"
-                  component={EditDreamScreen}
-                  options={{ title: "Edit Dream" }}
-                />
-                <Stack.Screen
-                  name="StreakCalendar"
-                  component={StreakCalendarScreen}
-                  options={{ title: "Streak Calendar" }}
-                />
-              </>
+              <>{AppScreens()}</>
             )}
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
     </DataProvider>
-    //</SubscriptionProvider>
+    // </SubscriptionProvider>
   );
 }

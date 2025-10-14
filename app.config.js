@@ -15,6 +15,7 @@ export default {
       backgroundColor: "#ffffff",
     },
     ios: {
+      deploymentTarget: "15.1",
       supportsTablet: true,
       bundleIdentifier: "com.gharooni.dreampilot",
       infoPlist: {

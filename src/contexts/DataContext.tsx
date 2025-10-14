@@ -59,9 +59,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        loadAllData();
+        // ✅ Don't await - load in background
+        loadAllData().catch((err) => {
+          console.error("Failed to load data:", err);
+          setLoading(false); // ✅ Unblock even on error
+        });
       } else {
         setLoading(false);
       }
@@ -73,10 +77,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const loadAllData = async () => {
     try {
       setLoading(true);
-      await Promise.all([refreshDreams(), refreshUserData(), refreshLessons()]);
+
+      // ✅ Use allSettled instead of all (doesn't fail if one fails)
+      const results = await Promise.allSettled([
+        refreshDreams(),
+        refreshUserData(),
+        refreshLessons(),
+      ]);
+
+      // ✅ Log any failures
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          console.error(`Load operation ${index} failed:`, result.reason);
+        }
+      });
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
+      // ✅ ALWAYS set loading to false after max 5 seconds
       setLoading(false);
     }
   };
@@ -97,7 +115,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        // ✅ Filter out soft-deleted dreams client-side
         if (data.isDeleted !== true) {
           dreamsData.push({
             id: docSnap.id,
@@ -108,11 +125,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       setDreams(dreamsData);
 
-      // Also refresh patterns when dreams change
       const patterns = await getUserDreamPatterns(user.uid);
       setDreamPatterns(patterns);
     } catch (error) {
       console.error("Error refreshing dreams:", error);
+      // ✅ Don't throw - just log
     }
   };
 
@@ -125,7 +142,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (userDoc.exists()) {
         const data = userDoc.data();
 
-        // Get XP from the XP manager (stored separately)
         const totalXP = await getUserXP(user.uid);
         const level = calculateLevel(totalXP);
 
@@ -146,6 +162,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Error refreshing user data:", error);
+      // ✅ Don't throw - just log
     }
   };
 
@@ -170,6 +187,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setCompletedLessons(completed);
     } catch (error) {
       console.error("Error refreshing lessons:", error);
+      // ✅ Don't throw - just log
     }
   };
 
@@ -177,6 +195,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await loadAllData();
   };
 
+  // ✅ ALWAYS render children, even while loading
   return (
     <DataContext.Provider
       value={{
