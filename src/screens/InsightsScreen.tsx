@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,10 +7,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
-import { useData } from '../contexts/DataContext';
+} from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
+import { useData } from "../contexts/DataContext";
+import Card from "../components/Card";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type InsightsScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -28,14 +31,14 @@ type DreamPattern = {
 };
 
 export default function InsightsScreen({ navigation }: InsightsScreenProps) {
-  const { dreams, dreamPatterns, loading, refreshData, isPremium } = useData(); // ✅ Added isPremium
+  const { dreams, dreamPatterns, loading, refreshData, isPremium } = useData();
   const [refreshing, setRefreshing] = useState(false);
   const [patterns, setPatterns] = useState<DreamPattern>({
     totalDreams: 0,
     lucidDreams: 0,
     lucidPercentage: 0,
     topTags: [],
-    mostActiveDayOfWeek: { day: 'N/A', count: 0 },
+    mostActiveDayOfWeek: { day: "N/A", count: 0 },
     averageDreamsPerWeek: 0,
     longestLucidStreak: 0,
     dreamsByMonth: [],
@@ -48,6 +51,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
   }, [dreams, loading]);
 
   const onRefresh = async () => {
+    hapticFeedback.light();
     setRefreshing(true);
     await refreshData();
     setRefreshing(false);
@@ -59,12 +63,11 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     }
 
     const totalDreams = dreams.length;
-    const lucidDreams = dreams.filter(d => d.isLucid).length;
+    const lucidDreams = dreams.filter((d) => d.isLucid).length;
     const lucidPercentage = Math.round((lucidDreams / totalDreams) * 100);
 
-    // Top tags analysis
     const tagCounts: { [key: string]: number } = {};
-    dreams.forEach(dream => {
+    dreams.forEach((dream) => {
       dream.tags?.forEach((tag: string) => {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
       });
@@ -74,31 +77,37 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Day of week analysis
     const dayCounts: { [key: string]: number } = {};
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    dreams.forEach(dream => {
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    dreams.forEach((dream) => {
       const day = dayNames[new Date(dream.createdAt).getDay()];
       dayCounts[day] = (dayCounts[day] || 0) + 1;
     });
     const mostActiveDayOfWeek = Object.entries(dayCounts)
       .map(([day, count]) => ({ day, count }))
-      .sort((a, b) => b.count - a.count)[0] || { day: 'N/A', count: 0 };
+      .sort((a, b) => b.count - a.count)[0] || { day: "N/A", count: 0 };
 
-    // Average dreams per week
     const sortedDates = dreams
-      .map(d => new Date(d.createdAt).getTime())
+      .map((d) => new Date(d.createdAt).getTime())
       .sort((a, b) => a - b);
     const firstDream = sortedDates[0];
     const lastDream = sortedDates[sortedDates.length - 1];
     const daysBetween = (lastDream - firstDream) / (1000 * 60 * 60 * 24);
     const weeksBetween = Math.max(daysBetween / 7, 1);
-    const averageDreamsPerWeek = Math.round((totalDreams / weeksBetween) * 10) / 10;
+    const averageDreamsPerWeek =
+      Math.round((totalDreams / weeksBetween) * 10) / 10;
 
-    // Longest lucid streak
     const lucidDates = dreams
-      .filter(d => d.isLucid)
-      .map(d => new Date(d.createdAt).toDateString())
+      .filter((d) => d.isLucid)
+      .map((d) => new Date(d.createdAt).toDateString())
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
     let longestLucidStreak = 0;
@@ -109,8 +118,10 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
       } else {
         const prevDate = new Date(lucidDates[i - 1]);
         const currDate = new Date(lucidDates[i]);
-        const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-        
+        const diffDays = Math.floor(
+          (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
         if (diffDays === 1) {
           currentStreak++;
         } else {
@@ -121,14 +132,26 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     }
     longestLucidStreak = Math.max(longestLucidStreak, currentStreak);
 
-    // Dreams by month
     const monthCounts: { [key: string]: { total: number; lucid: number } } = {};
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    dreams.forEach(dream => {
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    dreams.forEach((dream) => {
       const date = new Date(dream.createdAt);
       const monthKey = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      
+
       if (!monthCounts[monthKey]) {
         monthCounts[monthKey] = { total: 0, lucid: 0 };
       }
@@ -158,24 +181,32 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     });
   };
 
-  // ✅ NEW: Render premium locked section
   const renderPremiumLockedSection = (title: string, icon: string) => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{icon} {title}</Text>
-      <TouchableOpacity 
+      <Text style={styles.sectionTitle}>
+        {icon} {title}
+      </Text>
+      <TouchableOpacity
         style={styles.lockedCard}
-        onPress={() => navigation.navigate('Paywall')}
+        onPress={() => {
+          hapticFeedback.light();
+          navigation.navigate("Paywall");
+        }}
         activeOpacity={0.8}
       >
         <View style={styles.lockedContent}>
-          <Ionicons name="lock-closed" size={40} color="#6366f1" />
+          <Ionicons name="lock-closed" size={40} color={COLORS.primary} />
           <Text style={styles.lockedTitle}>Premium Feature</Text>
           <Text style={styles.lockedDescription}>
             Unlock AI-powered insights to discover patterns in your dreams
           </Text>
           <View style={styles.upgradeButton}>
             <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
-            <Ionicons name="arrow-forward" size={16} color="#fff" />
+            <Ionicons
+              name="arrow-forward"
+              size={16}
+              color={COLORS.textPrimary}
+            />
           </View>
         </View>
       </TouchableOpacity>
@@ -185,7 +216,8 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading insights...</Text>
       </View>
     );
   }
@@ -202,162 +234,196 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     );
   }
 
-  const maxMonthCount = Math.max(...patterns.dreamsByMonth.map(m => m.count), 1);
+  const maxMonthCount = Math.max(
+    ...patterns.dreamsByMonth.map((m) => m.count),
+    1
+  );
 
   return (
     <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#6366f1"
-            colors={['#6366f1']}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
           />
         }
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Dream Insights</Text>
           <Text style={styles.subtitle}>Discover patterns in your dreams</Text>
         </View>
 
-        {/* ✅ Premium banner for free users */}
         {!isPremium && (
-          <TouchableOpacity 
-            style={styles.premiumBanner}
-            onPress={() => navigation.navigate('Paywall')}
-          >
-            <View style={styles.premiumBannerContent}>
-              <Text style={styles.premiumBannerIcon}>🤖</Text>
-              <View style={styles.premiumBannerText}>
-                <Text style={styles.premiumBannerTitle}>Unlock AI Insights</Text>
-                <Text style={styles.premiumBannerSubtitle}>
-                  Get dream signs, emotional patterns & themes
-                </Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color="#6366f1" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.premiumBannerWrapper}>
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Paywall");
+              }}
+              activeOpacity={0.7}
+            >
+              <Card variant="highlighted">
+                <View style={styles.premiumBannerContent}>
+                  <Text style={styles.premiumBannerIcon}>🤖</Text>
+                  <View style={styles.premiumBannerText}>
+                    <Text style={styles.premiumBannerTitle}>
+                      Unlock AI Insights
+                    </Text>
+                    <Text style={styles.premiumBannerSubtitle}>
+                      Get dream signs, emotional patterns & themes
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                </View>
+              </Card>
+            </TouchableOpacity>
+          </View>
         )}
 
-        {/* Overview Cards - FREE for all users */}
         <View style={styles.overviewSection}>
-          <View style={styles.overviewCard}>
-            <Ionicons name="bar-chart" size={28} color="#6366f1" />
-            <Text style={styles.overviewNumber}>{patterns.lucidPercentage}%</Text>
+          <Card style={styles.overviewCard}>
+            <Ionicons name="bar-chart" size={28} color={COLORS.primary} />
+            <Text style={styles.overviewNumber}>
+              {patterns.lucidPercentage}%
+            </Text>
             <Text style={styles.overviewLabel}>Lucid Rate</Text>
-          </View>
+          </Card>
 
-          <View style={styles.overviewCard}>
-            <Ionicons name="calendar" size={28} color="#10b981" />
-            <Text style={styles.overviewNumber}>{patterns.averageDreamsPerWeek}</Text>
+          <Card style={styles.overviewCard}>
+            <Ionicons name="calendar" size={28} color={COLORS.success} />
+            <Text style={styles.overviewNumber}>
+              {patterns.averageDreamsPerWeek}
+            </Text>
             <Text style={styles.overviewLabel}>Dreams/Week</Text>
-          </View>
+          </Card>
 
-          <View style={styles.overviewCard}>
-            <Ionicons name="flame" size={28} color="#f59e0b" />
-            <Text style={styles.overviewNumber}>{patterns.longestLucidStreak}</Text>
+          <Card style={styles.overviewCard}>
+            <Ionicons name="flame" size={28} color={COLORS.warning} />
+            <Text style={styles.overviewNumber}>
+              {patterns.longestLucidStreak}
+            </Text>
             <Text style={styles.overviewLabel}>Best Streak</Text>
-          </View>
+          </Card>
         </View>
 
-        {/* ✅ AI Dream Signs - PREMIUM ONLY */}
-        {!isPremium ? (
-          renderPremiumLockedSection('Your Personal Dream Signs', '🎯')
-        ) : dreamPatterns.topDreamSigns.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🎯 Your Personal Dream Signs</Text>
-            <View style={styles.insightCard}>
-              <Text style={styles.dreamSignDescription}>
-                AI detected these unusual elements in your dreams - perfect for reality checks!
-              </Text>
-              {dreamPatterns.topDreamSigns.slice(0, 5).map((item: { sign: string; count: number }) => (
-                <View key={item.sign} style={styles.dreamSignRow}>
-                  <View style={styles.dreamSignBadge}>
-                    <Text style={styles.dreamSignIcon}>✨</Text>
-                  </View>
-                  <View style={styles.dreamSignInfo}>
-                    <Text style={styles.dreamSignName}>{item.sign}</Text>
-                    <View style={styles.dreamSignBar}>
-                      <View 
-                        style={[
-                          styles.dreamSignBarFill, 
-                          { width: `${(item.count / dreamPatterns.topDreamSigns[0].count) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
-                  <Text style={styles.dreamSignCount}>×{item.count}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ✅ Emotional Patterns - PREMIUM ONLY */}
-        {!isPremium ? (
-          renderPremiumLockedSection('Emotional Patterns', '💭')
-        ) : dreamPatterns.topEmotions.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💭 Emotional Patterns</Text>
-            <View style={styles.insightCard}>
-              <View style={styles.emotionGrid}>
-                {dreamPatterns.topEmotions.map((item: { emotion: string; count: number }) => (
-                  <View key={item.emotion} style={styles.emotionChip}>
-                    <Text style={styles.emotionName}>{item.emotion}</Text>
-                    <Text style={styles.emotionCount}>{item.count}</Text>
-                  </View>
-                ))}
+        {!isPremium
+          ? renderPremiumLockedSection("Your Personal Dream Signs", "🎯")
+          : dreamPatterns.topDreamSigns.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  🎯 Your Personal Dream Signs
+                </Text>
+                <Card>
+                  <Text style={styles.dreamSignDescription}>
+                    AI detected these unusual elements in your dreams - perfect
+                    for reality checks!
+                  </Text>
+                  {dreamPatterns.topDreamSigns
+                    .slice(0, 5)
+                    .map((item: { sign: string; count: number }) => (
+                      <View key={item.sign} style={styles.dreamSignRow}>
+                        <View style={styles.dreamSignBadge}>
+                          <Text style={styles.dreamSignIcon}>✨</Text>
+                        </View>
+                        <View style={styles.dreamSignInfo}>
+                          <Text style={styles.dreamSignName}>{item.sign}</Text>
+                          <View style={styles.dreamSignBar}>
+                            <View
+                              style={[
+                                styles.dreamSignBarFill,
+                                {
+                                  width: `${
+                                    (item.count /
+                                      dreamPatterns.topDreamSigns[0].count) *
+                                    100
+                                  }%`,
+                                },
+                              ]}
+                            />
+                          </View>
+                        </View>
+                        <Text style={styles.dreamSignCount}>×{item.count}</Text>
+                      </View>
+                    ))}
+                </Card>
               </View>
-            </View>
-          </View>
-        )}
+            )}
 
-        {/* ✅ AI Themes - PREMIUM ONLY */}
-        {!isPremium ? (
-          renderPremiumLockedSection('AI-Detected Themes', '🎨')
-        ) : dreamPatterns.topThemes.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🎨 AI-Detected Themes</Text>
-            <View style={styles.insightCard}>
-              <View style={styles.themesContainer}>
-                {dreamPatterns.topThemes.map((item: { theme: string; count: number }) => (
-                  <View key={item.theme} style={styles.themeRow}>
-                    <View style={styles.themeIconContainer}>
-                      <Text style={styles.themeIcon}>🌟</Text>
-                    </View>
-                    <View style={styles.themeInfo}>
-                      <Text style={styles.themeName}>{item.theme}</Text>
-                      <Text style={styles.themeCount}>Appeared {item.count} times</Text>
-                    </View>
+        {!isPremium
+          ? renderPremiumLockedSection("Emotional Patterns", "💭")
+          : dreamPatterns.topEmotions.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>💭 Emotional Patterns</Text>
+                <Card>
+                  <View style={styles.emotionGrid}>
+                    {dreamPatterns.topEmotions.map(
+                      (item: { emotion: string; count: number }) => (
+                        <View key={item.emotion} style={styles.emotionChip}>
+                          <Text style={styles.emotionName}>{item.emotion}</Text>
+                          <Text style={styles.emotionCount}>{item.count}</Text>
+                        </View>
+                      )
+                    )}
                   </View>
-                ))}
+                </Card>
               </View>
-            </View>
-          </View>
-        )}
+            )}
 
-        {/* Most Active Day - FREE */}
+        {!isPremium
+          ? renderPremiumLockedSection("AI-Detected Themes", "🎨")
+          : dreamPatterns.topThemes.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🎨 AI-Detected Themes</Text>
+                <Card>
+                  <View style={styles.themesContainer}>
+                    {dreamPatterns.topThemes.map(
+                      (item: { theme: string; count: number }) => (
+                        <View key={item.theme} style={styles.themeRow}>
+                          <View style={styles.themeIconContainer}>
+                            <Text style={styles.themeIcon}>🌟</Text>
+                          </View>
+                          <View style={styles.themeInfo}>
+                            <Text style={styles.themeName}>{item.theme}</Text>
+                            <Text style={styles.themeCount}>
+                              Appeared {item.count} times
+                            </Text>
+                          </View>
+                        </View>
+                      )
+                    )}
+                  </View>
+                </Card>
+              </View>
+            )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📅 Most Active Day</Text>
-          <View style={styles.insightCard}>
+          <Card>
             <View style={styles.insightContent}>
-              <Text style={styles.insightValue}>{patterns.mostActiveDayOfWeek.day}</Text>
+              <Text style={styles.insightValue}>
+                {patterns.mostActiveDayOfWeek.day}
+              </Text>
               <Text style={styles.insightDescription}>
-                You log {patterns.mostActiveDayOfWeek.count} dreams on {patterns.mostActiveDayOfWeek.day}s
+                You log {patterns.mostActiveDayOfWeek.count} dreams on{" "}
+                {patterns.mostActiveDayOfWeek.day}s
               </Text>
             </View>
-          </View>
+          </Card>
         </View>
 
-        {/* Top Dream Tags - FREE */}
         {patterns.topTags.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🏷️ Common Dream Tags</Text>
-            <View style={styles.insightCard}>
+            <Card>
               {patterns.topTags.map((item, index) => (
                 <View key={item.tag} style={styles.tagRow}>
                   <View style={styles.tagRank}>
@@ -366,51 +432,55 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
                   <View style={styles.tagInfo}>
                     <Text style={styles.tagName}>{item.tag}</Text>
                     <View style={styles.tagBar}>
-                      <View 
+                      <View
                         style={[
-                          styles.tagBarFill, 
-                          { width: `${(item.count / patterns.topTags[0].count) * 100}%` }
-                        ]} 
+                          styles.tagBarFill,
+                          {
+                            width: `${
+                              (item.count / patterns.topTags[0].count) * 100
+                            }%`,
+                          },
+                        ]}
                       />
                     </View>
                   </View>
                   <Text style={styles.tagCount}>{item.count}</Text>
                 </View>
               ))}
-            </View>
+            </Card>
           </View>
         )}
 
-        {/* Dreams Over Time - FREE */}
         {patterns.dreamsByMonth.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📈 Dream Activity</Text>
-            <View style={styles.insightCard}>
+            <Card>
               <View style={styles.chartContainer}>
                 {patterns.dreamsByMonth.map((month, index) => {
                   const barHeight = (month.count / maxMonthCount) * 100;
-                  const lucidBarHeight = (month.lucidCount / maxMonthCount) * 100;
-                  
+                  const lucidBarHeight =
+                    (month.lucidCount / maxMonthCount) * 100;
+
                   return (
                     <View key={index} style={styles.chartBar}>
                       <View style={styles.chartColumn}>
-                        <View 
+                        <View
                           style={[
                             styles.chartBarTotal,
-                            { height: `${Math.max(barHeight, 5)}%` }
-                          ]} 
+                            { height: `${Math.max(barHeight, 5)}%` },
+                          ]}
                         />
                         {month.lucidCount > 0 && (
-                          <View 
+                          <View
                             style={[
                               styles.chartBarLucid,
-                              { height: `${Math.max(lucidBarHeight, 3)}%` }
-                            ]} 
+                              { height: `${Math.max(lucidBarHeight, 3)}%` },
+                            ]}
                           />
                         )}
                       </View>
                       <Text style={styles.chartLabel} numberOfLines={1}>
-                        {month.month.split(' ')[0]}
+                        {month.month.split(" ")[0]}
                       </Text>
                       <Text style={styles.chartValue}>{month.count}</Text>
                     </View>
@@ -419,15 +489,25 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
               </View>
               <View style={styles.chartLegend}>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#6366f1' }]} />
+                  <View
+                    style={[
+                      styles.legendDot,
+                      { backgroundColor: COLORS.primary },
+                    ]}
+                  />
                   <Text style={styles.legendText}>Total Dreams</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} />
+                  <View
+                    style={[
+                      styles.legendDot,
+                      { backgroundColor: COLORS.secondary },
+                    ]}
+                  />
                   <Text style={styles.legendText}>Lucid Dreams</Text>
                 </View>
               </View>
-            </View>
+            </Card>
           </View>
         )}
 
@@ -440,69 +520,67 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0f0f23',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    marginTop: SPACING.md,
   },
   emptyContainer: {
     flex: 1,
-    backgroundColor: '#0f0f23',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: SPACING.xxxl + 10,
   },
   emptyIcon: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   emptyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    textAlign: "center",
     lineHeight: 24,
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    padding: 20,
-    paddingTop: 20,
+    padding: SPACING.xl,
+    paddingTop: SPACING.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 5,
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#888',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
   },
-  // ✅ Premium banner
-  premiumBanner: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#6366f1',
-    overflow: 'hidden',
+  premiumBannerWrapper: {
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   premiumBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
   },
   premiumBannerIcon: {
     fontSize: 32,
@@ -511,213 +589,198 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   premiumBannerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   premiumBannerSubtitle: {
-    fontSize: 13,
-    color: '#888',
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
   },
-  // ✅ Locked card styles
   lockedCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 40,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.md,
+    padding: SPACING.xxxl + 10,
     borderWidth: 2,
-    borderColor: '#6366f1',
-    borderStyle: 'dashed',
+    borderColor: COLORS.primary,
+    borderStyle: "dashed",
   },
   lockedContent: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   lockedTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
   lockedDescription: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    textAlign: "center",
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   upgradeButton: {
-    flexDirection: 'row',
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    gap: 8,
+    flexDirection: "row",
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.sm,
+    alignItems: "center",
+    gap: SPACING.sm,
   },
   upgradeButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
   },
   overviewSection: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 10,
+    flexDirection: "row",
+    paddingHorizontal: SPACING.xl,
+    gap: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   overviewCard: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
+    padding: SPACING.lg,
+    alignItems: "center",
   },
   overviewNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 8,
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   overviewLabel: {
-    fontSize: 11,
-    color: '#888',
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
+    textAlign: "center",
   },
   section: {
-    paddingHorizontal: 20,
-    marginTop: 20,
+    paddingHorizontal: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 12,
-  },
-  insightCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#333',
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
   },
   insightContent: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   insightValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#6366f1',
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
+    marginBottom: SPACING.sm,
   },
   insightDescription: {
-    fontSize: 14,
-    color: '#aaa',
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    textAlign: "center",
   },
-  // Dream Signs Styles
   dreamSignDescription: {
-    fontSize: 13,
-    color: '#aaa',
-    marginBottom: 16,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
     lineHeight: 18,
   },
   dreamSignRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING.md,
   },
   dreamSignBadge: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#6366f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
   },
   dreamSignIcon: {
     fontSize: 18,
   },
   dreamSignInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: SPACING.md,
   },
   dreamSignName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 6,
-    textTransform: 'capitalize',
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+    textTransform: "capitalize",
   },
   dreamSignBar: {
     height: 6,
-    backgroundColor: '#0f0f23',
-    borderRadius: 3,
-    overflow: 'hidden',
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.sm,
+    overflow: "hidden",
   },
   dreamSignBarFill: {
-    height: '100%',
-    backgroundColor: '#6366f1',
-    borderRadius: 3,
+    height: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
   },
   dreamSignCount: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#6366f1',
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
     minWidth: 36,
-    textAlign: 'right',
+    textAlign: "right",
   },
-  // Emotion Styles
   emotionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.sm,
   },
   emotionChip: {
-    backgroundColor: '#0f0f23',
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.round,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
     borderWidth: 1,
-    borderColor: '#a855f7',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    borderColor: COLORS.secondary,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
   },
   emotionName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#a855f7',
-    textTransform: 'capitalize',
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.secondary,
+    textTransform: "capitalize",
   },
   emotionCount: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textTertiary,
   },
-  // Theme Styles
   themesContainer: {
-    gap: 12,
+    gap: SPACING.md,
   },
   themeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f0f23',
-    borderRadius: 10,
-    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
   },
   themeIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1a1a2e',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    backgroundColor: COLORS.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
   },
   themeIcon: {
     fontSize: 20,
@@ -726,127 +789,125 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   themeName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 3,
-    textTransform: 'capitalize',
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs / 2,
+    textTransform: "capitalize",
   },
   themeCount: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
   },
-  // Tag Styles
   tagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING.lg,
   },
   tagRank: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#6366f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
   },
   tagRankText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: COLORS.textPrimary,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    fontSize: TYPOGRAPHY.sizes.md,
   },
   tagInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: SPACING.md,
   },
   tagName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 6,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   tagBar: {
     height: 6,
-    backgroundColor: '#0f0f23',
-    borderRadius: 3,
-    overflow: 'hidden',
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.sm,
+    overflow: "hidden",
   },
   tagBarFill: {
-    height: '100%',
-    backgroundColor: '#6366f1',
-    borderRadius: 3,
+    height: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
   },
   tagCount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#6366f1',
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
     minWidth: 30,
-    textAlign: 'right',
+    textAlign: "right",
   },
-  // Chart Styles
   chartContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "flex-end",
     height: 150,
-    marginBottom: 20,
-    paddingTop: 10,
+    marginBottom: SPACING.lg,
+    paddingTop: SPACING.sm,
   },
   chartBar: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
   chartColumn: {
-    width: '80%',
+    width: "80%",
     height: 120,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    position: 'relative',
+    justifyContent: "flex-end",
+    alignItems: "center",
+    position: "relative",
   },
   chartBarTotal: {
-    width: '100%',
-    backgroundColor: '#6366f1',
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
+    width: "100%",
+    backgroundColor: COLORS.primary,
+    borderTopLeftRadius: RADIUS.sm,
+    borderTopRightRadius: RADIUS.sm,
     minHeight: 8,
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
   },
   chartBarLucid: {
-    width: '100%',
-    backgroundColor: '#a855f7',
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
+    width: "100%",
+    backgroundColor: COLORS.secondary,
+    borderTopLeftRadius: RADIUS.sm,
+    borderTopRightRadius: RADIUS.sm,
     minHeight: 5,
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     zIndex: 1,
   },
   chartLabel: {
-    fontSize: 11,
-    color: '#888',
-    marginTop: 8,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.sm,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   chartValue: {
-    fontSize: 10,
-    color: '#666',
-    marginTop: 2,
+    fontSize: TYPOGRAPHY.sizes.xs - 2,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.xs / 2,
   },
   chartLegend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-    paddingTop: 15,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: SPACING.lg,
+    paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: '#333',
+    borderTopColor: COLORS.border,
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
   },
   legendDot: {
     width: 12,
@@ -854,10 +915,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   legendText: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
   },
   footer: {
-    height: 40,
+    height: SPACING.xxxl,
   },
 });

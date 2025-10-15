@@ -13,13 +13,16 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../firebaseConfig";
 import { useData } from "../contexts/DataContext";
+import Card from "../components/Card";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type ProfileScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
-  const { userData, dreams, loading, isPremium } = useData(); // ✅ Added isPremium
+  const { userData, dreams, loading, isPremium } = useData();
   const [exporting, setExporting] = useState(false);
 
   const exportDreams = async () => {
@@ -29,11 +32,11 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       if (!user) return;
 
       if (dreams.length === 0) {
+        hapticFeedback.warning();
         Alert.alert("No Dreams", "You have no dreams to export yet.");
         return;
       }
 
-      // Format as readable text using cached dreams
       let textContent = `Dream Journal Export\n`;
       textContent += `User: ${
         userData?.firstName && userData?.lastName
@@ -57,13 +60,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         textContent += `\n${"-".repeat(50)}\n\n`;
       });
 
-      // Share directly
       await Share.share({
         message: textContent,
         title: "Dream Journal Export",
       });
+      hapticFeedback.success();
     } catch (error) {
       console.error("Error exporting dreams:", error);
+      hapticFeedback.error();
       Alert.alert("Error", "Failed to export dreams. Please try again.");
     } finally {
       setExporting(false);
@@ -77,6 +81,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       if (!user) return;
 
       if (dreams.length === 0) {
+        hapticFeedback.warning();
         Alert.alert("No Dreams", "You have no dreams to export yet.");
         return;
       }
@@ -96,13 +101,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         dreams: dreams,
       };
 
-      // Share JSON as text
       await Share.share({
         message: JSON.stringify(exportData, null, 2),
         title: "Dream Journal Export (JSON)",
       });
+      hapticFeedback.success();
     } catch (error) {
       console.error("Error exporting dreams:", error);
+      hapticFeedback.error();
       Alert.alert("Error", "Failed to export dreams. Please try again.");
     } finally {
       setExporting(false);
@@ -110,6 +116,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   };
 
   const showExportOptions = () => {
+    hapticFeedback.light();
     Alert.alert("Export Dreams", "Choose export format", [
       {
         text: "Text File (.txt)",
@@ -129,7 +136,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
       </View>
     );
   }
@@ -146,13 +154,15 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Text style={styles.avatarIcon}>🌙</Text>
           </View>
           <Text style={styles.userName}>
-            {userData?.firstName || "Dreamer"}
+            {userData?.firstName && userData?.lastName
+              ? `${userData.firstName} ${userData.lastName}`
+              : userData?.firstName || "Dreamer"}
           </Text>
 
-          {/* ✅ NEW: Premium badge */}
+          {/* Premium Badge */}
           {isPremium ? (
             <View style={styles.premiumBadge}>
-              <Ionicons name="star" size={14} color="#fff" />
+              <Ionicons name="star" size={14} color={COLORS.textPrimary} />
               <Text style={styles.premiumBadgeText}>Premium Member</Text>
             </View>
           ) : (
@@ -166,77 +176,138 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             Member since{" "}
             {new Date(userData?.createdAt || new Date()).toLocaleDateString(
               "en-US",
-              { month: "long", year: "numeric" }
+              {
+                month: "long",
+                year: "numeric",
+              }
             )}
           </Text>
         </View>
 
-        {/* ✅ NEW: Upgrade banner for free users */}
+        {/* Upgrade Banner for Free Users */}
         {!isPremium && (
-          <TouchableOpacity
-            style={styles.upgradeCard}
-            onPress={() => navigation.navigate("Paywall")}
-          >
-            <View style={styles.upgradeCardContent}>
-              <Text style={styles.upgradeCardIcon}>⭐</Text>
-              <View style={styles.upgradeCardText}>
-                <Text style={styles.upgradeCardTitle}>Upgrade to Premium</Text>
-                <Text style={styles.upgradeCardSubtitle}>
-                  Unlock unlimited dreams, AI insights & more
-                </Text>
-              </View>
-              <Ionicons name="arrow-forward" size={24} color="#6366f1" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.upgradeSection}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Paywall");
+              }}
+            >
+              <Card variant="highlighted">
+                <View style={styles.upgradeCardContent}>
+                  <Text style={styles.upgradeCardIcon}>⭐</Text>
+                  <View style={styles.upgradeCardText}>
+                    <Text style={styles.upgradeCardTitle}>
+                      Upgrade to Premium
+                    </Text>
+                    <Text style={styles.upgradeCardSubtitle}>
+                      Unlock unlimited dreams, AI insights & more
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={24}
+                    color={COLORS.primary}
+                  />
+                </View>
+              </Card>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Quick Actions */}
         <View style={styles.actionsSection}>
           <Text style={styles.sectionTitle}>Account</Text>
 
-          {/* ✅ NEW: Show "Manage Subscription" for premium users */}
+          {/* Manage Subscription for Premium Users */}
           {isPremium && (
             <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => navigation.navigate("Paywall")}
+              activeOpacity={0.7}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Paywall");
+              }}
+              style={styles.actionWrapper}
             >
-              <Ionicons name="star" size={24} color="#6366f1" />
-              <Text style={styles.actionText}>Manage Subscription</Text>
-              <Ionicons name="chevron-forward" size={20} color="#666" />
+              <Card>
+                <View style={styles.actionButton}>
+                  <Ionicons name="star" size={24} color={COLORS.primary} />
+                  <Text style={styles.actionText}>Manage Subscription</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={COLORS.textTertiary}
+                  />
+                </View>
+              </Card>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate("Settings")}
+            activeOpacity={0.7}
+            onPress={() => {
+              hapticFeedback.light();
+              navigation.navigate("Settings");
+            }}
+            style={styles.actionWrapper}
           >
-            <Ionicons name="settings" size={24} color="#6366f1" />
-            <Text style={styles.actionText}>Settings</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
+            <Card>
+              <View style={styles.actionButton}>
+                <Ionicons name="settings" size={24} color={COLORS.primary} />
+                <Text style={styles.actionText}>Settings</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={COLORS.textTertiary}
+                />
+              </View>
+            </Card>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate("RealityCheck")}
+            activeOpacity={0.7}
+            onPress={() => {
+              hapticFeedback.light();
+              navigation.navigate("RealityCheck");
+            }}
+            style={styles.actionWrapper}
           >
-            <Ionicons name="notifications" size={24} color="#f59e0b" />
-            <Text style={styles.actionText}>Reality Check Reminders</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
+            <Card>
+              <View style={styles.actionButton}>
+                <Ionicons
+                  name="notifications"
+                  size={24}
+                  color={COLORS.warning}
+                />
+                <Text style={styles.actionText}>Reality Check Reminders</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={COLORS.textTertiary}
+                />
+              </View>
+            </Card>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              exporting && styles.actionButtonDisabled,
-            ]}
+            activeOpacity={0.7}
             onPress={showExportOptions}
             disabled={exporting}
           >
-            <Ionicons name="download" size={24} color="#10b981" />
-            <Text style={styles.actionText}>
-              {exporting ? "Exporting..." : "Export Dream Journal"}
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
+            <Card style={exporting ? styles.actionButtonDisabled : undefined}>
+              <View style={styles.actionButton}>
+                <Ionicons name="download" size={24} color={COLORS.success} />
+                <Text style={styles.actionText}>
+                  {exporting ? "Exporting..." : "Export Dream Journal"}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={COLORS.textTertiary}
+                />
+              </View>
+            </Card>
           </TouchableOpacity>
         </View>
 
@@ -249,94 +320,91 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    marginTop: SPACING.md,
   },
   scrollView: {
     flex: 1,
   },
   header: {
     alignItems: "center",
-    padding: 30,
-    paddingTop: 40,
+    padding: SPACING.xxxl,
+    paddingTop: SPACING.xxxl + 10,
   },
   avatarContainer: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: COLORS.backgroundSecondary,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: SPACING.lg,
     borderWidth: 3,
-    borderColor: "#6366f1",
+    borderColor: COLORS.primary,
   },
   avatarIcon: {
     fontSize: 48,
   },
   userName: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 10,
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
   },
-  // ✅ NEW: Badge styles
   premiumBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#6366f1",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-    marginBottom: 10,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   premiumBadgeText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
   },
   freeBadge: {
-    backgroundColor: "#333",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 10,
+    backgroundColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    marginBottom: SPACING.sm,
   },
   freeBadgeText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textSecondary,
   },
   userEmail: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 10,
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
   },
   joinedText: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textTertiary,
   },
-  // ✅ NEW: Upgrade card
-  upgradeCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "#6366f1",
-    overflow: "hidden",
+  upgradeSection: {
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   upgradeCardContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    gap: 15,
+    gap: SPACING.md,
   },
   upgradeCardIcon: {
     fontSize: 40,
@@ -345,45 +413,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   upgradeCardTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   upgradeCardSubtitle: {
-    fontSize: 13,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   actionsSection: {
-    padding: 20,
+    paddingHorizontal: SPACING.xl,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 15,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  actionWrapper: {
+    marginBottom: SPACING.sm,
   },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#333",
   },
   actionText: {
     flex: 1,
-    fontSize: 16,
-    color: "#fff",
-    marginLeft: 15,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textPrimary,
+    marginLeft: SPACING.md,
   },
   actionButtonDisabled: {
     opacity: 0.5,
   },
   footer: {
-    height: 40,
+    height: SPACING.xxxl,
   },
 });

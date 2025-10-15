@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,14 +7,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LESSONS, Lesson, LessonSection } from '../data/lessons';
-import { auth, db } from '../../firebaseConfig';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { awardXP } from '../utils/xpManager';
-import { XP_REWARDS } from '../data/levels';
-
+} from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { LESSONS, Lesson, LessonSection } from "../data/lessons";
+import { auth, db } from "../../firebaseConfig";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { awardXP } from "../utils/xpManager";
+import { XP_REWARDS } from "../data/levels";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type LessonScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -32,7 +35,7 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
   }, []);
 
   const loadLesson = async () => {
-    const foundLesson = LESSONS.find(l => l.id === lessonId);
+    const foundLesson = LESSONS.find((l) => l.id === lessonId);
     if (foundLesson) {
       setLesson(foundLesson);
       await checkIfCompleted(lessonId);
@@ -46,96 +49,116 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
       if (!user) return;
 
       const progressDoc = await getDoc(
-        doc(db, 'users', user.uid, 'lessonProgress', `lesson_${lessonId}`)
+        doc(db, "users", user.uid, "lessonProgress", `lesson_${lessonId}`)
       );
 
       if (progressDoc.exists()) {
         setCompleted(progressDoc.data().completed);
       }
     } catch (error) {
-      console.error('Error checking lesson completion:', error);
+      console.error("Error checking lesson completion:", error);
     }
   };
 
   const markAsComplete = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user || !lesson) return;
+    try {
+      const user = auth.currentUser;
+      if (!user || !lesson) return;
 
-    setLoading(true);
+      setLoading(true);
 
-    await setDoc(
-      doc(db, 'users', user.uid, 'lessonProgress', `lesson_${lesson.id}`),
-      {
-        lessonId: lesson.id,
-        completed: true,
-        completedAt: new Date().toISOString(),
-      }
-    );
-
-    // Award XP
-    await awardXP(user.uid, XP_REWARDS.LESSON_COMPLETED, `Completed lesson: ${lesson.title}`);
-
-    setCompleted(true);
-    
-    Alert.alert(
-      'Lesson Complete! 🎉',
-      `+${XP_REWARDS.LESSON_COMPLETED} XP!\n\n${lesson.content.practiceTask 
-        ? `Now go practice: ${lesson.content.practiceTask}`
-        : 'Well done! Keep up the great work!'}`,
-      [
+      await setDoc(
+        doc(db, "users", user.uid, "lessonProgress", `lesson_${lesson.id}`),
         {
-          text: 'Continue',
-          onPress: () => navigation.goBack(),
-        },
-      ]
-    );
-  } catch (error) {
-    console.error('Error marking lesson complete:', error);
-    Alert.alert('Error', 'Failed to save progress');
-  } finally {
-    setLoading(false);
-  }
-};
+          lessonId: lesson.id,
+          completed: true,
+          completedAt: new Date().toISOString(),
+        }
+      );
 
+      await awardXP(
+        user.uid,
+        XP_REWARDS.LESSON_COMPLETED,
+        `Completed lesson: ${lesson.title}`
+      );
+
+      setCompleted(true);
+      hapticFeedback.success();
+
+      Alert.alert(
+        "Lesson Complete! 🎉",
+        `+${XP_REWARDS.LESSON_COMPLETED} XP!\n\n${
+          lesson.content.practiceTask
+            ? `Now go practice: ${lesson.content.practiceTask}`
+            : "Well done! Keep up the great work!"
+        }`,
+        [
+          {
+            text: "Continue",
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error marking lesson complete:", error);
+      hapticFeedback.error();
+      Alert.alert("Error", "Failed to save progress");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderSection = (section: LessonSection, index: number) => {
     switch (section.type) {
-      case 'heading':
+      case "heading":
         return (
           <Text key={index} style={styles.heading}>
             {section.content}
           </Text>
         );
-      
-      case 'text':
+
+      case "text":
         return (
           <Text key={index} style={styles.bodyText}>
             {section.content}
           </Text>
         );
-      
-      case 'bullet':
+
+      case "bullet":
+        // ✅ Split content by newlines to show all bullets
+        const bulletPoints = section.content
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+          .map((line) => line.replace(/^•\s*/, "")); // Remove existing bullets
+
         return (
-          <View key={index} style={styles.bulletContainer}>
-            <Text style={styles.bulletText}>{section.content}</Text>
+          <View key={index} style={styles.bulletList}>
+            {bulletPoints.map((point, i) => (
+              <View key={i} style={styles.bulletContainer}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.bulletText}>{point}</Text>
+              </View>
+            ))}
           </View>
         );
-      
-      case 'tip':
+
+      case "tip":
         return (
-          <View key={index} style={styles.tipBox}>
+          <Card key={index} style={styles.tipBox}>
+            <Text style={styles.tipLabel}>💡 Tip</Text>
             <Text style={styles.tipText}>{section.content}</Text>
-          </View>
+          </Card>
         );
-      
-      case 'exercise':
+
+      case "exercise":
         return (
-          <View key={index} style={styles.exerciseBox}>
+          <Card key={index} style={styles.exerciseBox}>
+            <Text style={styles.exerciseLabel}>✨ Exercise</Text>
             <Text style={styles.exerciseText}>{section.content}</Text>
-          </View>
+          </Card>
         );
-      
+
       default:
         return null;
     }
@@ -144,45 +167,49 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
   if (loading || !lesson) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading lesson...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <Text style={styles.title}>{lesson.title}</Text>
           <View style={styles.metaContainer}>
-            <Text style={styles.duration}>⏱ {lesson.duration}</Text>
-            <Text style={styles.level}>Level {lesson.level}</Text>
+            <View style={styles.metaChip}>
+              <Text style={styles.duration}>⏱ {lesson.duration}</Text>
+            </View>
+            <View style={[styles.metaChip, styles.levelChip]}>
+              <Text style={styles.level}>Level {lesson.level}</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.content}>
-          {lesson.content.sections.map((section, index) => 
+          {lesson.content.sections.map((section, index) =>
             renderSection(section, index)
           )}
         </View>
 
-        {completed && (
-          <View style={styles.completedBanner}>
-            <Text style={styles.completedText}>✅ Completed</Text>
+        {completed ? (
+          <Card style={styles.completedBanner}>
+            <Text style={styles.completedText}>✅ Lesson Completed</Text>
+          </Card>
+        ) : (
+          <View style={styles.buttonWrapper}>
+            <Button
+              title="Mark as Complete"
+              onPress={markAsComplete}
+              loading={loading}
+            />
           </View>
-        )}
-
-        {!completed && (
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={markAsComplete}
-          >
-            <Text style={styles.completeButtonText}>Mark as Complete</Text>
-          </TouchableOpacity>
         )}
       </ScrollView>
     </View>
@@ -192,118 +219,144 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0f0f23',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    marginTop: SPACING.md,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: SPACING.xxxl + 10,
   },
   header: {
-    padding: 20,
+    padding: SPACING.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: COLORS.border,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 10,
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
   },
   metaContainer: {
-    flexDirection: 'row',
-    gap: 15,
+    flexDirection: "row",
+    gap: SPACING.sm,
+  },
+  metaChip: {
+    backgroundColor: COLORS.backgroundSecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  levelChip: {
+    borderColor: COLORS.primary,
   },
   duration: {
-    fontSize: 14,
-    color: '#888',
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
   },
   level: {
-    fontSize: 14,
-    color: '#6366f1',
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   content: {
-    padding: 20,
+    padding: SPACING.xl,
   },
   heading: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 25,
-    marginBottom: 15,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.xxl,
+    marginBottom: SPACING.md,
   },
   bodyText: {
-    fontSize: 16,
-    color: '#ccc',
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
     lineHeight: 26,
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   bulletContainer: {
-    marginBottom: 15,
+    flexDirection: "row",
+    marginBottom: SPACING.md,
+    paddingLeft: SPACING.sm,
+  },
+  bullet: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.primary,
+    marginRight: SPACING.sm,
+    marginTop: 2,
   },
   bulletText: {
-    fontSize: 16,
-    color: '#ccc',
+    flex: 1,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
     lineHeight: 26,
   },
   tipBox: {
-    backgroundColor: '#1a2332',
+    backgroundColor: "#1a2332",
     borderLeftWidth: 4,
-    borderLeftColor: '#6366f1',
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 15,
+    borderLeftColor: COLORS.primary,
+    marginVertical: SPACING.md,
+  },
+  tipLabel: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
   },
   tipText: {
-    fontSize: 15,
-    color: '#e0e0e0',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
     lineHeight: 24,
   },
   exerciseBox: {
-    backgroundColor: '#1a3229',
+    backgroundColor: "#1a3229",
     borderLeftWidth: 4,
-    borderLeftColor: '#10b981',
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 15,
+    borderLeftColor: COLORS.success,
+    marginVertical: SPACING.md,
+  },
+  exerciseLabel: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.success,
+    marginBottom: SPACING.xs,
   },
   exerciseText: {
-    fontSize: 15,
-    color: '#e0e0e0',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
     lineHeight: 24,
-    fontWeight: '500',
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
   completedBanner: {
-    marginHorizontal: 20,
-    backgroundColor: '#1a3229',
-    padding: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 20,
+    marginHorizontal: SPACING.xl,
+    backgroundColor: "#1a3229",
+    alignItems: "center",
+    marginBottom: SPACING.xl,
   },
   completedText: {
-    color: '#10b981',
-    fontSize: 16,
-    fontWeight: '600',
+    color: COLORS.success,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
-  completeButton: {
-    marginHorizontal: 20,
-    backgroundColor: '#6366f1',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+  buttonWrapper: {
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.xl,
   },
-  completeButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+  bulletList: {
+    marginBottom: SPACING.md,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,21 +9,29 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { auth, db } from '../../firebaseConfig';
-import { doc, updateDoc } from 'firebase/firestore';
-import { analyzeDream, saveDreamAnalysis } from '../services/dreamAnalysisService';
+} from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { auth, db } from "../../firebaseConfig";
+import { doc, updateDoc } from "firebase/firestore";
+import {
+  analyzeDream,
+  saveDreamAnalysis,
+} from "../services/dreamAnalysisService";
+import Button from "../components/Button";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type EditDreamScreenProps = {
   navigation: NativeStackNavigationProp<any>;
   route: any;
 };
 
-export default function EditDreamScreen({ navigation, route }: EditDreamScreenProps) {
+export default function EditDreamScreen({
+  navigation,
+  route,
+}: EditDreamScreenProps) {
   const { dreamId, dream } = route.params;
-  
+
   const [title, setTitle] = useState(dream.title);
   const [content, setContent] = useState(dream.content);
   const [isLucid, setIsLucid] = useState(dream.isLucid);
@@ -31,14 +39,24 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
   const [loading, setLoading] = useState(false);
 
   const commonTags = [
-    '🌊 Water', '✈️ Flying', '👥 People', '🏃 Running',
-    '🏠 House', '🌳 Nature', '🐕 Animals', '🚗 Vehicles',
-    '😨 Nightmare', '😊 Pleasant', '🤔 Confusing', '🎨 Vivid'
+    "🌊 Water",
+    "✈️ Flying",
+    "👥 People",
+    "🏃 Running",
+    "🏠 House",
+    "🌳 Nature",
+    "🐕 Animals",
+    "🚗 Vehicles",
+    "😨 Nightmare",
+    "😊 Pleasant",
+    "🤔 Confusing",
+    "🎨 Vivid",
   ];
 
   const toggleTag = (tag: string) => {
+    hapticFeedback.light();
     if (tags.includes(tag)) {
-      setTags(tags.filter(t => t !== tag));
+      setTags(tags.filter((t) => t !== tag));
     } else {
       setTags([...tags, tag]);
     }
@@ -46,19 +64,20 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
 
   const handleUpdateDream = async () => {
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Error', 'Please fill in both title and content');
+      hapticFeedback.error();
+      Alert.alert("Error", "Please fill in both title and content");
       return;
     }
 
-    // Check if anything changed
-    const hasChanges = 
-      title !== dream.title || 
-      content !== dream.content || 
+    const hasChanges =
+      title !== dream.title ||
+      content !== dream.content ||
       isLucid !== dream.isLucid ||
       JSON.stringify(tags) !== JSON.stringify(dream.tags);
 
     if (!hasChanges) {
-      Alert.alert('No Changes', 'You haven\'t made any changes to this dream.');
+      hapticFeedback.warning();
+      Alert.alert("No Changes", "You haven't made any changes to this dream.");
       return;
     }
 
@@ -67,8 +86,7 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
       const user = auth.currentUser;
       if (!user) return;
 
-      // Update dream in Firestore
-      await updateDoc(doc(db, 'dreams', dreamId), {
+      await updateDoc(doc(db, "dreams", dreamId), {
         title,
         content,
         isLucid,
@@ -76,35 +94,38 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
         updatedAt: new Date().toISOString(),
       });
 
-      // Ask if user wants to re-analyze
+      hapticFeedback.success();
+
       Alert.alert(
-        'Dream Updated! ✅',
-        'Your dream has been saved. Would you like to re-analyze it with AI for updated insights?',
+        "Dream Updated! ✅",
+        "Your dream has been saved. Would you like to re-analyze it with AI for updated insights?",
         [
           {
-            text: 'Not Now',
-            style: 'cancel',
+            text: "Not Now",
+            style: "cancel",
             onPress: () => navigation.goBack(),
           },
           {
-            text: 'Re-analyze',
+            text: "Re-analyze",
             onPress: async () => {
               try {
                 setLoading(true);
                 const analysis = await analyzeDream(title, content, isLucid);
-                
+
                 if (analysis) {
                   await saveDreamAnalysis(user.uid, dreamId, analysis);
+                  hapticFeedback.success();
                   Alert.alert(
-                    'Analysis Complete! 🤖',
-                    'Your dream has been re-analyzed with fresh insights.',
-                    [{ text: 'Great!', onPress: () => navigation.goBack() }]
+                    "Analysis Complete! 🤖",
+                    "Your dream has been re-analyzed with fresh insights.",
+                    [{ text: "Great!", onPress: () => navigation.goBack() }]
                   );
                 } else {
                   navigation.goBack();
                 }
               } catch (error) {
-                console.error('Error re-analyzing:', error);
+                console.error("Error re-analyzing:", error);
+                hapticFeedback.error();
                 navigation.goBack();
               } finally {
                 setLoading(false);
@@ -113,39 +134,44 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
           },
         ]
       );
-      
     } catch (error) {
-      console.error('Error updating dream:', error);
-      Alert.alert('Error', 'Failed to update dream. Please try again.');
+      console.error("Error updating dream:", error);
+      hapticFeedback.error();
+      Alert.alert("Error", "Failed to update dream. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    const hasChanges = 
-      title !== dream.title || 
-      content !== dream.content || 
+    const hasChanges =
+      title !== dream.title ||
+      content !== dream.content ||
       isLucid !== dream.isLucid ||
       JSON.stringify(tags) !== JSON.stringify(dream.tags);
 
     if (hasChanges) {
+      hapticFeedback.warning();
       Alert.alert(
-        'Discard Changes?',
-        'You have unsaved changes. Are you sure you want to discard them?',
+        "Discard Changes?",
+        "You have unsaved changes. Are you sure you want to discard them?",
         [
           {
-            text: 'Keep Editing',
-            style: 'cancel',
+            text: "Keep Editing",
+            style: "cancel",
           },
           {
-            text: 'Discard',
-            style: 'destructive',
-            onPress: () => navigation.goBack(),
+            text: "Discard",
+            style: "destructive",
+            onPress: () => {
+              hapticFeedback.light();
+              navigation.goBack();
+            },
           },
         ]
       );
     } else {
+      hapticFeedback.light();
       navigation.goBack();
     }
   };
@@ -153,16 +179,19 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.content}>
           <Text style={styles.sectionTitle}>Dream Title</Text>
           <TextInput
             style={styles.titleInput}
             placeholder="Give your dream a title..."
-            placeholderTextColor="#666"
+            placeholderTextColor={COLORS.textTertiary}
             value={title}
             onChangeText={setTitle}
             maxLength={100}
@@ -172,7 +201,7 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
           <TextInput
             style={styles.contentInput}
             placeholder="Describe your dream in as much detail as you can remember..."
-            placeholderTextColor="#666"
+            placeholderTextColor={COLORS.textTertiary}
             value={content}
             onChangeText={setContent}
             multiline
@@ -183,17 +212,35 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
           <View style={styles.lucidContainer}>
             <TouchableOpacity
               style={[styles.lucidButton, !isLucid && styles.lucidButtonActive]}
-              onPress={() => setIsLucid(false)}
+              onPress={() => {
+                hapticFeedback.light();
+                setIsLucid(false);
+              }}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.lucidButtonText, !isLucid && styles.lucidButtonTextActive]}>
+              <Text
+                style={[
+                  styles.lucidButtonText,
+                  !isLucid && styles.lucidButtonTextActive,
+                ]}
+              >
                 No
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.lucidButton, isLucid && styles.lucidButtonActive]}
-              onPress={() => setIsLucid(true)}
+              onPress={() => {
+                hapticFeedback.light();
+                setIsLucid(true);
+              }}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.lucidButtonText, isLucid && styles.lucidButtonTextActive]}>
+              <Text
+                style={[
+                  styles.lucidButtonText,
+                  isLucid && styles.lucidButtonTextActive,
+                ]}
+              >
                 Yes! ✨
               </Text>
             </TouchableOpacity>
@@ -206,8 +253,14 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
                 key={tag}
                 style={[styles.tag, tags.includes(tag) && styles.tagActive]}
                 onPress={() => toggleTag(tag)}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.tagText, tags.includes(tag) && styles.tagTextActive]}>
+                <Text
+                  style={[
+                    styles.tagText,
+                    tags.includes(tag) && styles.tagTextActive,
+                  ]}
+                >
                   {tag}
                 </Text>
               </TouchableOpacity>
@@ -215,25 +268,20 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={styles.cancelButton}
+            <Button
+              title="Cancel"
               onPress={handleCancel}
+              variant="ghost"
               disabled={loading}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+              style={styles.cancelButton}
+            />
 
-            <TouchableOpacity
-              style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+            <Button
+              title="Save Changes"
               onPress={handleUpdateDream}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
+              loading={loading}
+              style={styles.saveButton}
+            />
           </View>
         </View>
       </ScrollView>
@@ -244,124 +292,101 @@ export default function EditDreamScreen({ navigation, route }: EditDreamScreenPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: SPACING.xl,
+    paddingBottom: SPACING.xxxl + 10,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
-    marginTop: 20,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.lg,
   },
   titleInput: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    color: '#fff',
-    fontWeight: '600',
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    color: COLORS.textPrimary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   contentInput: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#fff',
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textPrimary,
     minHeight: 200,
     lineHeight: 24,
   },
   lucidContainer: {
-    flexDirection: 'row',
-    gap: 10,
+    flexDirection: "row",
+    gap: SPACING.sm,
   },
   lucidButton: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.lg,
+    alignItems: "center",
   },
   lucidButtonActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   lucidButtonText: {
-    color: '#888',
-    fontSize: 16,
-    fontWeight: '600',
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   lucidButtonTextActive: {
-    color: '#fff',
+    color: COLORS.textPrimary,
   },
   tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.sm,
   },
   tag: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.round,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
   },
   tagActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   tagText: {
-    color: '#888',
-    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
   },
   tagTextActive: {
-    color: '#fff',
+    color: COLORS.textPrimary,
   },
   buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 30,
+    flexDirection: "row",
+    gap: SPACING.sm,
+    marginTop: SPACING.xxxl,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  cancelButtonText: {
-    color: '#888',
-    fontSize: 16,
-    fontWeight: '600',
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#6366f1',
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

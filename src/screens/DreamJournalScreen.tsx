@@ -34,6 +34,10 @@ import {
 } from "../services/dreamAnalysisService";
 import { useData } from "../contexts/DataContext";
 import { Ionicons } from "@expo/vector-icons";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type DreamJournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -92,7 +96,6 @@ export default function DreamJournalScreen({
         59
       );
 
-      // ✅ Count ALL dreams created this month (including soft-deleted)
       const dreamsQuery = query(
         collection(db, "dreams"),
         where("userId", "==", user.uid),
@@ -120,6 +123,7 @@ export default function DreamJournalScreen({
 
   const dismissTip = async () => {
     try {
+      hapticFeedback.light();
       await AsyncStorage.setItem("voiceTipDismissed", "true");
       setShowTip(false);
     } catch (error) {
@@ -128,6 +132,7 @@ export default function DreamJournalScreen({
   };
 
   const toggleTag = (tag: string) => {
+    hapticFeedback.light();
     if (tags.includes(tag)) {
       setTags(tags.filter((t) => t !== tag));
     } else {
@@ -153,7 +158,6 @@ export default function DreamJournalScreen({
         59
       );
 
-      // ✅ Query ALL dreams created this month (including soft-deleted)
       const dreamsQuery = query(
         collection(db, "dreams"),
         where("userId", "==", user.uid),
@@ -165,6 +169,7 @@ export default function DreamJournalScreen({
       const monthlyDreamCount = snapshot.size;
 
       if (monthlyDreamCount >= 10) {
+        hapticFeedback.warning();
         Alert.alert(
           "🔒 Free Limit Reached",
           `You've created ${monthlyDreamCount} dreams this month. Upgrade to Premium for unlimited dreams!`,
@@ -189,6 +194,7 @@ export default function DreamJournalScreen({
 
   const handleSaveDream = async () => {
     if (!title.trim() || !content.trim()) {
+      hapticFeedback.error();
       Alert.alert("Error", "Please fill in both title and content");
       return;
     }
@@ -204,9 +210,8 @@ export default function DreamJournalScreen({
       if (!user) return;
 
       const now = new Date();
-      const todayDate = now.toISOString().split("T")[0]; // "2025-10-14"
+      const todayDate = now.toISOString().split("T")[0];
 
-      // ✅ Save the dream
       const dreamRef = await addDoc(collection(db, "dreams"), {
         userId: user.uid,
         title,
@@ -217,7 +222,6 @@ export default function DreamJournalScreen({
         isDeleted: false,
       });
 
-      // ✅ Calculate streak
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const userData = userDoc.data();
       const lastDreamDate = userData?.lastDreamDate || "";
@@ -229,17 +233,13 @@ export default function DreamJournalScreen({
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayDate = yesterday.toISOString().split("T")[0];
 
-        // If last dream was yesterday, increment streak
         if (lastDreamDate === yesterdayDate) {
           newStreak = (userData?.currentStreak || 0) + 1;
         } else if (lastDreamDate === todayDate) {
-          // Already logged today, keep current streak
           newStreak = userData?.currentStreak || 1;
         }
-        // If more than 1 day gap, streak resets to 1 (handled by default value)
       }
 
-      // ✅ Update user stats in Firestore
       const userRef = doc(db, "users", user.uid);
       const updates: any = {
         totalDreams: increment(1),
@@ -253,19 +253,17 @@ export default function DreamJournalScreen({
 
       await updateDoc(userRef, updates);
 
-      // ✅ Award XP
       const xpAmount = isLucid
         ? XP_REWARDS.LUCID_DREAM
         : XP_REWARDS.DREAM_LOGGED;
       const xpReason = isLucid ? "Logged a lucid dream" : "Logged a dream";
       await awardXP(user.uid, xpAmount, xpReason);
 
-      // ✅ Refresh data
       await Promise.all([refreshDreams(), refreshUserData()]);
 
-      // ✅ Background analysis
       analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
 
+      hapticFeedback.success();
       navigation.goBack();
 
       Alert.alert(
@@ -276,6 +274,7 @@ export default function DreamJournalScreen({
       );
     } catch (error) {
       console.error("Error saving dream:", error);
+      hapticFeedback.error();
       Alert.alert("Error", "Failed to save dream. Please try again.");
     } finally {
       setLoading(false);
@@ -320,10 +319,7 @@ export default function DreamJournalScreen({
                 "🎯 Recurring Dream Sign Detected!",
                 `"${recurringSign}" has appeared ${signData?.count} times in your dreams.\n\nThis is a perfect reality check trigger! Try checking if you're dreaming whenever you see this.`,
                 [
-                  {
-                    text: "Got it!",
-                    style: "default",
-                  },
+                  { text: "Got it!", style: "default" },
                   {
                     text: "View Insights",
                     onPress: () => navigation.navigate("Insights"),
@@ -348,9 +344,17 @@ export default function DreamJournalScreen({
       return (
         <TouchableOpacity
           style={styles.limitBanner}
-          onPress={() => navigation.navigate("Paywall")}
+          onPress={() => {
+            hapticFeedback.light();
+            navigation.navigate("Paywall");
+          }}
+          activeOpacity={0.7}
         >
-          <Ionicons name="information-circle" size={20} color="#f59e0b" />
+          <Ionicons
+            name="information-circle"
+            size={20}
+            color={COLORS.warning}
+          />
           <Text style={styles.limitBannerText}>
             {remaining} {remaining === 1 ? "dream" : "dreams"} remaining this
             month
@@ -377,25 +381,32 @@ export default function DreamJournalScreen({
           {renderLimitBanner()}
 
           {showTip && (
-            <View style={styles.tipBanner}>
-              <Text style={styles.tipText}>
-                Tap the {<Ionicons name="mic" size={18} color="#6366f1" />} on
-                your keyboard for voice input!
-              </Text>
-              <TouchableOpacity
-                onPress={dismissTip}
-                style={styles.dismissButton}
-              >
-                <Ionicons name="close" size={20} color="#888" />
-              </TouchableOpacity>
-            </View>
+            <Card style={styles.tipBanner}>
+              <View style={styles.tipContent}>
+                <Text style={styles.tipText}>
+                  💡 Tap the{" "}
+                  <Ionicons name="mic" size={16} color={COLORS.primary} /> on
+                  your keyboard for voice input!
+                </Text>
+                <TouchableOpacity
+                  onPress={dismissTip}
+                  style={styles.dismissButton}
+                >
+                  <Ionicons
+                    name="close"
+                    size={20}
+                    color={COLORS.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </Card>
           )}
 
           <Text style={styles.sectionTitle}>Dream Title</Text>
           <TextInput
             style={styles.titleInput}
             placeholder="Give your dream a title..."
-            placeholderTextColor="#666"
+            placeholderTextColor={COLORS.textTertiary}
             value={title}
             onChangeText={setTitle}
             maxLength={100}
@@ -405,7 +416,7 @@ export default function DreamJournalScreen({
           <TextInput
             style={styles.contentInput}
             placeholder="Describe your dream in as much detail as you can remember..."
-            placeholderTextColor="#666"
+            placeholderTextColor={COLORS.textTertiary}
             value={content}
             onChangeText={setContent}
             multiline
@@ -416,7 +427,11 @@ export default function DreamJournalScreen({
           <View style={styles.lucidContainer}>
             <TouchableOpacity
               style={[styles.lucidButton, !isLucid && styles.lucidButtonActive]}
-              onPress={() => setIsLucid(false)}
+              onPress={() => {
+                hapticFeedback.light();
+                setIsLucid(false);
+              }}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
@@ -429,7 +444,11 @@ export default function DreamJournalScreen({
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.lucidButton, isLucid && styles.lucidButtonActive]}
-              onPress={() => setIsLucid(true)}
+              onPress={() => {
+                hapticFeedback.light();
+                setIsLucid(true);
+              }}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
@@ -449,6 +468,7 @@ export default function DreamJournalScreen({
                 key={tag}
                 style={[styles.tag, tags.includes(tag) && styles.tagActive]}
                 onPress={() => toggleTag(tag)}
+                activeOpacity={0.7}
               >
                 <Text
                   style={[
@@ -462,17 +482,12 @@ export default function DreamJournalScreen({
             ))}
           </View>
 
-          <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+          <Button
+            title="Save Dream"
             onPress={handleSaveDream}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Dream</Text>
-            )}
-          </TouchableOpacity>
+            loading={loading}
+            style={styles.saveButton}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -482,148 +497,132 @@ export default function DreamJournalScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: SPACING.xl,
+    paddingBottom: SPACING.xxxl + 10,
   },
   limitBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f59e0b20",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 20,
+    backgroundColor: `${COLORS.warning}20`,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: "#f59e0b",
-    gap: 10,
+    borderColor: COLORS.warning,
+    gap: SPACING.sm,
   },
   limitBannerText: {
     flex: 1,
-    fontSize: 13,
-    color: "#f59e0b",
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.warning,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   limitBannerLink: {
-    fontSize: 13,
-    color: "#f59e0b",
-    fontWeight: "bold",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.warning,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   tipBanner: {
+    marginBottom: SPACING.lg,
+  },
+  tipContent: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#6366f1",
-    gap: 10,
+    gap: SPACING.sm,
   },
   tipText: {
     flex: 1,
-    fontSize: 13,
-    color: "#aaa",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   dismissButton: {
-    padding: 4,
-    marginLeft: 8,
+    padding: SPACING.xs,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 12,
-    marginTop: 20,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.lg,
   },
   titleInput: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    color: "#fff",
-    fontWeight: "600",
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    color: COLORS.textPrimary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   contentInput: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: "#fff",
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textPrimary,
     minHeight: 200,
     lineHeight: 24,
   },
   lucidContainer: {
     flexDirection: "row",
-    gap: 10,
+    gap: SPACING.sm,
   },
   lucidButton: {
     flex: 1,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.lg,
     alignItems: "center",
   },
   lucidButtonActive: {
-    backgroundColor: "#6366f1",
-    borderColor: "#6366f1",
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   lucidButtonText: {
-    color: "#888",
-    fontSize: 16,
-    fontWeight: "600",
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   lucidButtonTextActive: {
-    color: "#fff",
+    color: COLORS.textPrimary,
   },
   tagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: SPACING.sm,
   },
   tag: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.round,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
   },
   tagActive: {
-    backgroundColor: "#6366f1",
-    borderColor: "#6366f1",
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   tagText: {
-    color: "#888",
-    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
   },
   tagTextActive: {
-    color: "#fff",
+    color: COLORS.textPrimary,
   },
   saveButton: {
-    backgroundColor: "#6366f1",
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 30,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    marginTop: SPACING.xxxl,
   },
 });

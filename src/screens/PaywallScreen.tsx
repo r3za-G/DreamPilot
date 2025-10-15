@@ -10,6 +10,10 @@ import {
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import Card from "../components/Card";
+import Button from "../components/Button";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type PaywallScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -51,7 +55,6 @@ const PREMIUM_FEATURES = [
   { icon: "🚫", title: "Ad-Free", description: "Distraction-free experience" },
 ];
 
-// 💡 Mock package data
 const MOCK_MONTHLY_PACKAGE = {
   identifier: "$rc_monthly",
   product: {
@@ -67,13 +70,14 @@ const MOCK_YEARLY_PACKAGE = {
 };
 
 export default function PaywallScreen({ navigation }: PaywallScreenProps) {
-  const [selectedPackage, setSelectedPackage] = useState<string>("monthly");
+  const [selectedPackage, setSelectedPackage] = useState<string>("yearly");
   const [purchasing, setPurchasing] = useState(false);
 
-  // 🟢 Handlers just show alerts and navigate back
   const handlePurchase = (pkg: any) => {
+    hapticFeedback.light();
     setPurchasing(true);
     setTimeout(() => {
+      hapticFeedback.success();
       Alert.alert(
         "Mock Purchase",
         `Pretend you purchased: ${pkg.identifier} (${pkg.product.priceString})`
@@ -84,8 +88,10 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   };
 
   const handleRestore = () => {
+    hapticFeedback.light();
     setPurchasing(true);
     setTimeout(() => {
+      hapticFeedback.success();
       Alert.alert(
         "Mock Restore",
         "Pretend your subscription has been restored."
@@ -95,7 +101,6 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
     }, 1000);
   };
 
-  // Assign packages directly (mock)
   const monthlyPackage = MOCK_MONTHLY_PACKAGE;
   const yearlyPackage = MOCK_YEARLY_PACKAGE;
 
@@ -109,11 +114,17 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              hapticFeedback.light();
+              navigation.goBack();
+            }}
+            activeOpacity={0.7}
           >
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={28} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.badge}>⭐ PREMIUM</Text>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>⭐ PREMIUM</Text>
+          </View>
           <Text style={styles.headerTitle}>Unlock Your Dream Potential</Text>
           <Text style={styles.headerSubtitle}>
             Join thousands mastering lucid dreaming
@@ -123,13 +134,13 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
         {/* Features Grid */}
         <View style={styles.featuresContainer}>
           {PREMIUM_FEATURES.map((feature, index) => (
-            <View key={index} style={styles.featureCard}>
+            <Card key={index} style={styles.featureCard}>
               <Text style={styles.featureIcon}>{feature.icon}</Text>
               <Text style={styles.featureTitle}>{feature.title}</Text>
               <Text style={styles.featureDescription}>
                 {feature.description}
               </Text>
-            </View>
+            </Card>
           ))}
         </View>
 
@@ -139,95 +150,128 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
 
           {/* Yearly Plan */}
           <TouchableOpacity
-            style={[
-              styles.pricingCard,
-              selectedPackage === "yearly" && styles.pricingCardSelected,
-            ]}
-            onPress={() => setSelectedPackage("yearly")}
+            onPress={() => {
+              hapticFeedback.light();
+              setSelectedPackage("yearly");
+            }}
+            activeOpacity={0.7}
+            style={styles.pricingCardWrapper}
           >
-            <View style={styles.popularBadge}>
-              <Text style={styles.popularText}>BEST VALUE</Text>
-            </View>
-            <View style={styles.pricingHeader}>
-              <View>
-                <Text style={styles.pricingTitle}>Annual</Text>
-                <Text style={styles.pricingPrice}>
-                  {yearlyPackage.product.priceString}/year
-                </Text>
-                <Text style={styles.pricingPerMonth}>Just $3.33/month</Text>
-              </View>
-              <Ionicons
-                name={
+            <Card
+              style={{
+                ...styles.pricingCard,
+                borderColor:
+                  selectedPackage === "yearly" ? COLORS.success : COLORS.border,
+                borderWidth: 2,
+                backgroundColor:
                   selectedPackage === "yearly"
-                    ? "radio-button-on"
-                    : "radio-button-off"
-                }
-                size={28}
-                color={selectedPackage === "yearly" ? "#10b981" : "#888"}
-              />
-            </View>
-            <Text style={styles.saveBadge}>💰 Save 33% vs monthly</Text>
+                    ? "#1a1a3a"
+                    : COLORS.backgroundSecondary,
+              }}
+            >
+              <View style={styles.popularBadge}>
+                <Text style={styles.popularText}>BEST VALUE</Text>
+              </View>
+              <View style={styles.pricingHeader}>
+                <View>
+                  <Text style={styles.pricingTitle}>Annual</Text>
+                  <Text style={styles.pricingPrice}>
+                    {yearlyPackage.product.priceString}/year
+                  </Text>
+                  <Text style={styles.pricingPerMonth}>Just $3.33/month</Text>
+                </View>
+                <Ionicons
+                  name={
+                    selectedPackage === "yearly"
+                      ? "radio-button-on"
+                      : "radio-button-off"
+                  }
+                  size={28}
+                  color={
+                    selectedPackage === "yearly"
+                      ? COLORS.success
+                      : COLORS.textSecondary
+                  }
+                />
+              </View>
+              <Text style={styles.saveBadge}>💰 Save 33% vs monthly</Text>
+            </Card>
           </TouchableOpacity>
 
           {/* Monthly Plan */}
           <TouchableOpacity
-            style={[
-              styles.pricingCard,
-              selectedPackage === "monthly" && styles.pricingCardSelected,
-            ]}
-            onPress={() => setSelectedPackage("monthly")}
+            onPress={() => {
+              hapticFeedback.light();
+              setSelectedPackage("monthly");
+            }}
+            activeOpacity={0.7}
           >
-            <View style={styles.pricingHeader}>
-              <View>
-                <Text style={styles.pricingTitle}>Monthly</Text>
-                <Text style={styles.pricingPrice}>
-                  {monthlyPackage.product.priceString}/month
-                </Text>
-                <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
-              </View>
-              <Ionicons
-                name={
+            <Card
+              style={{
+                ...styles.pricingCard,
+                borderColor:
                   selectedPackage === "monthly"
-                    ? "radio-button-on"
-                    : "radio-button-off"
-                }
-                size={28}
-                color={selectedPackage === "monthly" ? "#6366f1" : "#888"}
-              />
-            </View>
+                    ? COLORS.primary
+                    : COLORS.border,
+                borderWidth: 2,
+                backgroundColor:
+                  selectedPackage === "monthly"
+                    ? "#1a1a3a"
+                    : COLORS.backgroundSecondary,
+              }}
+            >
+              <View style={styles.pricingHeader}>
+                <View>
+                  <Text style={styles.pricingTitle}>Monthly</Text>
+                  <Text style={styles.pricingPrice}>
+                    {monthlyPackage.product.priceString}/month
+                  </Text>
+                  <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
+                </View>
+                <Ionicons
+                  name={
+                    selectedPackage === "monthly"
+                      ? "radio-button-on"
+                      : "radio-button-off"
+                  }
+                  size={28}
+                  color={
+                    selectedPackage === "monthly"
+                      ? COLORS.primary
+                      : COLORS.textSecondary
+                  }
+                />
+              </View>
+            </Card>
           </TouchableOpacity>
         </View>
 
         {/* CTA Button */}
-        <TouchableOpacity
-          style={[styles.ctaButton, purchasing && styles.ctaButtonDisabled]}
-          onPress={() => {
-            const pkg =
-              selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
-            handlePurchase(pkg);
-          }}
-          disabled={purchasing}
-        >
-          {purchasing ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Text style={styles.ctaButtonText}>Start Free Trial</Text>
-              <Text style={styles.ctaButtonSubtext}>
-                7 days free, then{" "}
-                {selectedPackage === "yearly"
-                  ? yearlyPackage.product.priceString
-                  : monthlyPackage.product.priceString}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <View style={styles.ctaWrapper}>
+          <Button
+            title="Start Free Trial"
+            onPress={() => {
+              const pkg =
+                selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
+              handlePurchase(pkg);
+            }}
+            loading={purchasing}
+            disabled={purchasing}
+          />
+          <Text style={styles.ctaSubtext}>
+            7 days free, then{" "}
+            {selectedPackage === "yearly"
+              ? yearlyPackage.product.priceString
+              : monthlyPackage.product.priceString}
+          </Text>
+        </View>
 
         {/* Restore Purchases */}
         <TouchableOpacity
           style={styles.restoreButton}
           onPress={handleRestore}
           disabled={purchasing}
+          activeOpacity={0.7}
         >
           <Text style={styles.restoreText}>Restore Purchases</Text>
         </TouchableOpacity>
@@ -239,213 +283,167 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
           least 24 hours before the end of the current period.
         </Text>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.footer} />
       </ScrollView>
     </View>
   );
 }
 
-// (Retain your styles block as-is)
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: "#0f0f23",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    padding: 30,
-    paddingTop: 60,
+    padding: SPACING.xxxl,
+    paddingTop: SPACING.xxxl * 2,
     alignItems: "center",
   },
   closeButton: {
     position: "absolute",
-    top: 60,
-    right: 20,
+    top: SPACING.xxxl * 2,
+    right: SPACING.lg,
     zIndex: 10,
+    padding: SPACING.xs,
   },
   badge: {
-    backgroundColor: "#6366f1",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 15,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    marginBottom: SPACING.md,
+  },
+  badgeText: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: "#aaa",
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
     textAlign: "center",
   },
   featuresContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    padding: 20,
-    gap: 12,
+    padding: SPACING.xl,
+    gap: SPACING.md,
   },
   featureCard: {
     width: "48%",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#333",
+    padding: SPACING.lg,
   },
   featureIcon: {
     fontSize: 28,
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   featureTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   featureDescription: {
-    fontSize: 12,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
     lineHeight: 16,
   },
   pricingContainer: {
-    padding: 20,
+    padding: SPACING.xl,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 20,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
     textAlign: "center",
   },
-  pricingCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "#333",
-    position: "relative",
+  pricingCardWrapper: {
+    marginBottom: SPACING.md,
   },
-  pricingCardSelected: {
-    borderColor: "#6366f1",
-    backgroundColor: "#1a1a3a",
+  pricingCard: {
+    padding: SPACING.lg,
+    position: "relative",
   },
   popularBadge: {
     position: "absolute",
     top: -10,
-    right: 20,
-    backgroundColor: "#10b981",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    right: SPACING.lg,
+    backgroundColor: COLORS.success,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.md,
   },
   popularText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: TYPOGRAPHY.sizes.xs - 2,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
   },
   pricingHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   pricingTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   pricingPrice: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#6366f1",
-    marginBottom: 2,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
+    marginBottom: SPACING.xs / 2,
   },
   pricingPerMonth: {
-    fontSize: 14,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
   },
   saveBadge: {
-    fontSize: 13,
-    color: "#10b981",
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.success,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
-  ctaButton: {
-    backgroundColor: "#6366f1",
-    marginHorizontal: 20,
-    paddingVertical: 18,
-    borderRadius: 16,
-    alignItems: "center",
-    marginBottom: 15,
+  ctaWrapper: {
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.md,
   },
-  ctaButtonDisabled: {
-    opacity: 0.6,
-  },
-  ctaButtonText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 4,
-  },
-  ctaButtonSubtext: {
-    fontSize: 13,
-    color: "#fff",
-    opacity: 0.8,
+  ctaSubtext: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    marginTop: SPACING.sm,
   },
   restoreButton: {
-    paddingVertical: 12,
+    paddingVertical: SPACING.md,
     alignItems: "center",
   },
   restoreText: {
-    fontSize: 14,
-    color: "#6366f1",
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   finePrint: {
-    fontSize: 11,
-    color: "#666",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textTertiary,
     textAlign: "center",
-    paddingHorizontal: 30,
+    paddingHorizontal: SPACING.xxxl,
     lineHeight: 16,
-    marginTop: 10,
+    marginTop: SPACING.sm,
   },
-  loadingText: {
-    color: "#888",
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorText: {
-    color: "#888",
-    fontSize: 16,
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: "#6366f1",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  footer: {
+    height: SPACING.xxxl,
   },
 });

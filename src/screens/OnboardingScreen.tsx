@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,14 +7,18 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
+} from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../../firebaseConfig";
+import Card from "../components/Card";
+import Button from "../components/Button";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 type OnboardingScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -31,55 +35,66 @@ type OnboardingSlide = {
 
 const slides: OnboardingSlide[] = [
   {
-    id: '1',
-    title: 'Welcome to DreamPilot',
-    description: 'Your personal guide to lucid dreaming and dream exploration',
-    icon: '🌙',
+    id: "1",
+    title: "Welcome to DreamPilot",
+    description: "Your personal guide to lucid dreaming and dream exploration",
+    icon: "🌙",
   },
   {
-    id: '2',
-    title: 'Take Control of Your Dreams',
-    description: 'Lucid dreaming is when you become aware you\'re dreaming—and can control what happens. Imagine flying, exploring fantasy worlds, or meeting anyone you want.\n\n55% of people have experienced it at least once!',
-    icon: '✨',
+    id: "2",
+    title: "Take Control of Your Dreams",
+    description:
+      "Lucid dreaming is when you become aware you're dreaming—and can control what happens. Imagine flying, exploring fantasy worlds, or meeting anyone you want.\n\n55% of people have experienced it at least once!",
+    icon: "✨",
   },
   {
-    id: '3',
-    title: 'Your Path to Lucid Dreams',
-    description: 'Most people have their first lucid dream within 2-4 weeks',
-    icon: '🎯',
+    id: "3",
+    title: "Your Path to Lucid Dreams",
+    description: "Most people have their first lucid dream within 2-4 weeks",
+    icon: "🎯",
     features: [
-      { icon: '📖', text: 'Log Dreams Daily - Train your dream recall' },
-      { icon: '🎓', text: 'Complete Lessons - Learn proven techniques' },
-      { icon: '⏰', text: 'Reality Checks - Build awareness habits' },
+      { icon: "📖", text: "Log Dreams Daily - Train your dream recall" },
+      { icon: "🎓", text: "Complete Lessons - Learn proven techniques" },
+      { icon: "⏰", text: "Reality Checks - Build awareness habits" },
     ],
   },
   {
-    id: '4',
-    title: 'Everything You Need',
-    description: 'Powerful features to help you succeed',
-    icon: '🚀',
+    id: "4",
+    title: "Everything You Need",
+    description: "Powerful features to help you succeed",
+    icon: "🚀",
     features: [
-      { icon: '🤖', text: 'AI Dream Analysis - Discover patterns & signs' },
-      { icon: '🔥', text: 'Streak Tracking - Build daily habits' },
-      { icon: '📊', text: 'Progress Insights - See your improvement' },
-      { icon: '🎓', text: 'Expert Lessons - Learn from masters' },
+      { icon: "🤖", text: "AI Dream Analysis - Discover patterns & signs" },
+      { icon: "🔥", text: "Streak Tracking - Build daily habits" },
+      { icon: "📊", text: "Progress Insights - See your improvement" },
+      { icon: "🎓", text: "Expert Lessons - Learn from masters" },
     ],
   },
   {
-    id: '5',
-    title: 'What\'s Your Dream Goal?',
-    description: 'We\'ll personalize your experience',
-    icon: '🎨',
+    id: "5",
+    title: "What's Your Dream Goal?",
+    description: "We'll personalize your experience",
+    icon: "🎨",
     goals: [
-      { id: 'first_lucid', icon: '🚀', text: 'Experience my first lucid dream' },
-      { id: 'dream_recall', icon: '🌈', text: 'Improve dream recall' },
-      { id: 'master_lucid', icon: '🧠', text: 'Master lucid dreaming techniques' },
-      { id: 'creative', icon: '🎨', text: 'Explore creative inspiration' },
+      {
+        id: "first_lucid",
+        icon: "🚀",
+        text: "Experience my first lucid dream",
+      },
+      { id: "dream_recall", icon: "🌈", text: "Improve dream recall" },
+      {
+        id: "master_lucid",
+        icon: "🧠",
+        text: "Master lucid dreaming techniques",
+      },
+      { id: "creative", icon: "🎨", text: "Explore creative inspiration" },
     ],
   },
 ];
 
-export default function OnboardingScreen({ navigation }: OnboardingScreenProps) {
+export default function OnboardingScreen({
+  navigation,
+}: OnboardingScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -94,48 +109,47 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   const scrollTo = () => {
+    hapticFeedback.light();
     if (currentIndex < slides.length - 1) {
       slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
     }
   };
 
   const completeOnboarding = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    await AsyncStorage.setItem('onboardingCompleted', 'true');
-    
-    if (selectedGoal) {
-      await updateDoc(doc(db, 'users', user.uid), {
-        dreamGoal: selectedGoal,
-      });
-    }
-
-    // Navigate with param
-    if (currentIndex === slides.length - 1) {
-      navigation.replace('RealityCheck', { fromOnboarding: true });
-    } else {
-      navigation.replace('MainTabs');
-    }
-  } catch (error) {
-    console.error('Error completing onboarding:', error);
-    navigation.replace('MainTabs');
-  }
-};
-
-
-  const skipOnboarding = async () => {
     try {
-      await AsyncStorage.setItem('onboardingCompleted', 'true');
-      navigation.replace('MainTabs');
+      hapticFeedback.success();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      await AsyncStorage.setItem("onboardingCompleted", "true");
+
+      if (selectedGoal) {
+        await updateDoc(doc(db, "users", user.uid), {
+          dreamGoal: selectedGoal,
+        });
+      }
+
+      if (currentIndex === slides.length - 1) {
+        navigation.replace("RealityCheck", { fromOnboarding: true });
+      } else {
+        navigation.replace("MainTabs");
+      }
     } catch (error) {
-      console.error('Error skipping onboarding:', error);
-      navigation.replace('MainTabs');
+      console.error("Error completing onboarding:", error);
+      navigation.replace("MainTabs");
     }
   };
 
-  
+  const skipOnboarding = async () => {
+    try {
+      hapticFeedback.light();
+      await AsyncStorage.setItem("onboardingCompleted", "true");
+      navigation.replace("MainTabs");
+    } catch (error) {
+      console.error("Error skipping onboarding:", error);
+      navigation.replace("MainTabs");
+    }
+  };
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => {
     return (
@@ -144,40 +158,57 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
 
-        {/* Features List */}
         {item.features && (
           <View style={styles.featuresList}>
             {item.features.map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
+              <Card key={index} style={styles.featureItem}>
                 <Text style={styles.featureIcon}>{feature.icon}</Text>
                 <Text style={styles.featureText}>{feature.text}</Text>
-              </View>
+              </Card>
             ))}
           </View>
         )}
 
-        {/* Goals Selection */}
         {item.goals && (
           <View style={styles.goalsList}>
             {item.goals.map((goal) => (
               <TouchableOpacity
                 key={goal.id}
-                style={[
-                  styles.goalItem,
-                  selectedGoal === goal.id && styles.goalItemSelected,
-                ]}
-                onPress={() => setSelectedGoal(goal.id)}
+                onPress={() => {
+                  hapticFeedback.light();
+                  setSelectedGoal(goal.id);
+                }}
+                activeOpacity={0.7}
               >
-                <Text style={styles.goalIcon}>{goal.icon}</Text>
-                <Text style={[
-                  styles.goalText,
-                  selectedGoal === goal.id && styles.goalTextSelected,
-                ]}>
-                  {goal.text}
-                </Text>
-                {selectedGoal === goal.id && (
-                  <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-                )}
+                <Card
+                  style={{
+                    ...styles.goalItem,
+                    borderColor:
+                      selectedGoal === goal.id ? COLORS.success : COLORS.border,
+                    borderWidth: 2,
+                    backgroundColor:
+                      selectedGoal === goal.id
+                        ? `${COLORS.success}10`
+                        : COLORS.backgroundSecondary,
+                  }}
+                >
+                  <Text style={styles.goalIcon}>{goal.icon}</Text>
+                  <Text
+                    style={[
+                      styles.goalText,
+                      selectedGoal === goal.id && styles.goalTextSelected,
+                    ]}
+                  >
+                    {goal.text}
+                  </Text>
+                  {selectedGoal === goal.id && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={24}
+                      color={COLORS.success}
+                    />
+                  )}
+                </Card>
               </TouchableOpacity>
             ))}
           </View>
@@ -208,7 +239,6 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
         />
       </View>
 
-      {/* Pagination Dots */}
       <View style={styles.pagination}>
         {slides.map((_, index) => {
           const inputRange = [
@@ -220,62 +250,60 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
           const dotWidth = scrollX.interpolate({
             inputRange,
             outputRange: [10, 20, 10],
-            extrapolate: 'clamp',
+            extrapolate: "clamp",
           });
 
           const opacity = scrollX.interpolate({
             inputRange,
             outputRange: [0.3, 1, 0.3],
-            extrapolate: 'clamp',
+            extrapolate: "clamp",
           });
 
           return (
             <Animated.View
               key={index}
-              style={[
-                styles.dot,
-                { width: dotWidth, opacity },
-              ]}
+              style={[styles.dot, { width: dotWidth, opacity }]}
             />
           );
         })}
       </View>
 
-      {/* Bottom Buttons */}
       <View style={styles.buttonContainer}>
         {currentIndex === slides.length - 1 ? (
           <>
-            <TouchableOpacity
-              style={styles.skipButton}
+            <Button
+              title="Skip for Now"
               onPress={skipOnboarding}
-            >
-              <Text style={styles.skipButtonText}>Skip for Now</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                !selectedGoal && styles.primaryButtonDisabled,
-              ]}
+              variant="ghost"
+              style={styles.skipButton}
+            />
+            <Button
+              title="Set Up Reality Checks"
               onPress={completeOnboarding}
               disabled={!selectedGoal}
-            >
-              <Text style={styles.primaryButtonText}>
-                Set Up Reality Checks
-              </Text>
-            </TouchableOpacity>
+              style={styles.primaryButton}
+            />
           </>
         ) : (
           <>
-            <TouchableOpacity
-              style={styles.skipButton}
+            <Button
+              title="Skip"
               onPress={skipOnboarding}
-            >
-              <Text style={styles.skipButtonText}>Skip</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.primaryButton} onPress={scrollTo}>
-              <Text style={styles.primaryButtonText}>Next</Text>
-              <Ionicons name="arrow-forward" size={20} color="#fff" />
-            </TouchableOpacity>
+              variant="ghost"
+              style={styles.skipButton}
+            />
+            <Button
+              title="Next"
+              onPress={scrollTo}
+              icon={
+                <Ionicons
+                  name="arrow-forward"
+                  size={20}
+                  color={COLORS.textPrimary}
+                />
+              }
+              style={styles.primaryButton}
+            />
           </>
         )}
       </View>
@@ -286,141 +314,102 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
-    justifyContent: 'center',
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
   },
   slideContainer: {
     flex: 3,
   },
   slide: {
     width,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: SPACING.xxxl + 10,
   },
   icon: {
     fontSize: 80,
-    marginBottom: 30,
+    marginBottom: SPACING.xxxl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
+    textAlign: "center",
   },
   description: {
-    fontSize: 16,
-    color: '#aaa',
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    textAlign: "center",
     lineHeight: 24,
-    marginBottom: 30,
+    marginBottom: SPACING.xxxl,
   },
   featuresList: {
-    width: '100%',
-    marginTop: 20,
+    width: "100%",
+    marginTop: SPACING.lg,
   },
   featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#333',
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   featureIcon: {
     fontSize: 24,
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
   featureText: {
     flex: 1,
-    fontSize: 14,
-    color: '#fff',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textPrimary,
     lineHeight: 20,
   },
   goalsList: {
-    width: '100%',
-    marginTop: 20,
+    width: "100%",
+    marginTop: SPACING.lg,
   },
   goalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#333',
-  },
-  goalItemSelected: {
-    borderColor: '#10b981',
-    backgroundColor: '#10b98110',
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   goalIcon: {
     fontSize: 24,
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
   goalText: {
     flex: 1,
-    fontSize: 15,
-    color: '#aaa',
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
   goalTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: COLORS.textPrimary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   pagination: {
-    flexDirection: 'row',
+    flexDirection: "row",
     height: 64,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   dot: {
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#6366f1',
-    marginHorizontal: 8,
+    backgroundColor: COLORS.primary,
+    marginHorizontal: SPACING.sm,
   },
   buttonContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    gap: 12,
+    flexDirection: "row",
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.xxxl + 10,
+    gap: SPACING.md,
   },
   skipButton: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: '#1a1a2e',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  skipButtonText: {
-    color: '#888',
-    fontSize: 16,
-    fontWeight: '600',
   },
   primaryButton: {
     flex: 2,
-    flexDirection: 'row',
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: '#6366f1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.5,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

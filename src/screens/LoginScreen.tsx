@@ -3,21 +3,24 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
-  TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Modal,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-} from "firebase/auth"; // ✅ Added sendPasswordResetEmail
+} from "firebase/auth";
 import { auth } from "../../firebaseConfig";
-import { Ionicons } from "@expo/vector-icons"; // ✅ Added for close icon
+import { Ionicons } from "@expo/vector-icons";
+import Button from "../components/Button";
+import Input from "../components/Input";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type LoginScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -27,15 +30,40 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
-  // ✅ NEW: Password reset modal states
+  // Password reset modal states
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert("Error", "Please enter both email and password");
+    // Clear previous errors
+    setEmailError("");
+    setPasswordError("");
+
+    // Validation
+    if (!email.trim()) {
+      setEmailError("Email is required");
+      hapticFeedback.error();
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email");
+      hapticFeedback.error();
+      return;
+    }
+
+    if (!password) {
+      setPasswordError("Password is required");
+      hapticFeedback.error();
       return;
     }
 
@@ -43,38 +71,36 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Navigation will happen automatically via auth state change
+      hapticFeedback.success();
+      // Navigation happens via auth state change
     } catch (error: any) {
       console.error("Login error:", error);
-      let errorMessage = "Failed to log in";
+      hapticFeedback.error();
 
       if (
         error.code === "auth/user-not-found" ||
         error.code === "auth/wrong-password" ||
         error.code === "auth/invalid-credential"
       ) {
-        errorMessage = "Invalid email or password";
+        setEmailError("Invalid email or password");
       } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address";
+        setEmailError("Invalid email address");
+      } else {
+        setEmailError("Failed to log in. Please try again.");
       }
-
-      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ NEW: Handle password reset
   const handlePasswordReset = async () => {
     if (!resetEmail.trim()) {
-      Alert.alert("Error", "Please enter your email address");
+      hapticFeedback.error();
       return;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(resetEmail)) {
-      Alert.alert("Error", "Please enter a valid email address");
+    if (!validateEmail(resetEmail)) {
+      hapticFeedback.error();
       return;
     }
 
@@ -85,34 +111,28 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       setShowResetModal(false);
       setResetEmail("");
+      hapticFeedback.success();
 
-      Alert.alert(
-        "Email Sent! ✅",
-        `Password reset instructions have been sent to ${resetEmail.trim()}.\n\nCheck your inbox (and spam folder) and follow the link to reset your password.`,
-        [{ text: "OK" }]
-      );
+      // Show success via Alert (we'll replace with toast later)
+      setTimeout(() => {
+        Alert.alert(
+          "Check Your Email 📧",
+          `If an account exists with ${resetEmail.trim()}, password reset instructions have been sent.\n\nCheck your inbox and spam folder.`,
+          [{ text: "OK" }]
+        );
+      }, 300);
     } catch (error: any) {
       console.error("Password reset error:", error);
-      let errorMessage = "Failed to send password reset email";
-
-      if (error.code === "auth/user-not-found") {
-        errorMessage = "No account found with this email address";
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address";
-      } else if (error.code === "auth/too-many-requests") {
-        errorMessage = "Too many attempts. Please try again later";
-      }
-
-      Alert.alert("Error", errorMessage);
+      hapticFeedback.error();
     } finally {
       setResetLoading(false);
     }
   };
 
-  // ✅ NEW: Open reset modal
   const openResetModal = () => {
-    setResetEmail(email); // Pre-fill with current email input
+    setResetEmail(email);
     setShowResetModal(true);
+    hapticFeedback.light();
   };
 
   return (
@@ -120,66 +140,85 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>
-          Continue your lucid dreaming practice
-        </Text>
-
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#666"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-          />
-
-          {/* ✅ NEW: Forgot Password Link */}
-          <TouchableOpacity
-            style={styles.forgotPasswordButton}
-            onPress={openResetModal}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Log In</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => navigation.navigate("Signup")}
-          >
-            <Text style={styles.linkText}>
-              Don't have an account?{" "}
-              <Text style={styles.linkTextBold}>Sign up</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.icon}>🌙</Text>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>
+              Continue your lucid dreaming journey
             </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+          </View>
 
-      {/* ✅ NEW: Password Reset Modal */}
+          {/* Form */}
+          <View style={styles.form}>
+            <Input
+              label="Email"
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setEmailError("");
+              }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              icon="mail-outline"
+              error={emailError}
+            />
+
+            <Input
+              label="Password"
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setPasswordError("");
+              }}
+              secureTextEntry
+              autoCapitalize="none"
+              icon="lock-closed-outline"
+              error={passwordError}
+            />
+
+            {/* Forgot Password */}
+            <TouchableOpacity
+              style={styles.forgotButton}
+              onPress={openResetModal}
+            >
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            {/* Login Button */}
+            <Button
+              title="Log In"
+              onPress={handleLogin}
+              loading={loading}
+              style={styles.loginButton}
+            />
+
+            {/* Sign Up Link */}
+            <TouchableOpacity
+              style={styles.signupButton}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Signup");
+              }}
+            >
+              <Text style={styles.signupText}>
+                Don't have an account?{" "}
+                <Text style={styles.signupTextBold}>Sign up</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Password Reset Modal */}
       <Modal
         visible={showResetModal}
         transparent
@@ -196,9 +235,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               onPress={() => {
                 setShowResetModal(false);
                 setResetEmail("");
+                hapticFeedback.light();
               }}
             >
-              <Ionicons name="close" size={24} color="#888" />
+              <Ionicons name="close" size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
 
             <Text style={styles.modalIcon}>🔐</Text>
@@ -208,41 +248,32 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               your password.
             </Text>
 
-            <TextInput
-              style={styles.modalInput}
+            <Input
               placeholder="Email address"
-              placeholderTextColor="#666"
               value={resetEmail}
               onChangeText={setResetEmail}
               autoCapitalize="none"
               keyboardType="email-address"
-              autoFocus
+              icon="mail-outline"
+              containerStyle={styles.modalInput}
             />
 
-            <TouchableOpacity
-              style={[
-                styles.modalButton,
-                resetLoading && styles.buttonDisabled,
-              ]}
+            <Button
+              title="Send Reset Link"
               onPress={handlePasswordReset}
-              disabled={resetLoading}
-            >
-              {resetLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.modalButtonText}>Send Reset Link</Text>
-              )}
-            </TouchableOpacity>
+              loading={resetLoading}
+              style={styles.modalButton}
+            />
 
-            <TouchableOpacity
-              style={styles.modalCancelButton}
+            <Button
+              title="Cancel"
               onPress={() => {
                 setShowResetModal(false);
                 setResetEmail("");
+                hapticFeedback.light();
               }}
-            >
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
+              variant="ghost"
+            />
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -253,145 +284,113 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: SPACING.xl,
     justifyContent: "center",
   },
+  header: {
+    alignItems: "center",
+    marginBottom: SPACING.xxxl,
+  },
+  icon: {
+    fontSize: 64,
+    marginBottom: SPACING.lg,
+  },
   title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 10,
+    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#888",
-    marginBottom: 40,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    textAlign: "center",
   },
   form: {
-    gap: 15,
+    gap: SPACING.md,
   },
-  input: {
-    backgroundColor: "#1a1a2e",
-    borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: "#fff",
-  },
-  // ✅ NEW: Forgot password button
-  forgotPasswordButton: {
+  forgotButton: {
     alignSelf: "flex-end",
-    marginTop: -5,
+    marginTop: -SPACING.sm,
+    paddingVertical: SPACING.xs,
   },
-  forgotPasswordText: {
-    color: "#6366f1",
-    fontSize: 14,
-    fontWeight: "500",
+  forgotText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
-  button: {
-    backgroundColor: "#6366f1",
-    paddingVertical: 16,
-    borderRadius: 12,
+  loginButton: {
+    marginTop: SPACING.lg,
+  },
+  signupButton: {
     alignItems: "center",
-    marginTop: 10,
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.sm,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  signupText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+  signupTextBold: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
-  linkButton: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  linkText: {
-    color: "#888",
-    fontSize: 14,
-  },
-  linkTextBold: {
-    color: "#6366f1",
-    fontWeight: "600",
-  },
-  // ✅ NEW: Modal styles
+  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: SPACING.xl,
   },
   modalContent: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xxl,
     width: "100%",
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: "#6366f1",
+    borderColor: COLORS.primary,
     alignItems: "center",
   },
   closeButton: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    padding: 8,
+    top: SPACING.lg,
+    right: SPACING.lg,
+    padding: SPACING.sm,
     zIndex: 1,
   },
   modalIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 12,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
     textAlign: "center",
   },
   modalText: {
-    fontSize: 14,
-    color: "#aaa",
-    marginBottom: 24,
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xxl,
     lineHeight: 20,
     textAlign: "center",
   },
   modalInput: {
-    backgroundColor: "#0f0f23",
-    borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: "#fff",
     width: "100%",
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   modalButton: {
-    backgroundColor: "#6366f1",
-    paddingVertical: 16,
-    borderRadius: 12,
     width: "100%",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  modalButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalCancelButton: {
-    paddingVertical: 12,
-  },
-  modalCancelText: {
-    color: "#888",
-    fontSize: 14,
+    marginBottom: SPACING.md,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,19 +6,24 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-} from 'react-native';
-import { Calendar } from 'react-native-calendars';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useData } from '../contexts/DataContext';
-import { calculateStreak } from '../utils/streakCalculator';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { Calendar } from "react-native-calendars";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useData } from "../contexts/DataContext";
+import { calculateStreak } from "../utils/streakCalculator";
+import { Ionicons } from "@expo/vector-icons";
+import Card from "../components/Card";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type StreakCalendarScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
-export default function StreakCalendarScreen({ navigation }: StreakCalendarScreenProps) {
-  const { dreams, loading, isPremium } = useData(); // ✅ Added isPremium
+export default function StreakCalendarScreen({
+  navigation,
+}: StreakCalendarScreenProps) {
+  const { dreams, loading, isPremium } = useData();
   const [markedDates, setMarkedDates] = useState<any>({});
   const [stats, setStats] = useState({
     currentStreak: 0,
@@ -30,46 +35,45 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
     if (dreams.length > 0) {
       calculateCalendarData();
     }
-  }, [dreams, isPremium]); // ✅ Added isPremium dependency
+  }, [dreams, isPremium]);
 
   const calculateCalendarData = () => {
     const marked: any = {};
     const dreamDates = new Set<string>();
-    
-    // ✅ NEW: Filter dreams based on premium status
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const filteredDreams = isPremium 
-      ? dreams 
-      : dreams.filter(d => new Date(d.createdAt) >= thirtyDaysAgo);
-    
-    // Mark all days with dreams
-    filteredDreams.forEach(dream => {
-      const date = new Date(dream.createdAt).toISOString().split('T')[0];
+
+    const filteredDreams = isPremium
+      ? dreams
+      : dreams.filter((d) => new Date(d.createdAt) >= thirtyDaysAgo);
+
+    filteredDreams.forEach((dream) => {
+      const date = new Date(dream.createdAt).toISOString().split("T")[0];
       dreamDates.add(date);
-      
+
       marked[date] = {
         marked: true,
-        dotColor: dream.isLucid ? '#a855f7' : '#6366f1',
+        dotColor: dream.isLucid ? COLORS.secondary : COLORS.primary,
         customStyles: {
           container: {
-            backgroundColor: dream.isLucid ? '#a855f720' : '#6366f120',
+            backgroundColor: dream.isLucid
+              ? `${COLORS.secondary}20`
+              : `${COLORS.primary}20`,
             borderRadius: 16,
           },
           text: {
-            color: '#fff',
-            fontWeight: 'bold',
+            color: COLORS.textPrimary,
+            fontWeight: "bold",
           },
         },
       };
     });
 
-    // Calculate streaks (use all dreams for accurate stats)
-    const dreamEntries = dreams.map(d => ({ createdAt: d.createdAt }));
+    const dreamEntries = dreams.map((d) => ({ createdAt: d.createdAt }));
     const currentStreak = calculateStreak(dreamEntries);
     const longestStreak = calculateLongestStreak(dreams);
-    
+
     setMarkedDates(marked);
     setStats({
       currentStreak,
@@ -82,7 +86,7 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
     if (dreamsList.length === 0) return 0;
 
     const sortedDates = dreamsList
-      .map(d => new Date(d.createdAt).toDateString())
+      .map((d) => new Date(d.createdAt).toDateString())
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
     let longest = 1;
@@ -91,7 +95,9 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
     for (let i = 1; i < sortedDates.length; i++) {
       const prevDate = new Date(sortedDates[i - 1]);
       const currDate = new Date(sortedDates[i]);
-      const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor(
+        (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
       if (diffDays === 1) {
         current++;
@@ -107,131 +113,161 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading calendar...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header Stats */}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Dream Streak Calendar</Text>
           <Text style={styles.subtitle}>
-            {isPremium ? 'Track your daily dream journaling' : 'Last 30 days'}
+            {isPremium ? "Track your daily dream journaling" : "Last 30 days"}
           </Text>
         </View>
 
-        {/* ✅ NEW: Premium banner for free users */}
         {!isPremium && (
-          <TouchableOpacity 
-            style={styles.premiumBanner}
-            onPress={() => navigation.navigate('Paywall')}
-          >
-            <View style={styles.premiumBannerContent}>
-              <Ionicons name="lock-closed" size={24} color="#6366f1" />
-              <View style={styles.premiumBannerText}>
-                <Text style={styles.premiumBannerTitle}>Unlock Full Calendar</Text>
-                <Text style={styles.premiumBannerSubtitle}>
-                  Upgrade to see your entire dream history
-                </Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color="#6366f1" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.premiumBannerWrapper}>
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Paywall");
+              }}
+              activeOpacity={0.7}
+            >
+              <Card variant="highlighted">
+                <View style={styles.premiumBannerContent}>
+                  <Ionicons
+                    name="lock-closed"
+                    size={24}
+                    color={COLORS.primary}
+                  />
+                  <View style={styles.premiumBannerText}>
+                    <Text style={styles.premiumBannerTitle}>
+                      Unlock Full Calendar
+                    </Text>
+                    <Text style={styles.premiumBannerSubtitle}>
+                      Upgrade to see your entire dream history
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                </View>
+              </Card>
+            </TouchableOpacity>
+          </View>
         )}
 
-        {/* Streak Stats */}
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="flame" size={32} color="#f59e0b" />
+          <Card style={styles.statCard}>
+            <Ionicons name="flame" size={32} color={COLORS.warning} />
             <Text style={styles.statNumber}>{stats.currentStreak}</Text>
             <Text style={styles.statLabel}>Current Streak</Text>
-          </View>
+          </Card>
 
-          <View style={styles.statCard}>
-            <Ionicons name="trophy" size={32} color="#10b981" />
+          <Card style={styles.statCard}>
+            <Ionicons name="trophy" size={32} color={COLORS.success} />
             <Text style={styles.statNumber}>{stats.longestStreak}</Text>
             <Text style={styles.statLabel}>Longest Streak</Text>
-          </View>
+          </Card>
 
-          <View style={styles.statCard}>
-            <Ionicons name="calendar" size={32} color="#6366f1" />
+          <Card style={styles.statCard}>
+            <Ionicons name="calendar" size={32} color={COLORS.primary} />
             <Text style={styles.statNumber}>{stats.totalDays}</Text>
             <Text style={styles.statLabel}>
-              {isPremium ? 'Total Days' : 'Last 30 Days'}
+              {isPremium ? "Total Days" : "Last 30 Days"}
             </Text>
-          </View>
+          </Card>
         </View>
 
-        {/* Calendar */}
-        <View style={styles.calendarContainer}>
+        <Card style={styles.calendarContainer}>
           <Calendar
             markedDates={markedDates}
             markingType="custom"
-            maxDate={new Date().toISOString().split('T')[0]}
+            maxDate={new Date().toISOString().split("T")[0]}
             minDate={
-              isPremium 
-                ? undefined 
-                : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+              isPremium
+                ? undefined
+                : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+                    .toISOString()
+                    .split("T")[0]
             }
             theme={{
-              calendarBackground: '#1a1a2e',
-              textSectionTitleColor: '#888',
-              selectedDayBackgroundColor: '#6366f1',
-              selectedDayTextColor: '#fff',
-              todayTextColor: '#f59e0b',
-              dayTextColor: '#fff',
-              textDisabledColor: '#444',
-              monthTextColor: '#fff',
-              textMonthFontWeight: 'bold',
+              calendarBackground: COLORS.backgroundSecondary,
+              textSectionTitleColor: COLORS.textSecondary,
+              selectedDayBackgroundColor: COLORS.primary,
+              selectedDayTextColor: COLORS.textPrimary,
+              todayTextColor: COLORS.warning,
+              dayTextColor: COLORS.textPrimary,
+              textDisabledColor: COLORS.border,
+              monthTextColor: COLORS.textPrimary,
+              textMonthFontWeight: "bold",
               textDayFontSize: 14,
               textMonthFontSize: 18,
-              arrowColor: '#6366f1',
+              arrowColor: COLORS.primary,
             }}
             style={styles.calendar}
           />
-        </View>
+        </Card>
 
-        {/* ✅ NEW: Hint below calendar for free users */}
         {!isPremium && (
           <View style={styles.limitHint}>
-            <Ionicons name="lock-closed" size={16} color="#888" />
+            <Ionicons
+              name="lock-closed"
+              size={16}
+              color={COLORS.textSecondary}
+            />
             <Text style={styles.limitHintText}>
               Showing last 30 days only • Upgrade for full history
             </Text>
           </View>
         )}
-        
 
-        {/* Legend */}
-        <View style={styles.legendContainer}>
+        <Card style={styles.legendContainer}>
           <Text style={styles.legendTitle}>Legend</Text>
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#6366f1' }]} />
+              <View
+                style={[styles.legendDot, { backgroundColor: COLORS.primary }]}
+              />
               <Text style={styles.legendText}>Regular Dream</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} />
+              <View
+                style={[
+                  styles.legendDot,
+                  { backgroundColor: COLORS.secondary },
+                ]}
+              />
               <Text style={styles.legendText}>Lucid Dream</Text>
             </View>
           </View>
-        </View>
+        </Card>
 
-        {/* Motivation Message */}
         {stats.currentStreak > 0 && (
-          <View style={styles.motivationCard}>
+          <Card style={styles.motivationCard}>
             <Text style={styles.motivationEmoji}>
-              {stats.currentStreak >= 30 ? '🏆' : stats.currentStreak >= 7 ? '⭐' : '🔥'}
+              {stats.currentStreak >= 30
+                ? "🏆"
+                : stats.currentStreak >= 7
+                ? "⭐"
+                : "🔥"}
             </Text>
             <Text style={styles.motivationTitle}>
-              {stats.currentStreak >= 30 
-                ? 'Incredible Dedication!' 
-                : stats.currentStreak >= 7 
-                ? 'Amazing Streak!' 
-                : 'Keep it going!'}
+              {stats.currentStreak >= 30
+                ? "Incredible Dedication!"
+                : stats.currentStreak >= 7
+                ? "Amazing Streak!"
+                : "Keep it going!"}
             </Text>
             <Text style={styles.motivationText}>
               {stats.currentStreak >= 30
@@ -240,7 +276,7 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
                 ? `${stats.currentStreak} days in a row! You're building a strong habit!`
                 : `${stats.currentStreak} day streak! Log another dream tomorrow to keep it alive!`}
             </Text>
-          </View>
+          </Card>
         )}
 
         <View style={styles.footer} />
@@ -252,122 +288,119 @@ export default function StreakCalendarScreen({ navigation }: StreakCalendarScree
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0f0f23',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    marginTop: SPACING.md,
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    padding: 20,
-    paddingTop: 20,
+    padding: SPACING.xl,
+    paddingTop: SPACING.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 5,
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#888',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
   },
-  // ✅ NEW: Premium banner
-  premiumBanner: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#6366f1',
-    overflow: 'hidden',
+  premiumBannerWrapper: {
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   premiumBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
   },
   premiumBannerText: {
     flex: 1,
   },
   premiumBannerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   premiumBannerSubtitle: {
-    fontSize: 13,
-    color: '#888',
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
   },
   statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 20,
+    flexDirection: "row",
+    paddingHorizontal: SPACING.xl,
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
+    padding: SPACING.lg,
+    alignItems: "center",
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 8,
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   statLabel: {
-    fontSize: 11,
-    color: '#888',
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
+    textAlign: "center",
   },
   calendarContainer: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#333',
-    position: 'relative',
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
+    padding: SPACING.sm,
   },
   calendar: {
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
+  },
+  limitHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  limitHintText: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
   },
   legendContainer: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#333',
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
   },
   legendTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 15,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
   },
   legendItems: {
-    gap: 12,
+    gap: SPACING.md,
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
   },
   legendDot: {
     width: 16,
@@ -375,48 +408,35 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   legendText: {
-    fontSize: 14,
-    color: '#aaa',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
   },
   motivationCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#1a3229',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
+    backgroundColor: "#1a3229",
+    padding: SPACING.lg,
+    alignItems: "center",
     borderLeftWidth: 4,
-    borderLeftColor: '#10b981',
+    borderLeftColor: COLORS.success,
   },
   motivationEmoji: {
     fontSize: 48,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   motivationTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#10b981',
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.success,
+    marginBottom: SPACING.sm,
   },
   motivationText: {
-    fontSize: 14,
-    color: '#aaa',
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    textAlign: "center",
     lineHeight: 20,
   },
   footer: {
-    height: 40,
-  },
-  limitHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    gap: 8,
-  },
-  limitHintText: {
-    fontSize: 12,
-    color: '#888',
+    height: SPACING.xxxl,
   },
 });

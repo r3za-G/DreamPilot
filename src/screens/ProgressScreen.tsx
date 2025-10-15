@@ -16,6 +16,9 @@ import { ACHIEVEMENTS } from "../data/achievements";
 import { calculateStreak } from "../utils/streakCalculator";
 import { getLevelTier } from "../data/levels";
 import { useData } from "../contexts/DataContext";
+import Card from "../components/Card";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type ProgressScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -50,6 +53,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
   };
 
   const onRefresh = async () => {
+    hapticFeedback.light();
     setRefreshing(true);
     await refreshData();
     await loadAchievements();
@@ -88,12 +92,12 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading your progress...</Text>
       </View>
     );
   }
 
-  // Calculate stats from cached data
   const totalDreams = dreams.length;
   const lucidDreams = dreams.filter((d) => d.isLucid).length;
   const dreamEntries = dreams.map((d) => ({ createdAt: d.createdAt }));
@@ -107,7 +111,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
 
   const tier = userData?.level
     ? getLevelTier(userData.level)
-    : { title: "Beginner Dreamer", icon: "😴", color: "#6b7280" };
+    : { title: "Beginner Dreamer", icon: "😴", color: COLORS.textTertiary };
 
   return (
     <View style={styles.container}>
@@ -118,27 +122,29 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#6366f1"
-            colors={["#6366f1"]}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
           />
         }
       >
-        {/* Level Header */}
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Your Progress</Text>
-          <View style={[styles.levelCard, { borderColor: tier.color }]}>
-            <Text style={styles.levelIcon}>{tier.icon}</Text>
-            <View style={styles.levelInfo}>
-              <Text style={styles.levelTitle}>{tier.title}</Text>
-              <Text style={[styles.levelText, { color: tier.color }]}>
-                Level {userData?.level || 1}
-              </Text>
+          <Card variant="highlighted" style={{ borderColor: tier.color }}>
+            <View style={styles.levelCardContent}>
+              <Text style={styles.levelIcon}>{tier.icon}</Text>
+              <View style={styles.levelInfo}>
+                <Text style={styles.levelTitle}>{tier.title}</Text>
+                <Text style={[styles.levelText, { color: tier.color }]}>
+                  Level {userData?.level || 1}
+                </Text>
+              </View>
+              <View style={styles.xpInfo}>
+                <Text style={styles.xpNumber}>{userData?.totalXP || 0}</Text>
+                <Text style={styles.xpLabel}>XP</Text>
+              </View>
             </View>
-            <View style={styles.xpInfo}>
-              <Text style={styles.xpNumber}>{userData?.totalXP || 0}</Text>
-              <Text style={styles.xpLabel}>XP</Text>
-            </View>
-          </View>
+          </Card>
         </View>
 
         {/* Stats Grid */}
@@ -146,112 +152,146 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
           <Text style={styles.sectionTitle}>Dream Statistics</Text>
 
           <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
+            <Card style={styles.statBox}>
               <Text style={styles.statNumber}>{totalDreams}</Text>
               <Text style={styles.statLabel}>Total Dreams</Text>
-            </View>
+            </Card>
 
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: "#a855f7" }]}>
+            <Card style={styles.statBox}>
+              <Text style={[styles.statNumber, { color: COLORS.secondary }]}>
                 {lucidDreams}
               </Text>
               <Text style={styles.statLabel}>Lucid Dreams</Text>
-            </View>
+            </Card>
 
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: "#f59e0b" }]}>
+            <Card style={styles.statBox}>
+              <Text style={[styles.statNumber, { color: COLORS.warning }]}>
                 {lucidPercentage}%
               </Text>
               <Text style={styles.statLabel}>Lucid Rate</Text>
-            </View>
+            </Card>
 
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: "#10b981" }]}>
+            <Card style={styles.statBox}>
+              <Text style={[styles.statNumber, { color: COLORS.success }]}>
                 {currentStreak}
               </Text>
               <Text style={styles.statLabel}>Current Streak</Text>
-            </View>
+            </Card>
 
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: "#ef4444" }]}>
+            <Card style={styles.statBox}>
+              <Text style={[styles.statNumber, { color: COLORS.error }]}>
                 {longestStreak}
               </Text>
               <Text style={styles.statLabel}>Longest Streak</Text>
-            </View>
+            </Card>
 
-            <View style={styles.statBox}>
+            <Card style={styles.statBox}>
               <Text style={[styles.statNumber, { color: "#3b82f6" }]}>
                 {userData?.totalXP || 0}
               </Text>
               <Text style={styles.statLabel}>Total XP</Text>
-            </View>
+            </Card>
           </View>
         </View>
 
         {/* Achievements Section */}
-        <TouchableOpacity
-          style={styles.achievementsSection}
-          onPress={() => navigation.navigate("Achievements")}
-        >
-          <View style={styles.achievementsHeader}>
-            <Text style={styles.sectionTitle}>Achievements</Text>
-            <Ionicons name="chevron-forward" size={20} color="#888" />
-          </View>
+        <View style={styles.achievementsWrapper}>
+          <TouchableOpacity
+            onPress={() => {
+              hapticFeedback.light();
+              navigation.navigate("Achievements");
+            }}
+            activeOpacity={0.7}
+          >
+            <Card>
+              <View style={styles.achievementsHeader}>
+                <Text style={styles.sectionTitle}>Achievements</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={COLORS.textSecondary}
+                />
+              </View>
 
-          <View style={styles.achievementProgress}>
-            <View style={styles.achievementInfo}>
-              <Text style={styles.achievementCount}>
-                {achievementsUnlocked}/{ACHIEVEMENTS.length}
+              <View style={styles.achievementProgress}>
+                <View style={styles.achievementInfo}>
+                  <Text style={styles.achievementCount}>
+                    {achievementsUnlocked}/{ACHIEVEMENTS.length}
+                  </Text>
+                  <Text style={styles.achievementLabel}>Unlocked</Text>
+                </View>
+
+                <View style={styles.progressCircle}>
+                  <Text style={styles.progressPercentage}>
+                    {achievementProgress}%
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${achievementProgress}%` },
+                  ]}
+                />
+              </View>
+
+              <Text style={styles.viewAllText}>
+                Tap to view all achievements →
               </Text>
-              <Text style={styles.achievementLabel}>Unlocked</Text>
-            </View>
-
-            <View style={styles.progressCircle}>
-              <Text style={styles.progressPercentage}>
-                {achievementProgress}%
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[styles.progressBar, { width: `${achievementProgress}%` }]}
-            />
-          </View>
-
-          <Text style={styles.viewAllText}>Tap to view all achievements →</Text>
-        </TouchableOpacity>
+            </Card>
+          </TouchableOpacity>
+        </View>
 
         {/* Dream Insights Section */}
-        <TouchableOpacity
-          style={styles.insightsSection}
-          onPress={() => navigation.navigate("Insights")}
-        >
-          <View style={styles.insightsHeader}>
-            <Ionicons name="analytics" size={24} color="#a855f7" />
-            <Text style={styles.sectionTitle}>Dream Insights</Text>
-            <Ionicons name="chevron-forward" size={20} color="#888" />
-          </View>
+        <View style={styles.insightsWrapper}>
+          <TouchableOpacity
+            onPress={() => {
+              hapticFeedback.light();
+              navigation.navigate("Insights");
+            }}
+            activeOpacity={0.7}
+          >
+            <Card
+              variant="highlighted"
+              style={{ borderColor: COLORS.secondary }}
+            >
+              <View style={styles.insightsHeader}>
+                <Ionicons name="analytics" size={24} color={COLORS.secondary} />
+                <Text style={styles.sectionTitle}>Dream Insights</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={COLORS.textSecondary}
+                />
+              </View>
 
-          <Text style={styles.insightsDescription}>
-            Discover patterns and trends in your dreams
-          </Text>
+              <Text style={styles.insightsDescription}>
+                Discover patterns and trends in your dreams
+              </Text>
 
-          <View style={styles.insightsFeatures}>
-            <View style={styles.insightFeature}>
-              <Ionicons name="trending-up" size={18} color="#6366f1" />
-              <Text style={styles.insightFeatureText}>Activity Trends</Text>
-            </View>
-            <View style={styles.insightFeature}>
-              <Ionicons name="pie-chart" size={18} color="#10b981" />
-              <Text style={styles.insightFeatureText}>Common Themes</Text>
-            </View>
-            <View style={styles.insightFeature}>
-              <Ionicons name="calendar" size={18} color="#f59e0b" />
-              <Text style={styles.insightFeatureText}>Dream Patterns</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+              <View style={styles.insightsFeatures}>
+                <View style={styles.insightFeature}>
+                  <Ionicons
+                    name="trending-up"
+                    size={18}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.insightFeatureText}>Activity Trends</Text>
+                </View>
+                <View style={styles.insightFeature}>
+                  <Ionicons name="pie-chart" size={18} color={COLORS.success} />
+                  <Text style={styles.insightFeatureText}>Common Themes</Text>
+                </View>
+                <View style={styles.insightFeature}>
+                  <Ionicons name="calendar" size={18} color={COLORS.warning} />
+                  <Text style={styles.insightFeatureText}>Dream Patterns</Text>
+                </View>
+              </View>
+            </Card>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.footer} />
       </ScrollView>
@@ -262,34 +302,35 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    marginTop: SPACING.md,
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    padding: 20,
+    padding: SPACING.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 20,
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
   },
-  levelCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    padding: 20,
+  levelCardContent: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 2,
-    gap: 15,
+    gap: SPACING.md,
   },
   levelIcon: {
     fontSize: 48,
@@ -298,166 +339,155 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   levelTitle: {
-    fontSize: 14,
-    color: "#aaa",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
   },
   levelText: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   xpInfo: {
     alignItems: "flex-end",
   },
   xpNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#6366f1",
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
   },
   xpLabel: {
-    fontSize: 12,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
   },
   statsSection: {
-    padding: 20,
+    padding: SPACING.xl,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 15,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
   },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: SPACING.md,
   },
   statBox: {
     width: "31%",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 15,
+    padding: SPACING.md,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#333",
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#6366f1",
-    marginBottom: 5,
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
   },
   statLabel: {
-    fontSize: 11,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
     textAlign: "center",
   },
-  achievementsSection: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#333",
+  achievementsWrapper: {
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   achievementsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   achievementProgress: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   achievementInfo: {
     flex: 1,
   },
   achievementCount: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#f59e0b",
+    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.warning,
   },
   achievementLabel: {
-    fontSize: 14,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
   },
   progressCircle: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    borderColor: "#f59e0b",
+    borderColor: COLORS.warning,
   },
   progressPercentage: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#f59e0b",
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.warning,
   },
   progressBarContainer: {
     height: 8,
-    backgroundColor: "#0f0f23",
-    borderRadius: 4,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.sm,
     overflow: "hidden",
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   progressBar: {
     height: "100%",
-    backgroundColor: "#f59e0b",
-    borderRadius: 4,
+    backgroundColor: COLORS.warning,
+    borderRadius: RADIUS.sm,
   },
   viewAllText: {
-    fontSize: 13,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
     textAlign: "center",
   },
-  footer: {
-    height: 40,
-  },
-  insightsSection: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#a855f7",
+  insightsWrapper: {
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   insightsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-    gap: 10,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
   },
   insightsDescription: {
-    fontSize: 14,
-    color: "#aaa",
-    marginBottom: 16,
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
     lineHeight: 20,
   },
   insightsFeatures: {
     flexDirection: "row",
-    gap: 12,
+    gap: SPACING.sm,
+    marginTop: SPACING.xs, // ✅ Add margin top
   },
   insightFeature: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0f0f23",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    gap: 6,
+    flexDirection: "column", // ✅ Changed from 'row' to 'column'
+    alignItems: "center", // ✅ Center items
+    backgroundColor: COLORS.background,
+    paddingVertical: SPACING.md, // ✅ Increased padding
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    gap: SPACING.xs,
   },
   insightFeatureText: {
-    fontSize: 11,
-    color: "#888",
-    fontWeight: "500",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
+    fontWeight: TYPOGRAPHY.weights.medium,
+    textAlign: "center", // ✅ Center text
+  },
+
+  footer: {
+    height: SPACING.xxxl,
   },
 });

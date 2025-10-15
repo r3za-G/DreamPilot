@@ -12,6 +12,10 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Card from "../components/Card";
+import Button from "../components/Button";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type RealityCheckScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -98,11 +102,8 @@ export default function RealityCheckScreen({
       const wakeHours = endHour - startHour;
       const baseNumReminders = Math.floor(wakeHours / intervalHours);
 
-      // Schedule notifications
       for (let i = 0; i < baseNumReminders; i++) {
         const message = getRandomMessage();
-
-        // Add randomization (±30 minutes if enabled)
         const randomOffset = randomize ? Math.random() * 60 - 30 : 0;
         const baseTime = startHour + i * intervalHours;
         const hour = Math.floor(baseTime + randomOffset / 60);
@@ -138,6 +139,7 @@ export default function RealityCheckScreen({
       };
       await saveSettings(settings);
 
+      hapticFeedback.success();
       Alert.alert(
         "Reminders Set! 🎉",
         `You'll receive ${baseNumReminders} reality check reminders every ${intervalHours} hours${
@@ -146,6 +148,7 @@ export default function RealityCheckScreen({
       );
     } catch (error) {
       console.error("Error scheduling reminders:", error);
+      hapticFeedback.error();
       Alert.alert("Error", "Failed to schedule reminders. Please try again.");
     }
   };
@@ -157,6 +160,7 @@ export default function RealityCheckScreen({
       const { status: newStatus } =
         await Notifications.requestPermissionsAsync();
       if (newStatus !== "granted") {
+        hapticFeedback.warning();
         Alert.alert(
           "Permission Required",
           "Please enable notifications to receive reality check reminders."
@@ -165,11 +169,13 @@ export default function RealityCheckScreen({
       }
     }
 
+    hapticFeedback.light();
     setInterval(hours);
     await scheduleReminders(hours);
   };
 
   const cancelAllReminders = async () => {
+    hapticFeedback.warning();
     Alert.alert(
       "Cancel All Reminders",
       "Are you sure you want to cancel all reality check reminders?",
@@ -182,6 +188,7 @@ export default function RealityCheckScreen({
             await Notifications.cancelAllScheduledNotificationsAsync();
             setRemindersEnabled(false);
             await saveSettings({ ...(await getSettings()), enabled: false });
+            hapticFeedback.success();
             Alert.alert(
               "Reminders Cancelled",
               "All reality check reminders have been removed."
@@ -232,200 +239,256 @@ export default function RealityCheckScreen({
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Info Card */}
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={40} color="#6366f1" />
-          <Text style={styles.infoTitle}>Why Reality Checks?</Text>
-          <Text style={styles.infoText}>
-            Regular reality checks train your brain to question whether you're
-            dreaming. Do them often in waking life, and you'll start doing them
-            in dreams too!
-          </Text>
+        <View style={styles.infoCardWrapper}>
+          <Card variant="highlighted">
+            <View style={styles.infoCardContent}>
+              <Ionicons
+                name="information-circle"
+                size={40}
+                color={COLORS.primary}
+              />
+              <Text style={styles.infoTitle}>Why Reality Checks?</Text>
+              <Text style={styles.infoText}>
+                Regular reality checks train your brain to question whether
+                you're dreaming. Do them often in waking life, and you'll start
+                doing them in dreams too!
+              </Text>
+            </View>
+          </Card>
         </View>
 
-        {/* Status Banner */}
         {remindersEnabled && (
-          <View style={styles.statusBanner}>
-            <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-            <Text style={styles.statusText}>Reality checks are active! 🔥</Text>
+          <View style={styles.statusBannerWrapper}>
+            <Card style={styles.statusBanner}>
+              <Ionicons
+                name="checkmark-circle"
+                size={24}
+                color={COLORS.success}
+              />
+              <Text style={styles.statusText}>
+                Reality checks are active! 🔥
+              </Text>
+            </Card>
           </View>
         )}
 
-        {/* Interval Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reminder Frequency</Text>
 
           {intervalOptions.map((option) => (
             <TouchableOpacity
               key={option.hours}
-              style={[
-                styles.optionCard,
-                interval === option.hours && styles.optionCardActive,
-              ]}
               onPress={() => handleSetInterval(option.hours)}
+              activeOpacity={0.7}
+              style={styles.optionWrapper}
             >
-              <View style={styles.optionLeft}>
-                <Ionicons
-                  name={
+              <Card
+                style={{
+                  borderColor:
+                    interval === option.hours ? COLORS.primary : COLORS.border,
+                  borderWidth: 2,
+                  backgroundColor:
                     interval === option.hours
-                      ? "radio-button-on"
-                      : "radio-button-off"
-                  }
-                  size={24}
-                  color={interval === option.hours ? "#6366f1" : "#888"}
-                />
-                <View style={styles.optionText}>
-                  <Text
-                    style={[
-                      styles.optionLabel,
-                      interval === option.hours && styles.optionLabelActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  <Text style={styles.optionDescription}>
-                    {option.description}
-                  </Text>
+                      ? "#1a1a3a"
+                      : COLORS.backgroundSecondary,
+                }}
+              >
+                <View style={styles.optionContent}>
+                  <Ionicons
+                    name={
+                      interval === option.hours
+                        ? "radio-button-on"
+                        : "radio-button-off"
+                    }
+                    size={24}
+                    color={
+                      interval === option.hours
+                        ? COLORS.primary
+                        : COLORS.textSecondary
+                    }
+                  />
+                  <View style={styles.optionText}>
+                    <Text
+                      style={[
+                        styles.optionLabel,
+                        interval === option.hours && styles.optionLabelActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text style={styles.optionDescription}>
+                      {option.description}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              </Card>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Advanced Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Advanced Settings</Text>
 
-          {/* Randomize */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="shuffle" size={22} color="#6366f1" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Randomize Timing</Text>
-                <Text style={styles.settingDescription}>
-                  Vary reminder times by ±30 minutes to prevent habituation
-                </Text>
+          <Card style={styles.settingWrapper}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <Ionicons name="shuffle" size={22} color={COLORS.primary} />
+                <View style={styles.settingText}>
+                  <Text style={styles.settingLabel}>Randomize Timing</Text>
+                  <Text style={styles.settingDescription}>
+                    Vary reminder times by ±30 minutes to prevent habituation
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Switch
-              value={randomize}
-              onValueChange={async (value) => {
-                setRandomize(value);
-                if (remindersEnabled) {
-                  await scheduleReminders(interval);
+              <Switch
+                value={randomize}
+                onValueChange={async (value) => {
+                  hapticFeedback.light();
+                  setRandomize(value);
+                  if (remindersEnabled) {
+                    await scheduleReminders(interval);
+                  }
+                }}
+                trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                thumbColor={
+                  randomize ? COLORS.textPrimary : COLORS.textSecondary
                 }
-              }}
-              trackColor={{ false: "#333", true: "#6366f1" }}
-              thumbColor={randomize ? "#fff" : "#888"}
-            />
-          </View>
-
-          {/* Sound */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="volume-high" size={22} color="#6366f1" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Notification Sound</Text>
-                <Text style={styles.settingDescription}>
-                  Play sound with reminders
-                </Text>
-              </View>
+              />
             </View>
-            <Switch
-              value={useSound}
-              onValueChange={setUseSound}
-              trackColor={{ false: "#333", true: "#6366f1" }}
-              thumbColor={useSound ? "#fff" : "#888"}
-            />
-          </View>
+          </Card>
 
-          {/* Vibration */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="phone-portrait" size={22} color="#6366f1" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Vibration</Text>
-                <Text style={styles.settingDescription}>
-                  Vibrate with reminders
-                </Text>
+          <Card style={styles.settingWrapper}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <Ionicons name="volume-high" size={22} color={COLORS.primary} />
+                <View style={styles.settingText}>
+                  <Text style={styles.settingLabel}>Notification Sound</Text>
+                  <Text style={styles.settingDescription}>
+                    Play sound with reminders
+                  </Text>
+                </View>
               </View>
+              <Switch
+                value={useSound}
+                onValueChange={(value) => {
+                  hapticFeedback.light();
+                  setUseSound(value);
+                }}
+                trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                thumbColor={
+                  useSound ? COLORS.textPrimary : COLORS.textSecondary
+                }
+              />
             </View>
-            <Switch
-              value={useVibration}
-              onValueChange={setUseVibration}
-              trackColor={{ false: "#333", true: "#6366f1" }}
-              thumbColor={useVibration ? "#fff" : "#888"}
-            />
-          </View>
+          </Card>
+
+          <Card style={styles.settingWrapper}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <Ionicons
+                  name="phone-portrait"
+                  size={22}
+                  color={COLORS.primary}
+                />
+                <View style={styles.settingText}>
+                  <Text style={styles.settingLabel}>Vibration</Text>
+                  <Text style={styles.settingDescription}>
+                    Vibrate with reminders
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={useVibration}
+                onValueChange={(value) => {
+                  hapticFeedback.light();
+                  setUseVibration(value);
+                }}
+                trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                thumbColor={
+                  useVibration ? COLORS.textPrimary : COLORS.textSecondary
+                }
+              />
+            </View>
+          </Card>
         </View>
 
-        {/* Reality Check Techniques */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reality Check Techniques</Text>
 
-          <View style={styles.tipCard}>
+          <Card style={styles.tipWrapper}>
             <Text style={styles.tipEmoji}>🤚</Text>
             <Text style={styles.tipTitle}>Finger Through Palm</Text>
             <Text style={styles.tipText}>
               Try to push your finger through your palm. In dreams, it often
               goes through!
             </Text>
-          </View>
+          </Card>
 
-          <View style={styles.tipCard}>
+          <Card style={styles.tipWrapper}>
             <Text style={styles.tipEmoji}>👃</Text>
             <Text style={styles.tipTitle}>Nose Pinch</Text>
             <Text style={styles.tipText}>
               Pinch your nose and try to breathe. In dreams, you can still
               breathe!
             </Text>
-          </View>
+          </Card>
 
-          <View style={styles.tipCard}>
+          <Card style={styles.tipWrapper}>
             <Text style={styles.tipEmoji}>📖</Text>
             <Text style={styles.tipTitle}>Read Twice</Text>
             <Text style={styles.tipText}>
               Read text, look away, then read again. In dreams, text changes!
             </Text>
-          </View>
+          </Card>
         </View>
 
-        {/* Bottom Buttons */}
         <View style={styles.section}>
-          <View style={styles.bottomButtons}>
-            {route.params?.fromOnboarding ? (
-              <>
-                <TouchableOpacity
-                  style={styles.skipButton}
-                  onPress={() => navigation.replace("MainTabs")}
-                >
-                  <Text style={styles.skipButtonText}>Skip for Now</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.continueButton}
-                  onPress={() => navigation.replace("MainTabs")}
-                >
-                  <Text style={styles.continueButtonText}>Continue to App</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </TouchableOpacity>
-              </>
-            ) : (
-              remindersEnabled && (
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={cancelAllReminders}
-                >
-                  <Ionicons name="close-circle" size={20} color="#ef4444" />
-                  <Text style={styles.cancelButtonText}>
-                    Cancel All Reminders
-                  </Text>
-                </TouchableOpacity>
-              )
-            )}
-          </View>
+          {route.params?.fromOnboarding ? (
+            <View style={styles.bottomButtons}>
+              <Button
+                title="Skip for Now"
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.replace("MainTabs");
+                }}
+                variant="ghost"
+                style={styles.skipButton}
+              />
+              <Button
+                title="Continue to App"
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.replace("MainTabs");
+                }}
+                icon={
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color={COLORS.textPrimary}
+                  />
+                }
+                style={styles.continueButton}
+              />
+            </View>
+          ) : (
+            remindersEnabled && (
+              <Button
+                title="Cancel All Reminders"
+                onPress={cancelAllReminders}
+                variant="danger"
+                icon={
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={COLORS.textPrimary}
+                  />
+                }
+              />
+            )
+          )}
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.footer} />
       </ScrollView>
     </View>
   );
@@ -434,196 +497,138 @@ export default function RealityCheckScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
   },
-  infoCard: {
-    margin: 20,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 16,
-    padding: 24,
+  infoCardWrapper: {
+    margin: SPACING.xl,
+  },
+  infoCardContent: {
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#6366f1",
   },
   infoTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-    marginTop: 15,
-    marginBottom: 10,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   infoText: {
-    fontSize: 14,
-    color: "#aaa",
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
     textAlign: "center",
     lineHeight: 22,
+  },
+  statusBannerWrapper: {
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   statusBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#10b98120",
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 20,
+    backgroundColor: `${COLORS.success}20`,
     borderWidth: 1,
-    borderColor: "#10b981",
-    gap: 12,
+    borderColor: COLORS.success,
+    gap: SPACING.md,
   },
   statusText: {
-    fontSize: 16,
-    color: "#10b981",
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.success,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   section: {
-    padding: 20,
-    paddingTop: 0,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.lg,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 15,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
   },
-  optionCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "#333",
+  optionWrapper: {
+    marginBottom: SPACING.md,
   },
-  optionCardActive: {
-    borderColor: "#6366f1",
-    backgroundColor: "#1a1a3a",
-  },
-  optionLeft: {
+  optionContent: {
     flexDirection: "row",
     alignItems: "center",
+    gap: SPACING.md,
   },
   optionText: {
-    marginLeft: 15,
     flex: 1,
   },
   optionLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   optionLabelActive: {
-    color: "#6366f1",
+    color: COLORS.primary,
   },
   optionDescription: {
-    fontSize: 13,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+  },
+  settingWrapper: {
+    marginBottom: SPACING.md,
   },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#333",
   },
   settingLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    gap: 12,
+    gap: SPACING.md,
   },
   settingText: {
     flex: 1,
   },
   settingLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   settingDescription: {
-    fontSize: 12,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
     lineHeight: 16,
   },
-  tipCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#333",
+  tipWrapper: {
+    marginBottom: SPACING.md,
   },
   tipEmoji: {
     fontSize: 32,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   tipTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 6,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   tipText: {
-    fontSize: 14,
-    color: "#aaa",
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
     lineHeight: 20,
   },
   bottomButtons: {
     flexDirection: "row",
-    gap: 12,
+    gap: SPACING.md,
   },
   skipButton: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: "#1a1a2e",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#333",
-  },
-  skipButtonText: {
-    color: "#888",
-    fontSize: 16,
-    fontWeight: "600",
   },
   continueButton: {
     flex: 2,
-    flexDirection: "row",
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: "#6366f1",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
   },
-  continueButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  cancelButton: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: "#1a1a2e",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#ef4444",
-    gap: 8,
-  },
-  cancelButtonText: {
-    color: "#ef4444",
-    fontSize: 16,
-    fontWeight: "600",
+  footer: {
+    height: SPACING.xxxl,
   },
 });

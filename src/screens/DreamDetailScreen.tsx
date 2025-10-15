@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,13 +7,21 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebaseConfig';
-import { DreamAnalysis, analyzeDream, saveDreamAnalysis } from '../services/dreamAnalysisService';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { useData } from '../contexts/DataContext';
+} from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { doc, getDoc, deleteDoc } from "firebase/firestore";
+import { db, auth } from "../../firebaseConfig";
+import {
+  DreamAnalysis,
+  analyzeDream,
+  saveDreamAnalysis,
+} from "../services/dreamAnalysisService";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { useData } from "../contexts/DataContext";
+import Card from "../components/Card";
+import Button from "../components/Button";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type DreamDetailScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -30,12 +38,15 @@ type Dream = {
   analyzed?: boolean;
 };
 
-export default function DreamDetailScreen({ navigation, route }: DreamDetailScreenProps) {
+export default function DreamDetailScreen({
+  navigation,
+  route,
+}: DreamDetailScreenProps) {
   const { dreamId } = route.params;
   const [dream, setDream] = useState<Dream | null>(null);
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
-  const { refreshDreams } = useData(); 
+  const { refreshDreams } = useData();
 
   useEffect(() => {
     loadDream();
@@ -43,12 +54,12 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
 
   const loadDream = async () => {
     try {
-      const dreamDoc = await getDoc(doc(db, 'dreams', dreamId));
+      const dreamDoc = await getDoc(doc(db, "dreams", dreamId));
       if (dreamDoc.exists()) {
         setDream(dreamDoc.data() as Dream);
       }
     } catch (error) {
-      console.error('Error loading dream:', error);
+      console.error("Error loading dream:", error);
     } finally {
       setLoading(false);
     }
@@ -56,40 +67,48 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
 
   const handleReanalyze = async () => {
     if (!dream) return;
-    
+
+    hapticFeedback.light();
     Alert.alert(
-      'Re-analyze Dream',
-      'This will generate a fresh AI analysis of your dream. Continue?',
+      "Re-analyze Dream",
+      "This will generate a fresh AI analysis of your dream. Continue?",
       [
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Re-analyze',
+          text: "Re-analyze",
           onPress: async () => {
             try {
               setReanalyzing(true);
               const user = auth.currentUser;
               if (!user) return;
 
-              const analysis = await analyzeDream(dream.title, dream.content, dream.isLucid);
-              
+              const analysis = await analyzeDream(
+                dream.title,
+                dream.content,
+                dream.isLucid
+              );
+
               if (analysis) {
                 await saveDreamAnalysis(user.uid, dreamId, analysis);
-                await loadDream(); // Reload dream with new analysis
-                
+                await loadDream();
+
+                hapticFeedback.success();
                 Alert.alert(
-                  'Analysis Complete! 🎉',
-                  'Your dream has been re-analyzed with fresh insights.',
-                  [{ text: 'Great!' }]
+                  "Analysis Complete! 🎉",
+                  "Your dream has been re-analyzed with fresh insights.",
+                  [{ text: "Great!" }]
                 );
               } else {
-                Alert.alert('Error', 'Failed to analyze dream. Please try again.');
+                hapticFeedback.error();
+                Alert.alert(
+                  "Error",
+                  "Failed to analyze dream. Please try again."
+                );
               }
             } catch (error) {
-              console.error('Error re-analyzing dream:', error);
-              Alert.alert('Error', 'Something went wrong. Please try again.');
+              console.error("Error re-analyzing dream:", error);
+              hapticFeedback.error();
+              Alert.alert("Error", "Something went wrong. Please try again.");
             } finally {
               setReanalyzing(false);
             }
@@ -100,29 +119,32 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
   };
 
   const deleteDream = async () => {
+    hapticFeedback.warning();
     Alert.alert(
-      'Delete Dream',
-      'Are you sure you want to delete this dream? This action cannot be undone.',
+      "Delete Dream",
+      "Are you sure you want to delete this dream? This action cannot be undone.",
       [
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
               setLoading(true);
-              await deleteDoc(doc(db, 'dreams', dreamId));
+              await deleteDoc(doc(db, "dreams", dreamId));
               await refreshDreams();
-              
+
+              hapticFeedback.success();
               navigation.goBack();
-              
-              Alert.alert('Dream Deleted', 'Your dream has been removed from your journal.');
+
+              Alert.alert(
+                "Dream Deleted",
+                "Your dream has been removed from your journal."
+              );
             } catch (error) {
-              console.error('Error deleting dream:', error);
-              Alert.alert('Error', 'Failed to delete dream. Please try again.');
+              console.error("Error deleting dream:", error);
+              hapticFeedback.error();
+              Alert.alert("Error", "Failed to delete dream. Please try again.");
             } finally {
               setLoading(false);
             }
@@ -132,20 +154,24 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
     );
   };
 
-
   const getPotentialColor = (potential: string) => {
     switch (potential) {
-      case 'high': return '#10b981';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#ef4444';
-      default: return '#6b7280';
+      case "high":
+        return COLORS.success;
+      case "medium":
+        return COLORS.warning;
+      case "low":
+        return COLORS.error;
+      default:
+        return COLORS.textTertiary;
     }
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading dream...</Text>
       </View>
     );
   }
@@ -160,23 +186,31 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>{dream.title}</Text>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => navigation.navigate('EditDream', { dreamId, dream })}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("EditDream", { dreamId, dream });
+              }}
+              activeOpacity={0.7}
             >
-              <Ionicons name="pencil" size={20} color="#6366f1" />
+              <Ionicons name="pencil" size={20} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.date}>
-              {new Date(dream.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
+              {new Date(dream.createdAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
               })}
             </Text>
             {dream.isLucid && (
@@ -186,11 +220,14 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
             )}
           </View>
         </View>
+
+        {/* Dream Content */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dream Content</Text>
           <Text style={styles.content}>{dream.content}</Text>
         </View>
 
+        {/* Tags */}
         {dream.tags && dream.tags.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tags</Text>
@@ -204,134 +241,160 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
           </View>
         )}
 
+        {/* AI Analysis */}
         {dream.analyzed && dream.analysis ? (
-          <>
-            <View style={styles.aiSection}>
-              <View style={styles.aiHeader}>
-                <Text style={styles.aiTitle}>🤖 AI Analysis</Text>
-                <TouchableOpacity
-                  style={styles.reanalyzeButton}
-                  onPress={handleReanalyze}
-                  disabled={reanalyzing}
-                >
-                  <Ionicons 
-                    name={reanalyzing ? "hourglass" : "refresh"} 
-                    size={18} 
-                    color="#6366f1" 
-                  />
-                  <Text style={styles.reanalyzeText}>
-                    {reanalyzing ? 'Analyzing...' : 'Re-analyze'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              
-              {/* Lucidity Potential */}
-              <View style={styles.potentialCard}>
+          <View style={styles.aiSection}>
+            <View style={styles.aiHeader}>
+              <Text style={styles.aiTitle}>🤖 AI Analysis</Text>
+              <TouchableOpacity
+                style={styles.reanalyzeButton}
+                onPress={handleReanalyze}
+                disabled={reanalyzing}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={reanalyzing ? "hourglass" : "refresh"}
+                  size={18}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.reanalyzeText}>
+                  {reanalyzing ? "Analyzing..." : "Re-analyze"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Lucidity Potential */}
+            <Card>
+              <View style={styles.potentialContent}>
                 <Text style={styles.cardLabel}>Lucidity Potential</Text>
-                <View style={[styles.potentialBadge, { backgroundColor: getPotentialColor(dream.analysis.lucidityPotential) + '20' }]}>
-                  <Text style={[styles.potentialText, { color: getPotentialColor(dream.analysis.lucidityPotential) }]}>
+                <View
+                  style={[
+                    styles.potentialBadge,
+                    {
+                      backgroundColor:
+                        getPotentialColor(dream.analysis.lucidityPotential) +
+                        "20",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.potentialText,
+                      {
+                        color: getPotentialColor(
+                          dream.analysis.lucidityPotential
+                        ),
+                      },
+                    ]}
+                  >
                     {dream.analysis.lucidityPotential.toUpperCase()}
                   </Text>
                 </View>
               </View>
+            </Card>
 
-              {/* Dream Signs */}
-              {dream.analysis.dreamSigns.length > 0 && (
-                <View style={styles.analysisCard}>
-                  <Text style={styles.cardTitle}>🎯 Dream Signs</Text>
-                  <Text style={styles.cardDescription}>
-                    Watch for these in future dreams to trigger lucidity
-                  </Text>
-                  <View style={styles.chipContainer}>
-                    {dream.analysis.dreamSigns.map((sign, index) => (
-                      <View key={index} style={styles.chip}>
-                        <Text style={styles.chipText}>{sign}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Themes */}
-              {dream.analysis.themes.length > 0 && (
-                <View style={styles.analysisCard}>
-                  <Text style={styles.cardTitle}>💭 Themes</Text>
-                  <View style={styles.chipContainer}>
-                    {dream.analysis.themes.map((theme, index) => (
-                      <View key={index} style={[styles.chip, styles.themeChip]}>
-                        <Text style={styles.chipText}>{theme}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Emotions */}
-              {dream.analysis.emotions.length > 0 && (
-                <View style={styles.analysisCard}>
-                  <Text style={styles.cardTitle}>❤️ Emotions</Text>
-                  <View style={styles.chipContainer}>
-                    {dream.analysis.emotions.map((emotion, index) => (
-                      <View key={index} style={[styles.chip, styles.emotionChip]}>
-                        <Text style={styles.chipText}>{emotion}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Insights */}
-              <View style={styles.analysisCard}>
-                <Text style={styles.cardTitle}>💡 Insights</Text>
-                <Text style={styles.insightText}>{dream.analysis.insights}</Text>
-              </View>
-
-              {/* Suggestions */}
-              {dream.analysis.suggestions.length > 0 && (
-                <View style={styles.analysisCard}>
-                  <Text style={styles.cardTitle}>✨ Suggestions for Lucidity</Text>
-                  {dream.analysis.suggestions.map((suggestion, index) => (
-                    <View key={index} style={styles.suggestionItem}>
-                      <Text style={styles.suggestionNumber}>{index + 1}.</Text>
-                      <Text style={styles.suggestionText}>{suggestion}</Text>
+            {/* Dream Signs */}
+            {dream.analysis.dreamSigns.length > 0 && (
+              <Card style={styles.analysisCard}>
+                <Text style={styles.cardTitle}>🎯 Dream Signs</Text>
+                <Text style={styles.cardDescription}>
+                  Watch for these in future dreams to trigger lucidity
+                </Text>
+                <View style={styles.chipContainer}>
+                  {dream.analysis.dreamSigns.map((sign, index) => (
+                    <View key={index} style={styles.chip}>
+                      <Text style={styles.chipText}>{sign}</Text>
                     </View>
                   ))}
                 </View>
-              )}
+              </Card>
+            )}
 
-              {/* Analysis timestamp */}
-              <Text style={styles.analysisTimestamp}>
-                Analyzed {new Date(dream.analysis.analyzedAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}
-              </Text>
-            </View>
-          </>
+            {/* Themes */}
+            {dream.analysis.themes.length > 0 && (
+              <Card style={styles.analysisCard}>
+                <Text style={styles.cardTitle}>💭 Themes</Text>
+                <View style={styles.chipContainer}>
+                  {dream.analysis.themes.map((theme, index) => (
+                    <View key={index} style={[styles.chip, styles.themeChip]}>
+                      <Text style={styles.chipText}>{theme}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            )}
+
+            {/* Emotions */}
+            {dream.analysis.emotions.length > 0 && (
+              <Card style={styles.analysisCard}>
+                <Text style={styles.cardTitle}>❤️ Emotions</Text>
+                <View style={styles.chipContainer}>
+                  {dream.analysis.emotions.map((emotion, index) => (
+                    <View key={index} style={[styles.chip, styles.emotionChip]}>
+                      <Text style={styles.chipText}>{emotion}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            )}
+
+            {/* Insights */}
+            <Card style={styles.analysisCard}>
+              <Text style={styles.cardTitle}>💡 Insights</Text>
+              <Text style={styles.insightText}>{dream.analysis.insights}</Text>
+            </Card>
+
+            {/* Suggestions */}
+            {dream.analysis.suggestions.length > 0 && (
+              <Card style={styles.analysisCard}>
+                <Text style={styles.cardTitle}>
+                  ✨ Suggestions for Lucidity
+                </Text>
+                {dream.analysis.suggestions.map((suggestion, index) => (
+                  <View key={index} style={styles.suggestionItem}>
+                    <Text style={styles.suggestionNumber}>{index + 1}.</Text>
+                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                  </View>
+                ))}
+              </Card>
+            )}
+
+            <Text style={styles.analysisTimestamp}>
+              Analyzed{" "}
+              {new Date(dream.analysis.analyzedAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </Text>
+          </View>
         ) : (
-          <View style={styles.noAnalysisCard}>
+          <Card style={styles.noAnalysisCard}>
             <Text style={styles.noAnalysisText}>
               🤖 AI analysis in progress...
             </Text>
             <Text style={styles.noAnalysisSubtext}>
               Check back in a moment for insights about this dream
             </Text>
-          </View>
+          </Card>
         )}
 
-        {/* Delete Button at Bottom */}
+        {/* Delete Button */}
         <View style={styles.deleteSection}>
-          <TouchableOpacity 
-            style={styles.deleteButtonBottom}
+          <Button
+            title=""
             onPress={deleteDream}
-          >
-            <MaterialIcons name="delete" size={28} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.deleteWarning}>
-            This action cannot be undone
-          </Text>
+            variant="danger"
+            icon={
+              <MaterialIcons
+                name="delete"
+                size={24}
+                color={COLORS.textPrimary}
+              />
+            }
+          />
+          <Text style={styles.deleteWarning}>This action cannot be undone</Text>
         </View>
       </ScrollView>
     </View>
@@ -341,261 +404,247 @@ export default function DreamDetailScreen({ navigation, route }: DreamDetailScre
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0f0f23',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    marginTop: SPACING.md,
   },
   errorText: {
-    color: '#888',
-    fontSize: 16,
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.lg,
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    padding: 20,
-    paddingTop: 20,
+    padding: SPACING.xl,
+    paddingTop: SPACING.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginRight: 8, 
-    flex: 1,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15,
-  },
-  date: {
-    fontSize: 14,
-    color: '#888',
-  },
-  lucidBadge: {
-    backgroundColor: '#1a3229',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  lucidText: {
-    color: '#10b981',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  section: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 15,
-  },
-  content: {
-    fontSize: 16,
-    color: '#ccc',
-    lineHeight: 26,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  tag: {
-    backgroundColor: '#1a1a2e',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  tagText: {
-    color: '#888',
-    fontSize: 14,
-  },
-  aiSection: {
-    padding: 20,
-    paddingTop: 10,
-  },
-  aiHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  aiTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  reanalyzeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a2e',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#6366f1',
-    gap: 6,
-  },
-  reanalyzeText: {
-    fontSize: 13,
-    color: '#6366f1',
-    fontWeight: '600',
-  },
-  potentialCard: {
-    backgroundColor: '#1a1a2e',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardLabel: {
-    fontSize: 16,
-    color: '#aaa',
-    fontWeight: '600',
-  },
-  potentialBadge: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  potentialText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  analysisCard: {
-    backgroundColor: '#1a1a2e',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 15,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  cardDescription: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 15,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  chip: {
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  themeChip: {
-    backgroundColor: '#8b5cf6',
-  },
-  emotionChip: {
-    backgroundColor: '#ec4899',
-  },
-  chipText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  insightText: {
-    fontSize: 15,
-    color: '#ccc',
-    lineHeight: 24,
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    marginBottom: 15,
-    gap: 10,
-  },
-  suggestionNumber: {
-    fontSize: 16,
-    color: '#6366f1',
-    fontWeight: 'bold',
-  },
-  suggestionText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#ccc',
-    lineHeight: 24,
-  },
-  analysisTimestamp: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 10,
-    fontStyle: 'italic',
-  },
-  noAnalysisCard: {
-    margin: 20,
-    backgroundColor: '#1a1a2e',
-    padding: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  noAnalysisText: {
-    fontSize: 16,
-    color: '#aaa',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  noAnalysisSubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  deleteSection: {
-    padding: 20,
-    paddingTop: 10,
-    paddingBottom: 40,
-  },
-  deleteButtonBottom: {
-    backgroundColor: '#3a1a1a',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ef4444',
-  },
-  deleteWarning: {
-    color: '#888',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 10,
-    fontStyle: 'italic',
+    borderBottomColor: COLORS.border,
   },
   titleRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  marginBottom: 10,
-  gap: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: SPACING.sm,
+    gap: SPACING.md,
+  },
+  title: {
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    flex: 1,
   },
   editButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1a1a2e',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#6366f1',
-    flexShrink: 0,
+    borderColor: COLORS.primary,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
+  },
+  date: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+  },
+  lucidBadge: {
+    backgroundColor: "#1a3229",
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.md,
+  },
+  lucidText: {
+    color: COLORS.success,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  section: {
+    padding: SPACING.xl,
+  },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  content: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    lineHeight: 26,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.sm,
+  },
+  tag: {
+    backgroundColor: COLORS.backgroundSecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  tagText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+  },
+  aiSection: {
+    padding: SPACING.xl,
+    paddingTop: SPACING.sm,
+  },
+  aiHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SPACING.lg,
+  },
+  aiTitle: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+  },
+  reanalyzeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.backgroundSecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    gap: SPACING.xs,
+  },
+  reanalyzeText: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  potentialContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardLabel: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  potentialBadge: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.round,
+  },
+  potentialText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    letterSpacing: 1,
+  },
+  analysisCard: {
+    marginBottom: SPACING.md,
+  },
+  cardTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+  },
+  cardDescription: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  chipContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.sm,
+  },
+  chip: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.round,
+  },
+  themeChip: {
+    backgroundColor: COLORS.secondary,
+  },
+  emotionChip: {
+    backgroundColor: "#ec4899",
+  },
+  chipText: {
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  insightText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    lineHeight: 24,
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  suggestionNumber: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    lineHeight: 24,
+  },
+  analysisTimestamp: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textTertiary,
+    textAlign: "center",
+    marginTop: SPACING.sm,
+    fontStyle: "italic",
+  },
+  noAnalysisCard: {
+    margin: SPACING.xl,
+    padding: SPACING.xxxl,
+    alignItems: "center",
+  },
+  noAnalysisText: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+    textAlign: "center",
+  },
+  noAnalysisSubtext: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textTertiary,
+    textAlign: "center",
+  },
+  deleteSection: {
+    padding: SPACING.xl,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xxxl + 10,
+  },
+  deleteWarning: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    textAlign: "center",
+    marginTop: SPACING.sm,
+    fontStyle: "italic",
   },
 });

@@ -16,6 +16,11 @@ import AchievementModal from "../components/AchievementModal";
 import { Achievement } from "../data/achievements";
 import { Ionicons } from "@expo/vector-icons";
 import { useData } from "../contexts/DataContext";
+import { getLevelTier, getProgressToNextLevel } from "../data/levels";
+import { auth } from "../../firebaseConfig";
+import Card from "../components/Card";
+import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -42,9 +47,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   }, [loading, userData, dreams, completedLessons]);
 
   useEffect(() => {
-    console.log("🏠 HomeScreen mounted");
-    console.log("📚 dreams count:", dreams.length);
-    console.log("👤 userData:", userData);
     const firstIncomplete = LESSONS.find(
       (lesson) => !completedLessons.includes(lesson.id)
     );
@@ -80,6 +82,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const onRefresh = async () => {
+    hapticFeedback.light();
     setRefreshing(true);
     await refreshData();
     setRefreshing(false);
@@ -104,10 +107,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
+  const handleActionPress = (action: string) => {
+    hapticFeedback.light();
+    navigation.navigate(action);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading your dreams...</Text>
       </View>
     );
   }
@@ -125,8 +134,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#6366f1"
-            colors={["#6366f1"]}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
           />
         }
       >
@@ -140,101 +149,98 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
         </View>
 
-        {/* Level Progress */}
-        <View style={styles.levelSection}>
-          <View
-            style={[
-              styles.levelCard,
-              {
-                borderColor: userData?.level
-                  ? getLevelTier(userData.level).color
-                  : "#6b7280",
-              },
-            ]}
-          >
-            <Text style={styles.levelIcon}>
-              {userData?.level ? getLevelTier(userData.level).icon : "😴"}
-            </Text>
-            <View style={styles.levelInfo}>
-              <Text style={styles.levelTitle}>
-                {userData?.level
-                  ? getLevelTier(userData.level).title
-                  : "Beginner Dreamer"}
+        {/* Level Progress Card */}
+        <View style={styles.section}>
+          <Card variant="highlighted" style={styles.levelCard}>
+            <View style={styles.levelHeader}>
+              <Text style={styles.levelIcon}>
+                {userData?.level ? getLevelTier(userData.level).icon : "😴"}
               </Text>
-              <Text
-                style={[
-                  styles.levelText,
-                  {
-                    color: userData?.level
-                      ? getLevelTier(userData.level).color
-                      : "#6b7280",
-                  },
-                ]}
-              >
-                Level {userData?.level || 1}
+              <View style={styles.levelInfo}>
+                <Text style={styles.levelTitle}>
+                  {userData?.level
+                    ? getLevelTier(userData.level).title
+                    : "Beginner Dreamer"}
+                </Text>
+                <Text
+                  style={[
+                    styles.levelText,
+                    {
+                      color: userData?.level
+                        ? getLevelTier(userData.level).color
+                        : COLORS.textSecondary,
+                    },
+                  ]}
+                >
+                  Level {userData?.level || 1}
+                </Text>
+              </View>
+            </View>
+
+            {/* XP Progress Bar */}
+            <View style={styles.xpContainer}>
+              <View style={styles.xpBar}>
+                <View
+                  style={[
+                    styles.xpProgress,
+                    {
+                      width: `${
+                        userData?.xp
+                          ? getProgressToNextLevel(userData.totalXP).percentage
+                          : 0
+                      }%`,
+                      backgroundColor: userData?.level
+                        ? getLevelTier(userData.level).color
+                        : COLORS.textSecondary,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.xpText}>
+                {userData?.xp
+                  ? getProgressToNextLevel(userData.totalXP).current
+                  : 0}{" "}
+                /{" "}
+                {userData?.xp
+                  ? getProgressToNextLevel(userData.totalXP).required
+                  : 100}{" "}
+                XP
               </Text>
             </View>
-          </View>
-          <View style={styles.xpContainer}>
-            <View style={styles.xpBar}>
-              <View
-                style={[
-                  styles.xpProgress,
-                  {
-                    width: `${
-                      userData?.xp
-                        ? getProgressToNextLevel(userData.totalXP).percentage
-                        : 0
-                    }%`,
-                    backgroundColor: userData?.level
-                      ? getLevelTier(userData.level).color
-                      : "#6b7280",
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.xpText}>
-              {userData?.xp
-                ? getProgressToNextLevel(userData.totalXP).current
-                : 0}{" "}
-              /{" "}
-              {userData?.xp
-                ? getProgressToNextLevel(userData.totalXP).required
-                : 100}{" "}
-              XP
-            </Text>
-          </View>
+          </Card>
         </View>
 
         {/* Quick Stats */}
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
+          <Card style={styles.statCard}>
             <Text style={styles.statIcon}>🔥</Text>
             <Text style={styles.statNumber}>{currentStreak}</Text>
             <Text style={styles.statLabel}>Day Streak</Text>
-          </View>
-          <View style={styles.statCard}>
+          </Card>
+          <Card style={styles.statCard}>
             <Text style={styles.statIcon}>📖</Text>
             <Text style={styles.statNumber}>{dreams.length}</Text>
             <Text style={styles.statLabel}>Dreams</Text>
-          </View>
-          <View style={styles.statCard}>
+          </Card>
+          <Card style={styles.statCard}>
             <Text style={styles.statIcon}>✨</Text>
             <Text style={styles.statNumber}>{lucidDreams}</Text>
             <Text style={styles.statLabel}>Lucid</Text>
-          </View>
+          </Card>
         </View>
 
-        {/* Streak Motivation */}
+        {/* Streak Motivation Banner */}
         {currentStreak > 0 && (
-          <View style={styles.motivationBanner}>
-            <Text style={styles.motivationText}>
-              {currentStreak < 7
-                ? `🔥 ${currentStreak} day streak! Keep it going!`
-                : currentStreak < 30
-                ? `⭐ Amazing ${currentStreak}-day streak!`
-                : `🏆 Incredible ${currentStreak}-day streak!`}
-            </Text>
+          <View style={styles.section}>
+            <Card style={styles.motivationBanner}>
+              <Text style={styles.motivationText}>
+                {currentStreak < 7
+                  ? `🔥 ${currentStreak} day streak! Keep it going!`
+                  : currentStreak < 30
+                  ? `⭐ Amazing ${currentStreak}-day streak!`
+                  : `🏆 Incredible ${currentStreak}-day streak!`}
+              </Text>
+            </Card>
           </View>
         )}
 
@@ -243,24 +249,33 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Today's Lesson</Text>
             <TouchableOpacity
-              style={styles.featuredLessonCard}
-              onPress={() =>
-                navigation.navigate("Lesson", { lessonId: nextLesson.id })
-              }
+              activeOpacity={0.7}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Lesson", { lessonId: nextLesson.id });
+              }}
             >
-              <View style={styles.lessonIconCircle}>
-                <Ionicons name="book" size={24} color="#6366f1" />
-              </View>
-              <View style={styles.lessonContent}>
-                <Text style={styles.lessonTitle}>{nextLesson.title}</Text>
-                <Text style={styles.lessonDescription}>
-                  {nextLesson.description}
-                </Text>
-                <Text style={styles.lessonDuration}>
-                  ⏱️ {nextLesson.duration}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={24} color="#666" />
+              <Card variant="highlighted">
+                <View style={styles.lessonCard}>
+                  <View style={styles.lessonIconCircle}>
+                    <Ionicons name="book" size={24} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.lessonContent}>
+                    <Text style={styles.lessonTitle}>{nextLesson.title}</Text>
+                    <Text style={styles.lessonDescription}>
+                      {nextLesson.description}
+                    </Text>
+                    <Text style={styles.lessonDuration}>
+                      ⏱️ {nextLesson.duration}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={24}
+                    color={COLORS.textTertiary}
+                  />
+                </View>
+              </Card>
             </TouchableOpacity>
           </View>
         )}
@@ -268,25 +283,45 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
+
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate("DreamJournal")}
+            activeOpacity={0.7}
+            onPress={() => handleActionPress("DreamJournal")}
+            style={styles.actionWrapper}
           >
-            <Ionicons name="create" size={22} color="#6366f1" />
-            <Text style={styles.actionText}>Log a Dream</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
+            <Card>
+              <View style={styles.actionButton}>
+                <Ionicons name="create" size={22} color={COLORS.primary} />
+                <Text style={styles.actionText}>Log a Dream</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={COLORS.textTertiary}
+                />
+              </View>
+            </Card>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleActionPress("StreakCalendar")}
+          >
+            <Card>
+              <View style={styles.actionButton}>
+                <Ionicons name="calendar" size={22} color={COLORS.warning} />
+                <Text style={styles.actionText}>View Streak Calendar</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={COLORS.textTertiary}
+                />
+              </View>
+            </Card>
           </TouchableOpacity>
         </View>
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate("StreakCalendar")}
-          >
-            <Ionicons name="calendar" size={22} color="#f59e0b" />
-            <Text style={styles.actionText}>View Streak Calendar</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       <AchievementModal
@@ -298,20 +333,21 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   );
 }
 
-// Import these helper functions at the top
-import { getLevelTier, getProgressToNextLevel } from "../data/levels";
-import { auth } from "../../firebaseConfig";
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
+    marginTop: SPACING.md,
   },
   scrollView: {
     flex: 1,
@@ -320,32 +356,38 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    padding: 20,
-    paddingTop: 20,
+    padding: SPACING.xl,
+    paddingTop: SPACING.xl,
   },
   greeting: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 5,
+    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
   },
-  levelSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  section: {
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  // Level Card
   levelCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 16,
+    padding: SPACING.lg,
+  },
+  levelHeader: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 2,
-    gap: 12,
-    marginBottom: 12,
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
   },
   levelIcon: {
     fontSize: 32,
@@ -354,138 +396,123 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   levelTitle: {
-    fontSize: 12,
-    color: "#aaa",
-    marginBottom: 2,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   levelText: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   xpContainer: {
     width: "100%",
   },
   xpBar: {
     height: 6,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 3,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.sm,
     overflow: "hidden",
-    marginBottom: 5,
+    marginBottom: SPACING.xs,
   },
   xpProgress: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: RADIUS.sm,
   },
   xpText: {
-    fontSize: 10,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
     textAlign: "right",
   },
+  // Stats
   statsContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    gap: 10,
-    marginBottom: 20,
+    paddingHorizontal: SPACING.xl,
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   statCard: {
     flex: 1,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 15,
+    padding: SPACING.md,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#333",
   },
   statIcon: {
     fontSize: 24,
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#6366f1",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
   },
   statLabel: {
-    fontSize: 11,
-    color: "#888",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
     textAlign: "center",
   },
+  // Motivation Banner
   motivationBanner: {
-    marginHorizontal: 20,
-    marginBottom: 20,
     backgroundColor: "#1a3229",
     borderLeftWidth: 4,
-    borderLeftColor: "#10b981",
-    padding: 15,
-    borderRadius: 8,
+    borderLeftColor: COLORS.success,
+    padding: SPACING.lg,
   },
   motivationText: {
-    color: "#10b981",
-    fontSize: 14,
-    fontWeight: "600",
+    color: COLORS.success,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
     textAlign: "center",
   },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 25,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 12,
-  },
-  featuredLessonCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 16,
+  // Lesson Card
+  lessonCard: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#6366f1",
   },
   lessonIconCircle: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
   lessonContent: {
     flex: 1,
   },
   lessonTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
   },
   lessonDescription: {
-    fontSize: 13,
-    color: "#888",
-    marginBottom: 6,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
   },
   lessonDuration: {
-    fontSize: 11,
-    color: "#6366f1",
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.primary,
+  },
+  // Actions
+  actionWrapper: {
+    marginBottom: SPACING.sm,
   },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#333",
   },
   actionText: {
     flex: 1,
-    fontSize: 16,
-    color: "#fff",
-    marginLeft: 12,
-    fontWeight: "500",
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textPrimary,
+    marginLeft: SPACING.md,
+    fontWeight: TYPOGRAPHY.weights.medium,
+  },
+  bottomSpacer: {
+    height: SPACING.xxl,
   },
 });

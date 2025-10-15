@@ -3,18 +3,20 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
-  TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Button from "../components/Button";
+import Input from "../components/Input";
+import { COLORS, SPACING, TYPOGRAPHY } from "../theme/design";
+import { hapticFeedback } from "../utils/haptics";
 
 type SignUpScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -23,29 +25,59 @@ type SignUpScreenProps = {
 export default function SignUpScreen({ navigation }: SignUpScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState(""); // ✅ Changed from 'name'
-  const [lastName, setLastName] = useState(""); // ✅ NEW
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Error states
+  const [firstNameError, setFirstNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSignUp = async () => {
-    // ✅ Updated validation
+    // Clear previous errors
+    setFirstNameError("");
+    setLastNameError("");
+    setEmailError("");
+    setPasswordError("");
+
+    // Validation
+    let hasError = false;
+
     if (!firstName.trim()) {
-      Alert.alert("Error", "Please enter your first name");
-      return;
+      setFirstNameError("First name is required");
+      hasError = true;
     }
 
     if (!lastName.trim()) {
-      Alert.alert("Error", "Please enter your last name");
-      return;
+      setLastNameError("Last name is required");
+      hasError = true;
     }
 
     if (!email.trim()) {
-      Alert.alert("Error", "Please enter your email");
-      return;
+      setEmailError("Email is required");
+      hasError = true;
+    } else if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email");
+      hasError = true;
     }
 
-    if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+    if (!password) {
+      setPasswordError("Password is required");
+      hasError = true;
+    } else if (password.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      hasError = true;
+    }
+
+    if (hasError) {
+      hapticFeedback.error();
       return;
     }
 
@@ -59,10 +91,10 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
         password
       );
 
-      // ✅ Updated Firestore document with firstName and lastName
+      // Create Firestore document
       await setDoc(doc(db, "users", userCredential.user.uid), {
-        firstName: firstName.trim(), // ✅ NEW
-        lastName: lastName.trim(), // ✅ NEW
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         email: email.trim(),
         createdAt: new Date().toISOString(),
         currentStreak: 0,
@@ -76,20 +108,21 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
       // Clear onboarding flag for new users
       await AsyncStorage.removeItem("onboardingCompleted");
 
+      hapticFeedback.success();
       // Navigation will happen automatically via auth state change
     } catch (error: any) {
       console.error("Sign up error:", error);
-      let errorMessage = "Failed to create account";
+      hapticFeedback.error();
 
       if (error.code === "auth/email-already-in-use") {
-        errorMessage = "This email is already registered";
+        setEmailError("This email is already registered");
       } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address";
+        setEmailError("Invalid email address");
       } else if (error.code === "auth/weak-password") {
-        errorMessage = "Password is too weak";
+        setPasswordError("Password is too weak");
+      } else {
+        setEmailError("Failed to create account. Please try again.");
       }
-
-      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -100,74 +133,101 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View style={styles.content}>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Start your lucid dreaming journey</Text>
-
-        <View style={styles.form}>
-          {/* ✅ NEW: First Name Input */}
-          <TextInput
-            style={styles.input}
-            placeholder="First name"
-            placeholderTextColor="#666"
-            value={firstName}
-            onChangeText={setFirstName}
-            autoCapitalize="words"
-          />
-
-          {/* ✅ NEW: Last Name Input */}
-          <TextInput
-            style={styles.input}
-            placeholder="Last name"
-            placeholderTextColor="#666"
-            value={lastName}
-            onChangeText={setLastName}
-            autoCapitalize="words"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#666"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password (min 6 characters)"
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-          />
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSignUp}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign Up</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => navigation.navigate("Login")}
-          >
-            <Text style={styles.linkText}>
-              Already have an account?{" "}
-              <Text style={styles.linkTextBold}>Log in</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.icon}>✨</Text>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>
+              Start your lucid dreaming journey
             </Text>
-          </TouchableOpacity>
+          </View>
+
+          {/* Form */}
+          <View style={styles.form}>
+            <Input
+              label="First Name"
+              placeholder="Enter your first name"
+              value={firstName}
+              onChangeText={(text) => {
+                setFirstName(text);
+                setFirstNameError("");
+              }}
+              autoCapitalize="words"
+              icon="person-outline"
+              error={firstNameError}
+            />
+
+            <Input
+              label="Last Name"
+              placeholder="Enter your last name"
+              value={lastName}
+              onChangeText={(text) => {
+                setLastName(text);
+                setLastNameError("");
+              }}
+              autoCapitalize="words"
+              icon="person-outline"
+              error={lastNameError}
+            />
+
+            <Input
+              label="Email"
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setEmailError("");
+              }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              icon="mail-outline"
+              error={emailError}
+            />
+
+            <Input
+              label="Password"
+              placeholder="At least 6 characters"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setPasswordError("");
+              }}
+              secureTextEntry
+              autoCapitalize="none"
+              icon="lock-closed-outline"
+              error={passwordError}
+            />
+
+            {/* Sign Up Button */}
+            <Button
+              title="Create Account"
+              onPress={handleSignUp}
+              loading={loading}
+              style={styles.signupButton}
+            />
+
+            {/* Login Link */}
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Login");
+              }}
+            >
+              <Text style={styles.loginText}>
+                Already have an account?{" "}
+                <Text style={styles.loginTextBold}>Log in</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -175,61 +235,52 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f23",
+    backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: SPACING.xl,
     justifyContent: "center",
   },
+  header: {
+    alignItems: "center",
+    marginBottom: SPACING.xxxl,
+  },
+  icon: {
+    fontSize: 64,
+    marginBottom: SPACING.lg,
+  },
   title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 10,
+    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#888",
-    marginBottom: 40,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    textAlign: "center",
   },
   form: {
-    gap: 15,
+    gap: SPACING.sm,
   },
-  input: {
-    backgroundColor: "#1a1a2e",
-    borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: "#fff",
+  signupButton: {
+    marginTop: SPACING.lg,
   },
-  button: {
-    backgroundColor: "#6366f1",
-    paddingVertical: 16,
-    borderRadius: 12,
+  loginButton: {
     alignItems: "center",
-    marginTop: 10,
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.sm,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  loginText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.sizes.md,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  linkButton: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  linkText: {
-    color: "#888",
-    fontSize: 14,
-  },
-  linkTextBold: {
-    color: "#6366f1",
-    fontWeight: "600",
+  loginTextBold: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
 });
