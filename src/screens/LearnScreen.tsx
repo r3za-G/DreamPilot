@@ -77,7 +77,16 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
     if (filter === "completed") {
       return LESSONS.filter((lesson) => completedLessons.includes(lesson.id));
     } else if (filter === "incomplete") {
-      return LESSONS.filter((lesson) => !completedLessons.includes(lesson.id));
+      // Only show lessons that are incomplete AND unlocked
+      return LESSONS.filter((lesson, idx) => {
+        const isCompleted = completedLessons.includes(lesson.id);
+        // First lesson is always unlocked
+        if (idx === 0) return !isCompleted;
+        // Unlocked if previous lesson is completed
+        const prevLessonId = LESSONS[idx - 1].id;
+        const isPrevCompleted = completedLessons.includes(prevLessonId);
+        return !isCompleted && isPrevCompleted;
+      });
     }
     return LESSONS;
   };
