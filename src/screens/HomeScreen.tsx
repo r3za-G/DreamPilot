@@ -21,14 +21,22 @@ import { auth } from "../../firebaseConfig";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
-  const { userData, dreams, completedLessons, loading, refreshData } =
-    useData();
+  const {
+    userData,
+    dreams,
+    completedLessons,
+    loading,
+    refreshData,
+    refreshLessons,
+  } = useData();
   const [nextLesson, setNextLesson] = useState<Lesson | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [achievementModal, setAchievementModal] = useState<{
@@ -40,12 +48,20 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   });
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
 
+  // ✅ FIX: Refresh lesson data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshLessons(); // Refresh completed lessons from Firebase
+    }, [])
+  );
+
   useEffect(() => {
     if (!loading && userData && dreams.length >= 0) {
       checkForAchievements();
     }
   }, [loading, userData, dreams, completedLessons]);
 
+  // ✅ FIX: Update next lesson whenever completedLessons changes
   useEffect(() => {
     const firstIncomplete = LESSONS.find(
       (lesson) => !completedLessons.includes(lesson.id)
@@ -126,210 +142,228 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const currentStreak = calculateStreak(dreamEntries);
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
-          />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>
-              Hello, {userData?.firstName}! 👋
-            </Text>
-            <Text style={styles.subtitle}>Ready to explore your dreams?</Text>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+              colors={[COLORS.primary]}
+            />
+          }
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>
+                Hello, {userData?.firstName}! 👋
+              </Text>
+              <Text style={styles.subtitle}>Ready to explore your dreams?</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Level Progress Card */}
-        <View style={styles.section}>
-          <Card variant="highlighted" style={styles.levelCard}>
-            <View style={styles.levelHeader}>
-              <Text style={styles.levelIcon}>
-                {userData?.level ? getLevelTier(userData.level).icon : "😴"}
-              </Text>
-              <View style={styles.levelInfo}>
-                <Text style={styles.levelTitle}>
-                  {userData?.level
-                    ? getLevelTier(userData.level).title
-                    : "Beginner Dreamer"}
-                </Text>
-                <Text
-                  style={[
-                    styles.levelText,
-                    {
-                      color: userData?.level
-                        ? getLevelTier(userData.level).color
-                        : COLORS.textSecondary,
-                    },
-                  ]}
-                >
-                  Level {userData?.level || 1}
-                </Text>
-              </View>
-            </View>
-
-            {/* XP Progress Bar */}
-            <View style={styles.xpContainer}>
-              <View style={styles.xpBar}>
-                <View
-                  style={[
-                    styles.xpProgress,
-                    {
-                      width: `${
-                        userData?.xp
-                          ? getProgressToNextLevel(userData.totalXP).percentage
-                          : 0
-                      }%`,
-                      backgroundColor: userData?.level
-                        ? getLevelTier(userData.level).color
-                        : COLORS.textSecondary,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.xpText}>
-                {userData?.xp
-                  ? getProgressToNextLevel(userData.totalXP).current
-                  : 0}{" "}
-                /{" "}
-                {userData?.xp
-                  ? getProgressToNextLevel(userData.totalXP).required
-                  : 100}{" "}
-                XP
-              </Text>
-            </View>
-          </Card>
-        </View>
-
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <Card style={styles.statCard}>
-            <Text style={styles.statIcon}>🔥</Text>
-            <Text style={styles.statNumber}>{currentStreak}</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={styles.statIcon}>📖</Text>
-            <Text style={styles.statNumber}>{dreams.length}</Text>
-            <Text style={styles.statLabel}>Dreams</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={styles.statIcon}>✨</Text>
-            <Text style={styles.statNumber}>{lucidDreams}</Text>
-            <Text style={styles.statLabel}>Lucid</Text>
-          </Card>
-        </View>
-
-        {/* Streak Motivation Banner */}
-        {currentStreak > 0 && (
+          {/* Level Progress Card */}
           <View style={styles.section}>
-            <Card style={styles.motivationBanner}>
-              <Text style={styles.motivationText}>
-                {currentStreak < 7
-                  ? `🔥 ${currentStreak} day streak! Keep it going!`
-                  : currentStreak < 30
-                  ? `⭐ Amazing ${currentStreak}-day streak!`
-                  : `🏆 Incredible ${currentStreak}-day streak!`}
-              </Text>
+            <Card variant="highlighted" style={styles.levelCard}>
+              <View style={styles.levelHeader}>
+                <Text style={styles.levelIcon}>
+                  {userData?.level ? getLevelTier(userData.level).icon : "😴"}
+                </Text>
+                <View style={styles.levelInfo}>
+                  <Text style={styles.levelTitle}>
+                    {userData?.level
+                      ? getLevelTier(userData.level).title
+                      : "Beginner Dreamer"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.levelText,
+                      {
+                        color: userData?.level
+                          ? getLevelTier(userData.level).color
+                          : COLORS.textSecondary,
+                      },
+                    ]}
+                  >
+                    Level {userData?.level || 1}
+                  </Text>
+                </View>
+              </View>
+
+              {/* XP Progress Bar */}
+              <View style={styles.xpContainer}>
+                <View style={styles.xpBar}>
+                  <View
+                    style={[
+                      styles.xpProgress,
+                      {
+                        width: `${
+                          userData?.xp
+                            ? getProgressToNextLevel(userData.totalXP)
+                                .percentage
+                            : 0
+                        }%`,
+                        backgroundColor: userData?.level
+                          ? getLevelTier(userData.level).color
+                          : COLORS.textSecondary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.xpText}>
+                  {userData?.xp
+                    ? getProgressToNextLevel(userData.totalXP).current
+                    : 0}{" "}
+                  /{" "}
+                  {userData?.xp
+                    ? getProgressToNextLevel(userData.totalXP).required
+                    : 100}{" "}
+                  XP
+                </Text>
+              </View>
             </Card>
           </View>
-        )}
 
-        {/* Daily Lesson Card */}
-        {nextLesson && (
+          {/* Quick Stats */}
+          <View style={styles.statsContainer}>
+            <Card style={styles.statCard}>
+              <Text style={styles.statIcon}>🔥</Text>
+              <Text style={styles.statNumber}>{currentStreak}</Text>
+              <Text style={styles.statLabel}>Day Streak</Text>
+            </Card>
+            <Card style={styles.statCard}>
+              <Text style={styles.statIcon}>📖</Text>
+              <Text style={styles.statNumber}>{dreams.length}</Text>
+              <Text style={styles.statLabel}>Dreams</Text>
+            </Card>
+            <Card style={styles.statCard}>
+              <Text style={styles.statIcon}>✨</Text>
+              <Text style={styles.statNumber}>{lucidDreams}</Text>
+              <Text style={styles.statLabel}>Lucid</Text>
+            </Card>
+          </View>
+
+          {/* Streak Motivation Banner */}
+          {currentStreak > 0 && (
+            <View style={styles.section}>
+              <Card style={styles.motivationBanner}>
+                <Text style={styles.motivationText}>
+                  {currentStreak < 7
+                    ? `🔥 ${currentStreak} day streak! Keep it going!`
+                    : currentStreak < 30
+                    ? `⭐ Amazing ${currentStreak}-day streak!`
+                    : `🏆 Incredible ${currentStreak}-day streak!`}
+                </Text>
+              </Card>
+            </View>
+          )}
+
+          {/* Daily Lesson Card */}
+          {nextLesson && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Today's Lesson</Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.navigate("Lesson", { lessonId: nextLesson.id });
+                }}
+              >
+                <Card variant="highlighted">
+                  <View style={styles.lessonCard}>
+                    <View style={styles.lessonIconCircle}>
+                      <Ionicons name="book" size={24} color={COLORS.primary} />
+                    </View>
+                    <View style={styles.lessonContent}>
+                      <Text style={styles.lessonTitle}>{nextLesson.title}</Text>
+                      <Text style={styles.lessonDescription}>
+                        {nextLesson.description}
+                      </Text>
+                      <Text style={styles.lessonDuration}>
+                        ⏱️ {nextLesson.duration}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={24}
+                      color={COLORS.textTertiary}
+                    />
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ✅ NEW: Show completion message if all lessons done */}
+          {!nextLesson && completedLessons.length > 0 && (
+            <View style={styles.section}>
+              <Card style={styles.completionCard}>
+                <Text style={styles.completionIcon}>🎓</Text>
+                <Text style={styles.completionTitle}>
+                  All Lessons Completed!
+                </Text>
+                <Text style={styles.completionText}>
+                  Congratulations! You've finished all available lessons.
+                </Text>
+              </Card>
+            </View>
+          )}
+
+          {/* Quick Actions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today's Lesson</Text>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => {
-                hapticFeedback.light();
-                navigation.navigate("Lesson", { lessonId: nextLesson.id });
-              }}
+              onPress={() => handleActionPress("DreamJournal")}
+              style={styles.actionWrapper}
             >
-              <Card variant="highlighted">
-                <View style={styles.lessonCard}>
-                  <View style={styles.lessonIconCircle}>
-                    <Ionicons name="book" size={24} color={COLORS.primary} />
-                  </View>
-                  <View style={styles.lessonContent}>
-                    <Text style={styles.lessonTitle}>{nextLesson.title}</Text>
-                    <Text style={styles.lessonDescription}>
-                      {nextLesson.description}
-                    </Text>
-                    <Text style={styles.lessonDuration}>
-                      ⏱️ {nextLesson.duration}
-                    </Text>
-                  </View>
+              <Card>
+                <View style={styles.actionButton}>
+                  <Ionicons name="create" size={22} color={COLORS.primary} />
+                  <Text style={styles.actionText}>Log a Dream</Text>
                   <Ionicons
                     name="chevron-forward"
-                    size={24}
+                    size={20}
+                    color={COLORS.textTertiary}
+                  />
+                </View>
+              </Card>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => handleActionPress("StreakCalendar")}
+            >
+              <Card>
+                <View style={styles.actionButton}>
+                  <Ionicons name="calendar" size={22} color={COLORS.warning} />
+                  <Text style={styles.actionText}>View Streak Calendar</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
                     color={COLORS.textTertiary}
                   />
                 </View>
               </Card>
             </TouchableOpacity>
           </View>
-        )}
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          {/* Bottom Spacing */}
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
 
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => handleActionPress("DreamJournal")}
-            style={styles.actionWrapper}
-          >
-            <Card>
-              <View style={styles.actionButton}>
-                <Ionicons name="create" size={22} color={COLORS.primary} />
-                <Text style={styles.actionText}>Log a Dream</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textTertiary}
-                />
-              </View>
-            </Card>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => handleActionPress("StreakCalendar")}
-          >
-            <Card>
-              <View style={styles.actionButton}>
-                <Ionicons name="calendar" size={22} color={COLORS.warning} />
-                <Text style={styles.actionText}>View Streak Calendar</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textTertiary}
-                />
-              </View>
-            </Card>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom Spacing */}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-
-      <AchievementModal
-        visible={achievementModal.visible}
-        achievement={achievementModal.achievement}
-        onClose={handleCloseAchievement}
-      />
-    </View>
+        <AchievementModal
+          visible={achievementModal.visible}
+          achievement={achievementModal.achievement}
+          onClose={handleCloseAchievement}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -496,6 +530,30 @@ const styles = StyleSheet.create({
   lessonDuration: {
     fontSize: TYPOGRAPHY.sizes.xs,
     color: COLORS.primary,
+  },
+  // ✅ NEW: Completion Card Styles
+  completionCard: {
+    backgroundColor: "#1a2f3a",
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.success,
+    padding: SPACING.lg,
+    alignItems: "center",
+  },
+  completionIcon: {
+    fontSize: 48,
+    marginBottom: SPACING.md,
+  },
+  completionTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.success,
+    marginBottom: SPACING.sm,
+    textAlign: "center",
+  },
+  completionText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    textAlign: "center",
   },
   // Actions
   actionWrapper: {

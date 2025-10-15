@@ -16,6 +16,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
 
 type RealityCheckScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -55,6 +56,7 @@ export default function RealityCheckScreen({
   const [endHour, setEndHour] = useState<number>(22);
   const [useSound, setUseSound] = useState<boolean>(true);
   const [useVibration, setUseVibration] = useState<boolean>(true);
+  const toast = useToast(); // ✅ Add this hook
 
   useEffect(() => {
     loadSettings();
@@ -140,16 +142,15 @@ export default function RealityCheckScreen({
       await saveSettings(settings);
 
       hapticFeedback.success();
-      Alert.alert(
-        "Reminders Set! 🎉",
-        `You'll receive ${baseNumReminders} reality check reminders every ${intervalHours} hours${
-          randomize ? " (with random timing)" : ""
-        } between ${startHour}:00 and ${endHour}:00.`
+      // ✅ Toast instead of Alert
+      toast.success(
+        `Reality checks set! ${baseNumReminders} reminders every ${intervalHours}h 🎉`,
+        4000
       );
     } catch (error) {
       console.error("Error scheduling reminders:", error);
       hapticFeedback.error();
-      Alert.alert("Error", "Failed to schedule reminders. Please try again.");
+      toast.error("Failed to schedule reminders. Please try again"); // ✅ Toast
     }
   };
 
@@ -161,10 +162,9 @@ export default function RealityCheckScreen({
         await Notifications.requestPermissionsAsync();
       if (newStatus !== "granted") {
         hapticFeedback.warning();
-        Alert.alert(
-          "Permission Required",
-          "Please enable notifications to receive reality check reminders."
-        );
+        toast.warning(
+          "Please enable notifications for reality check reminders"
+        ); // ✅ Toast
         return;
       }
     }
@@ -176,6 +176,7 @@ export default function RealityCheckScreen({
 
   const cancelAllReminders = async () => {
     hapticFeedback.warning();
+    // ✅ Keep Alert for destructive confirmation
     Alert.alert(
       "Cancel All Reminders",
       "Are you sure you want to cancel all reality check reminders?",
@@ -189,10 +190,7 @@ export default function RealityCheckScreen({
             setRemindersEnabled(false);
             await saveSettings({ ...(await getSettings()), enabled: false });
             hapticFeedback.success();
-            Alert.alert(
-              "Reminders Cancelled",
-              "All reality check reminders have been removed."
-            );
+            toast.success("All reminders cancelled"); // ✅ Toast
           },
         },
       ]

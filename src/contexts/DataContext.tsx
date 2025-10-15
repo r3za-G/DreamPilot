@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { View, ActivityIndicator, Text } from "react-native"; // ✅ Add these imports
 import {
   collection,
   query,
@@ -13,6 +14,7 @@ import { auth, db } from "../../firebaseConfig";
 import { getUserDreamPatterns } from "../services/dreamAnalysisService";
 import { calculateLevel } from "../data/levels";
 import { getUserXP } from "../utils/xpManager";
+import { COLORS } from "../theme/design"; // ✅ Import colors
 
 type Dream = {
   id: string;
@@ -58,18 +60,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [dreamPatterns, setDreamPatterns] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false); // ✅ NEW: Track initial load
   const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        // ✅ Don't await - load in background
-        loadAllData().catch((err) => {
-          console.error("Failed to load data:", err);
-          setLoading(false); // ✅ Unblock even on error
-        });
+        await loadAllData();
       } else {
         setLoading(false);
+        setInitialLoadComplete(true); // ✅ NEW: Mark as complete even if not logged in
       }
     });
 
@@ -80,23 +80,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
 
-      // ✅ Use allSettled instead of all (doesn't fail if one fails)
-      const results = await Promise.allSettled([
-        refreshDreams(),
-        refreshUserData(),
-        refreshLessons(),
-      ]);
+      // ✅ Load all data in parallel
+      await Promise.all([refreshDreams(), refreshUserData(), refreshLessons()]);
 
-      // ✅ Log any failures
-      results.forEach((result, index) => {
-        if (result.status === "rejected") {
-          console.error(`Load operation ${index} failed:`, result.reason);
-        }
-      });
+      setInitialLoadComplete(true); // ✅ NEW: Mark initial load as complete
     } catch (error) {
       console.error("Error loading data:", error);
+      setInitialLoadComplete(true); // ✅ NEW: Mark complete even on error
     } finally {
-      // ✅ ALWAYS set loading to false after max 5 seconds
       setLoading(false);
     }
   };
@@ -131,7 +122,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setDreamPatterns(patterns);
     } catch (error) {
       console.error("Error refreshing dreams:", error);
-      // ✅ Don't throw - just log
     }
   };
 
@@ -142,13 +132,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
 
-      // ✅ NEW: Handle missing user document (zombie account)
       if (!userDoc.exists()) {
         console.warn(
           "⚠️ User document missing - creating default document for zombie account"
         );
 
-        // Create default user document
         await setDoc(doc(db, "users", user.uid), {
           firstName: user.displayName?.split(" ")[0] || "Dream",
           lastName: user.displayName?.split(" ").slice(1).join(" ") || "Pilot",
@@ -162,7 +150,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           lastDreamDate: "",
         });
 
-        // Reload the document we just created
         const newUserDoc = await getDoc(doc(db, "users", user.uid));
         if (!newUserDoc.exists()) {
           console.error("Failed to create user document");
@@ -191,19 +178,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // ✅ Normal flow: User document exists
       const data = userDoc.data();
-
       const totalXP = await getUserXP(user.uid);
       const level = calculateLevel(totalXP);
-
       const premiumStatus = data.isPremium || false;
       setIsPremium(premiumStatus);
 
       setUserData({
-        firstName: data.firstName || data.name?.split(" ")[0] || "Dream", // ✅ Backward compatibility
+        firstName: data.firstName || data.name?.split(" ")[0] || "Dream",
         lastName:
-          data.lastName || data.name?.split(" ").slice(1).join(" ") || "Pilot", // ✅ Backward compatibility
+          data.lastName || data.name?.split(" ").slice(1).join(" ") || "Pilot",
         email: user.email || "",
         level: level,
         xp: totalXP,
@@ -223,23 +207,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const { LESSONS } = require("../data/lessons");
+      const lessonProgressCollection = collection(
+        db,
+        "users",
+        user.uid,
+        "lessonProgress"
+      );
+
+      const progressSnapshot = await getDocs(lessonProgressCollection);
+
       const completed: number[] = [];
-
-      for (const lesson of LESSONS) {
-        const progressDoc = await getDoc(
-          doc(db, "users", user.uid, "lessonProgress", `lesson_${lesson.id}`)
-        );
-
-        if (progressDoc.exists() && progressDoc.data().completed) {
-          completed.push(lesson.id);
+      progressSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.completed && data.lessonId !== undefined) {
+          completed.push(data.lessonId);
         }
-      }
+      });
 
       setCompletedLessons(completed);
     } catch (error) {
       console.error("Error refreshing lessons:", error);
-      // ✅ Don't throw - just log
     }
   };
 
@@ -247,7 +234,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await loadAllData();
   };
 
-  // ✅ ALWAYS render children, even while loading
+  // ✅ NEW: Show loading screen only on initial load
+  if (!initialLoadComplete) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: COLORS.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            marginTop: 16,
+            fontSize: 16,
+          }}
+        >
+          Loading DreamPilot...
+        </Text>
+      </View>
+    );
+  }
+
+  // ✅ Render children after initial load
   return (
     <DataContext.Provider
       value={{

@@ -19,6 +19,9 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
+import EmptyState from "../components/EmptyState";
+import { SkeletonAchievementCard } from "../components/SkeletonLoader";
 
 type ProgressScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -113,189 +116,298 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
     ? getLevelTier(userData.level)
     : { title: "Beginner Dreamer", icon: "😴", color: COLORS.textTertiary };
 
+  // ✅ Check if we have enough data for insights (at least 3 dreams)
+  const hasEnoughDataForInsights = totalDreams >= 3;
+
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
-          />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Your Progress</Text>
-          <Card variant="highlighted" style={{ borderColor: tier.color }}>
-            <View style={styles.levelCardContent}>
-              <Text style={styles.levelIcon}>{tier.icon}</Text>
-              <View style={styles.levelInfo}>
-                <Text style={styles.levelTitle}>{tier.title}</Text>
-                <Text style={[styles.levelText, { color: tier.color }]}>
-                  Level {userData?.level || 1}
-                </Text>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+              colors={[COLORS.primary]}
+            />
+          }
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Your Progress</Text>
+            <Card variant="highlighted" style={{ borderColor: tier.color }}>
+              <View style={styles.levelCardContent}>
+                <Text style={styles.levelIcon}>{tier.icon}</Text>
+                <View style={styles.levelInfo}>
+                  <Text style={styles.levelTitle}>{tier.title}</Text>
+                  <Text style={[styles.levelText, { color: tier.color }]}>
+                    Level {userData?.level || 1}
+                  </Text>
+                </View>
+                <View style={styles.xpInfo}>
+                  <Text style={styles.xpNumber}>{userData?.totalXP || 0}</Text>
+                  <Text style={styles.xpLabel}>XP</Text>
+                </View>
               </View>
-              <View style={styles.xpInfo}>
-                <Text style={styles.xpNumber}>{userData?.totalXP || 0}</Text>
-                <Text style={styles.xpLabel}>XP</Text>
-              </View>
-            </View>
-          </Card>
-        </View>
-
-        {/* Stats Grid */}
-        <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Dream Statistics</Text>
-
-          <View style={styles.statsGrid}>
-            <Card style={styles.statBox}>
-              <Text style={styles.statNumber}>{totalDreams}</Text>
-              <Text style={styles.statLabel}>Total Dreams</Text>
-            </Card>
-
-            <Card style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: COLORS.secondary }]}>
-                {lucidDreams}
-              </Text>
-              <Text style={styles.statLabel}>Lucid Dreams</Text>
-            </Card>
-
-            <Card style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: COLORS.warning }]}>
-                {lucidPercentage}%
-              </Text>
-              <Text style={styles.statLabel}>Lucid Rate</Text>
-            </Card>
-
-            <Card style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: COLORS.success }]}>
-                {currentStreak}
-              </Text>
-              <Text style={styles.statLabel}>Current Streak</Text>
-            </Card>
-
-            <Card style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: COLORS.error }]}>
-                {longestStreak}
-              </Text>
-              <Text style={styles.statLabel}>Longest Streak</Text>
-            </Card>
-
-            <Card style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: "#3b82f6" }]}>
-                {userData?.totalXP || 0}
-              </Text>
-              <Text style={styles.statLabel}>Total XP</Text>
             </Card>
           </View>
-        </View>
 
-        {/* Achievements Section */}
-        <View style={styles.achievementsWrapper}>
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.light();
-              navigation.navigate("Achievements");
-            }}
-            activeOpacity={0.7}
-          >
-            <Card>
-              <View style={styles.achievementsHeader}>
-                <Text style={styles.sectionTitle}>Achievements</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textSecondary}
-                />
-              </View>
+          {/* Stats Grid */}
+          <View style={styles.statsSection}>
+            <Text style={styles.sectionTitle}>Dream Statistics</Text>
 
-              <View style={styles.achievementProgress}>
-                <View style={styles.achievementInfo}>
-                  <Text style={styles.achievementCount}>
-                    {achievementsUnlocked}/{ACHIEVEMENTS.length}
-                  </Text>
-                  <Text style={styles.achievementLabel}>Unlocked</Text>
+            <View style={styles.statsGrid}>
+              <Card style={styles.statBox}>
+                <Text style={styles.statNumber}>{totalDreams}</Text>
+                <Text style={styles.statLabel}>Total Dreams</Text>
+              </Card>
+
+              <Card style={styles.statBox}>
+                <Text style={[styles.statNumber, { color: COLORS.secondary }]}>
+                  {lucidDreams}
+                </Text>
+                <Text style={styles.statLabel}>Lucid Dreams</Text>
+              </Card>
+
+              <Card style={styles.statBox}>
+                <Text style={[styles.statNumber, { color: COLORS.warning }]}>
+                  {lucidPercentage}%
+                </Text>
+                <Text style={styles.statLabel}>Lucid Rate</Text>
+              </Card>
+
+              <Card style={styles.statBox}>
+                <Text style={[styles.statNumber, { color: COLORS.success }]}>
+                  {currentStreak}
+                </Text>
+                <Text style={styles.statLabel}>Current Streak</Text>
+              </Card>
+
+              <Card style={styles.statBox}>
+                <Text style={[styles.statNumber, { color: COLORS.error }]}>
+                  {longestStreak}
+                </Text>
+                <Text style={styles.statLabel}>Longest Streak</Text>
+              </Card>
+
+              <Card style={styles.statBox}>
+                <Text style={[styles.statNumber, { color: "#3b82f6" }]}>
+                  {userData?.totalXP || 0}
+                </Text>
+                <Text style={styles.statLabel}>Total XP</Text>
+              </Card>
+            </View>
+          </View>
+
+          {/* ✅ Achievements Section - With EmptyState */}
+          <View style={styles.achievementsWrapper}>
+            {achievementsUnlocked === 0 ? (
+              <Card>
+                <View style={styles.achievementsHeader}>
+                  <Text style={styles.sectionTitle}>Achievements</Text>
                 </View>
-
-                <View style={styles.progressCircle}>
-                  <Text style={styles.progressPercentage}>
-                    {achievementProgress}%
+                <View style={styles.emptyStateContainer}>
+                  <Text style={styles.emptyStateEmoji}>🏆</Text>
+                  <Text style={styles.emptyStateTitle}>
+                    No achievements yet
                   </Text>
+                  <Text style={styles.emptyStateText}>
+                    Start logging dreams and completing lessons to unlock
+                    achievements!
+                  </Text>
+                  <View style={styles.emptyStateActions}>
+                    <TouchableOpacity
+                      style={styles.emptyStateButton}
+                      onPress={() => {
+                        hapticFeedback.light();
+                        navigation.navigate("DreamJournal");
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.emptyStateButtonText}>
+                        Log a Dream
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.emptyStateButton,
+                        styles.emptyStateButtonSecondary,
+                      ]}
+                      onPress={() => {
+                        hapticFeedback.light();
+                        navigation.navigate("Achievements");
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.emptyStateButtonTextSecondary}>
+                        View All
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              </Card>
+            ) : (
+              <TouchableOpacity
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.navigate("Achievements");
+                }}
+                activeOpacity={0.7}
+              >
+                <Card>
+                  <View style={styles.achievementsHeader}>
+                    <Text style={styles.sectionTitle}>Achievements</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={COLORS.textSecondary}
+                    />
+                  </View>
 
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    { width: `${achievementProgress}%` },
-                  ]}
-                />
-              </View>
+                  <View style={styles.achievementProgress}>
+                    <View style={styles.achievementInfo}>
+                      <Text style={styles.achievementCount}>
+                        {achievementsUnlocked}/{ACHIEVEMENTS.length}
+                      </Text>
+                      <Text style={styles.achievementLabel}>Unlocked</Text>
+                    </View>
 
-              <Text style={styles.viewAllText}>
-                Tap to view all achievements →
-              </Text>
-            </Card>
-          </TouchableOpacity>
-        </View>
+                    <View style={styles.progressCircle}>
+                      <Text style={styles.progressPercentage}>
+                        {achievementProgress}%
+                      </Text>
+                    </View>
+                  </View>
 
-        {/* Dream Insights Section */}
-        <View style={styles.insightsWrapper}>
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.light();
-              navigation.navigate("Insights");
-            }}
-            activeOpacity={0.7}
-          >
-            <Card
-              variant="highlighted"
-              style={{ borderColor: COLORS.secondary }}
-            >
-              <View style={styles.insightsHeader}>
-                <Ionicons name="analytics" size={24} color={COLORS.secondary} />
-                <Text style={styles.sectionTitle}>Dream Insights</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textSecondary}
-                />
-              </View>
+                  <View style={styles.progressBarContainer}>
+                    <View
+                      style={[
+                        styles.progressBar,
+                        { width: `${achievementProgress}%` },
+                      ]}
+                    />
+                  </View>
 
-              <Text style={styles.insightsDescription}>
-                Discover patterns and trends in your dreams
-              </Text>
+                  <Text style={styles.viewAllText}>
+                    Tap to view all achievements →
+                  </Text>
+                </Card>
+              </TouchableOpacity>
+            )}
+          </View>
 
-              <View style={styles.insightsFeatures}>
-                <View style={styles.insightFeature}>
+          {/* ✅ Dream Insights Section - With EmptyState */}
+          <View style={styles.insightsWrapper}>
+            {!hasEnoughDataForInsights ? (
+              <Card
+                variant="highlighted"
+                style={{ borderColor: COLORS.secondary }}
+              >
+                <View style={styles.insightsHeader}>
                   <Ionicons
-                    name="trending-up"
-                    size={18}
-                    color={COLORS.primary}
+                    name="analytics"
+                    size={24}
+                    color={COLORS.secondary}
                   />
-                  <Text style={styles.insightFeatureText}>Activity Trends</Text>
+                  <Text style={styles.sectionTitle}>Dream Insights</Text>
                 </View>
-                <View style={styles.insightFeature}>
-                  <Ionicons name="pie-chart" size={18} color={COLORS.success} />
-                  <Text style={styles.insightFeatureText}>Common Themes</Text>
+                <View style={styles.emptyStateContainer}>
+                  <Text style={styles.emptyStateEmoji}>📊</Text>
+                  <Text style={styles.emptyStateTitle}>
+                    Not enough data yet
+                  </Text>
+                  <Text style={styles.emptyStateText}>
+                    You need at least 3 dreams to generate insights. You have{" "}
+                    {totalDreams} {totalDreams === 1 ? "dream" : "dreams"} so
+                    far.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.emptyStateButton}
+                    onPress={() => {
+                      hapticFeedback.light();
+                      navigation.navigate("DreamJournal");
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.emptyStateButtonText}>
+                      Log More Dreams
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.insightFeature}>
-                  <Ionicons name="calendar" size={18} color={COLORS.warning} />
-                  <Text style={styles.insightFeatureText}>Dream Patterns</Text>
-                </View>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        </View>
+              </Card>
+            ) : (
+              <TouchableOpacity
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.navigate("Insights");
+                }}
+                activeOpacity={0.7}
+              >
+                <Card
+                  variant="highlighted"
+                  style={{ borderColor: COLORS.secondary }}
+                >
+                  <View style={styles.insightsHeader}>
+                    <Ionicons
+                      name="analytics"
+                      size={24}
+                      color={COLORS.secondary}
+                    />
+                    <Text style={styles.sectionTitle}>Dream Insights</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={COLORS.textSecondary}
+                    />
+                  </View>
 
-        <View style={styles.footer} />
-      </ScrollView>
-    </View>
+                  <Text style={styles.insightsDescription}>
+                    Discover patterns and trends in your dreams
+                  </Text>
+
+                  <View style={styles.insightsFeatures}>
+                    <View style={styles.insightFeature}>
+                      <Ionicons
+                        name="trending-up"
+                        size={18}
+                        color={COLORS.primary}
+                      />
+                      <Text style={styles.insightFeatureText}>
+                        Activity Trends
+                      </Text>
+                    </View>
+                    <View style={styles.insightFeature}>
+                      <Ionicons
+                        name="pie-chart"
+                        size={18}
+                        color={COLORS.success}
+                      />
+                      <Text style={styles.insightFeatureText}>
+                        Common Themes
+                      </Text>
+                    </View>
+                    <View style={styles.insightFeature}>
+                      <Ionicons
+                        name="calendar"
+                        size={18}
+                        color={COLORS.warning}
+                      />
+                      <Text style={styles.insightFeatureText}>
+                        Dream Patterns
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.footer} />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -468,14 +580,14 @@ const styles = StyleSheet.create({
   insightsFeatures: {
     flexDirection: "row",
     gap: SPACING.sm,
-    marginTop: SPACING.xs, // ✅ Add margin top
+    marginTop: SPACING.xs,
   },
   insightFeature: {
     flex: 1,
-    flexDirection: "column", // ✅ Changed from 'row' to 'column'
-    alignItems: "center", // ✅ Center items
+    flexDirection: "column",
+    alignItems: "center",
     backgroundColor: COLORS.background,
-    paddingVertical: SPACING.md, // ✅ Increased padding
+    paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.sm,
     gap: SPACING.xs,
@@ -484,9 +596,58 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.xs,
     color: COLORS.textSecondary,
     fontWeight: TYPOGRAPHY.weights.medium,
-    textAlign: "center", // ✅ Center text
+    textAlign: "center",
   },
-
+  // ✅ Empty State Styles
+  emptyStateContainer: {
+    alignItems: "center",
+    paddingVertical: SPACING.lg,
+  },
+  emptyStateEmoji: {
+    fontSize: 48,
+    marginBottom: SPACING.md,
+  },
+  emptyStateTitle: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+    textAlign: "center",
+  },
+  emptyStateText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: SPACING.lg,
+  },
+  emptyStateActions: {
+    flexDirection: "row",
+    gap: SPACING.sm,
+    width: "100%",
+  },
+  emptyStateButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    alignItems: "center",
+  },
+  emptyStateButtonSecondary: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyStateButtonText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textPrimary,
+  },
+  emptyStateButtonTextSecondary: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textSecondary,
+  },
   footer: {
     height: SPACING.xxxl,
   },

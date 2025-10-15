@@ -38,6 +38,7 @@ import Button from "../components/Button";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext";
 
 type DreamJournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -54,6 +55,7 @@ export default function DreamJournalScreen({
   const [loading, setLoading] = useState(false);
   const [showTip, setShowTip] = useState(true);
   const [monthlyDreamCount, setMonthlyDreamCount] = useState(0);
+  const toast = useToast();
 
   const commonTags = [
     "🌊 Water",
@@ -195,7 +197,7 @@ export default function DreamJournalScreen({
   const handleSaveDream = async () => {
     if (!title.trim() || !content.trim()) {
       hapticFeedback.error();
-      Alert.alert("Error", "Please fill in both title and content");
+      toast.error("Please fill in both title and content");
       return;
     }
 
@@ -266,16 +268,15 @@ export default function DreamJournalScreen({
       hapticFeedback.success();
       navigation.goBack();
 
-      Alert.alert(
-        "Dream Saved! ✨",
-        `+${xpAmount} XP earned!${
-          newStreak > 1 ? `\n🔥 ${newStreak} day streak!` : ""
-        }\n\n🤖 AI is analyzing your dream for patterns and insights...`
+      toast.success(
+        `Dream saved! +${xpAmount} XP${
+          newStreak > 1 ? ` • ${newStreak} day streak 🔥` : ""
+        }`
       );
     } catch (error) {
       console.error("Error saving dream:", error);
       hapticFeedback.error();
-      Alert.alert("Error", "Failed to save dream. Please try again.");
+      toast.error("Failed to save dream. Please try again");
     } finally {
       setLoading(false);
     }

@@ -15,14 +15,27 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
+import EmptyState from "../components/EmptyState";
+import { SkeletonLessonCard } from "../components/SkeletonLoader";
+import { useFocusEffect } from "@react-navigation/native";
 
 type LearnScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 export default function LearnScreen({ navigation }: LearnScreenProps) {
-  const { completedLessons, refreshLessons, isPremium } = useData();
+  const { completedLessons, refreshLessons, isPremium, loading } = useData();
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<"all" | "completed" | "incomplete">(
+    "all"
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshLessons();
+    }, [])
+  );
 
   const onRefresh = async () => {
     hapticFeedback.light();
@@ -59,188 +72,412 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
     navigation.navigate("Lesson", { lessonId: lesson.id });
   };
 
-  return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
-          />
-        }
-      >
-        <View style={styles.header}>
-          <Text style={styles.title}>Learn Lucid Dreaming</Text>
-          <Text style={styles.subtitle}>
-            Master the techniques to control your dreams
-          </Text>
+  // Get filtered lessons
+  const getFilteredLessons = () => {
+    if (filter === "completed") {
+      return LESSONS.filter((lesson) => completedLessons.includes(lesson.id));
+    } else if (filter === "incomplete") {
+      return LESSONS.filter((lesson) => !completedLessons.includes(lesson.id));
+    }
+    return LESSONS;
+  };
 
-          <Card variant="highlighted">
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressLabel}>Your Progress</Text>
-              <Text style={styles.progressCount}>
-                {completedCount} / {totalLessons} Lessons
+  const filteredLessons = getFilteredLessons();
+
+  // ✅ SKELETON LOADER - While loading
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Learn Lucid Dreaming</Text>
+              <Text style={styles.subtitle}>
+                Master the techniques to control your dreams
               </Text>
             </View>
-            <View style={styles.progressBarContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  { width: `${progressPercentage}%` },
-                ]}
-              />
+            <View style={styles.lessonsSection}>
+              <SkeletonLessonCard />
+              <SkeletonLessonCard />
+              <SkeletonLessonCard />
+              <SkeletonLessonCard />
+              <SkeletonLessonCard />
             </View>
-            <Text style={styles.progressPercentage}>
-              {progressPercentage}% Complete
-            </Text>
-          </Card>
+          </ScrollView>
         </View>
+      </SafeAreaView>
+    );
+  }
 
-        {!isPremium && (
-          <View style={styles.premiumBannerWrapper}>
-            <TouchableOpacity
-              onPress={() => {
-                hapticFeedback.light();
-                navigation.navigate("Paywall");
-              }}
-              activeOpacity={0.7}
-            >
-              <Card variant="highlighted">
-                <View style={styles.premiumBannerContent}>
-                  <Text style={styles.premiumBannerIcon}>⭐</Text>
-                  <View style={styles.premiumBannerText}>
-                    <Text style={styles.premiumBannerTitle}>
-                      Unlock All Lessons
-                    </Text>
-                    <Text style={styles.premiumBannerSubtitle}>
-                      Get access to 50+ expert lessons with Premium
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={20}
-                    color={COLORS.primary}
-                  />
-                </View>
-              </Card>
-            </TouchableOpacity>
-          </View>
-        )}
+  // ✅ EMPTY STATE - All lessons completed!
+  if (filter === "incomplete" && filteredLessons.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Learn Lucid Dreaming</Text>
+            </View>
 
-        <View style={styles.lessonsSection}>
-          {LESSONS.map((lesson, index) => {
-            const isCompleted = completedLessons.includes(lesson.id);
-            const previousLessonId = index > 0 ? LESSONS[index - 1].id : null;
-            const isPreviousCompleted = previousLessonId
-              ? completedLessons.includes(previousLessonId)
-              : true;
-            const isSequentiallyLocked = index > 0 && !isPreviousCompleted;
-
-            const isPremiumLesson = index >= 5;
-            const isPremiumLocked = isPremiumLesson && !isPremium;
-
-            const isLocked = isSequentiallyLocked || isPremiumLocked;
-
-            return (
+            <View style={styles.filterContainer}>
               <TouchableOpacity
-                key={lesson.id}
+                style={[styles.filterTab]}
                 onPress={() => {
-                  if (!isSequentiallyLocked) {
-                    handleLessonPress(lesson, index);
-                  }
+                  hapticFeedback.light();
+                  setFilter("all");
                 }}
-                disabled={isSequentiallyLocked}
                 activeOpacity={0.7}
-                style={styles.lessonCardWrapper}
               >
-                <Card style={isLocked ? styles.lessonCardLocked : undefined}>
-                  <View style={styles.lessonCardContent}>
-                    <View style={styles.lessonIconContainer}>
-                      <View
-                        style={[
-                          styles.lessonIcon,
-                          isCompleted && styles.lessonIconCompleted,
-                          isLocked && styles.lessonIconLocked,
-                          isPremiumLocked && styles.lessonIconPremium,
-                        ]}
-                      >
-                        {isCompleted ? (
-                          <Ionicons
-                            name="checkmark"
-                            size={24}
-                            color={COLORS.textPrimary}
-                          />
-                        ) : isPremiumLocked ? (
-                          <Ionicons
-                            name="star"
-                            size={24}
-                            color={COLORS.primary}
-                          />
-                        ) : isSequentiallyLocked ? (
-                          <Ionicons
-                            name="lock-closed"
-                            size={24}
-                            color={COLORS.textTertiary}
-                          />
-                        ) : (
-                          <Text style={styles.lessonNumber}>{index + 1}</Text>
-                        )}
-                      </View>
-                    </View>
+                <Text style={styles.filterText}>All</Text>
+              </TouchableOpacity>
 
-                    <View style={styles.lessonContent}>
-                      <View style={styles.lessonTitleRow}>
-                        <Text
-                          style={[
-                            styles.lessonTitle,
-                            isLocked && styles.lessonTitleLocked,
-                          ]}
-                        >
-                          {lesson.title}
-                        </Text>
-                        {isPremiumLesson && (
-                          <View style={styles.premiumBadge}>
-                            <Text style={styles.premiumBadgeText}>PRO</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.lessonDescription,
-                          isLocked && styles.lessonDescriptionLocked,
-                        ]}
-                      >
-                        {isPremiumLocked
-                          ? "Premium lesson - Upgrade to unlock"
-                          : isSequentiallyLocked
-                          ? "Complete the previous lesson to unlock"
-                          : lesson.description}
+              <TouchableOpacity
+                style={[styles.filterTab]}
+                onPress={() => {
+                  hapticFeedback.light();
+                  setFilter("completed");
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterText}>Completed</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.filterTab, styles.filterTabActive]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterText, styles.filterTextActive]}>
+                  Incomplete
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <EmptyState
+              emoji="🎓"
+              title="All lessons completed!"
+              description="Congratulations! You've finished all available lessons."
+              actionLabel="View All Lessons"
+              onAction={() => setFilter("all")} // ✅ This is correct (local state)
+              secondaryActionLabel="Go to Journal"
+              onSecondaryAction={() =>
+                navigation.navigate("MainTabs", { screen: "Journal" })
+              } // ✅ Fixed
+            />
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ✅ EMPTY STATE - No completed lessons yet
+  if (filter === "completed" && filteredLessons.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Learn Lucid Dreaming</Text>
+            </View>
+
+            <View style={styles.filterContainer}>
+              <TouchableOpacity
+                style={[styles.filterTab]}
+                onPress={() => {
+                  hapticFeedback.light();
+                  setFilter("all");
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterText}>All</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.filterTab, styles.filterTabActive]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterText, styles.filterTextActive]}>
+                  Completed
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.filterTab]}
+                onPress={() => {
+                  hapticFeedback.light();
+                  setFilter("incomplete");
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterText}>Incomplete</Text>
+              </TouchableOpacity>
+            </View>
+
+            <EmptyState
+              emoji="📚"
+              title="No lessons completed yet"
+              description="Start your learning journey!"
+              actionLabel="Browse All Lessons"
+              onAction={() => setFilter("all")} // ✅ This is correct (local state)
+            />
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ✅ Normal content with lessons
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+              colors={[COLORS.primary]}
+            />
+          }
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Learn Lucid Dreaming</Text>
+            <Text style={styles.subtitle}>
+              Master the techniques to control your dreams
+            </Text>
+
+            <Card variant="highlighted">
+              <View style={styles.progressInfo}>
+                <Text style={styles.progressLabel}>Your Progress</Text>
+                <Text style={styles.progressCount}>
+                  {completedCount} / {totalLessons} Lessons
+                </Text>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${progressPercentage}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.progressPercentage}>
+                {progressPercentage}% Complete
+              </Text>
+            </Card>
+          </View>
+
+          {!isPremium && (
+            <View style={styles.premiumBannerWrapper}>
+              <TouchableOpacity
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.navigate("Paywall");
+                }}
+                activeOpacity={0.7}
+              >
+                <Card variant="highlighted">
+                  <View style={styles.premiumBannerContent}>
+                    <Text style={styles.premiumBannerIcon}>⭐</Text>
+                    <View style={styles.premiumBannerText}>
+                      <Text style={styles.premiumBannerTitle}>
+                        Unlock All Lessons
                       </Text>
-                      <View style={styles.lessonFooter}>
-                        <Text style={styles.lessonDuration}>
-                          ⏱️ {lesson.duration}
-                        </Text>
-                        {isCompleted && (
-                          <View style={styles.completedBadge}>
-                            <Text style={styles.completedText}>Completed</Text>
-                          </View>
-                        )}
-                      </View>
+                      <Text style={styles.premiumBannerSubtitle}>
+                        Get access to 50+ expert lessons with Premium
+                      </Text>
                     </View>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={20}
+                      color={COLORS.primary}
+                    />
                   </View>
                 </Card>
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            </View>
+          )}
 
-        <View style={styles.footer} />
-      </ScrollView>
-    </View>
+          {/* ✅ Filter Tabs */}
+          <View style={styles.filterContainer}>
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
+                filter === "all" && styles.filterTabActive,
+              ]}
+              onPress={() => {
+                hapticFeedback.light();
+                setFilter("all");
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filter === "all" && styles.filterTextActive,
+                ]}
+              >
+                All
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
+                filter === "completed" && styles.filterTabActive,
+              ]}
+              onPress={() => {
+                hapticFeedback.light();
+                setFilter("completed");
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filter === "completed" && styles.filterTextActive,
+                ]}
+              >
+                Completed
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
+                filter === "incomplete" && styles.filterTabActive,
+              ]}
+              onPress={() => {
+                hapticFeedback.light();
+                setFilter("incomplete");
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filter === "incomplete" && styles.filterTextActive,
+                ]}
+              >
+                Incomplete
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.lessonsSection}>
+            {filteredLessons.map((lesson, index) => {
+              const isCompleted = completedLessons.includes(lesson.id);
+              const previousLessonId = index > 0 ? LESSONS[index - 1].id : null;
+              const isPreviousCompleted = previousLessonId
+                ? completedLessons.includes(previousLessonId)
+                : true;
+              const isSequentiallyLocked = index > 0 && !isPreviousCompleted;
+
+              const isPremiumLesson = index >= 5;
+              const isPremiumLocked = isPremiumLesson && !isPremium;
+
+              const isLocked = isSequentiallyLocked || isPremiumLocked;
+
+              return (
+                <TouchableOpacity
+                  key={lesson.id}
+                  onPress={() => {
+                    if (!isSequentiallyLocked) {
+                      handleLessonPress(lesson, index);
+                    }
+                  }}
+                  disabled={isSequentiallyLocked}
+                  activeOpacity={0.7}
+                  style={styles.lessonCardWrapper}
+                >
+                  <Card style={isLocked ? styles.lessonCardLocked : undefined}>
+                    <View style={styles.lessonCardContent}>
+                      <View style={styles.lessonIconContainer}>
+                        <View
+                          style={[
+                            styles.lessonIcon,
+                            isCompleted && styles.lessonIconCompleted,
+                            isLocked && styles.lessonIconLocked,
+                            isPremiumLocked && styles.lessonIconPremium,
+                          ]}
+                        >
+                          {isCompleted ? (
+                            <Ionicons
+                              name="checkmark"
+                              size={24}
+                              color={COLORS.textPrimary}
+                            />
+                          ) : isPremiumLocked ? (
+                            <Ionicons
+                              name="star"
+                              size={24}
+                              color={COLORS.primary}
+                            />
+                          ) : isSequentiallyLocked ? (
+                            <Ionicons
+                              name="lock-closed"
+                              size={24}
+                              color={COLORS.textTertiary}
+                            />
+                          ) : (
+                            <Text style={styles.lessonNumber}>{index + 1}</Text>
+                          )}
+                        </View>
+                      </View>
+
+                      <View style={styles.lessonContent}>
+                        <View style={styles.lessonTitleRow}>
+                          <Text
+                            style={[
+                              styles.lessonTitle,
+                              isLocked && styles.lessonTitleLocked,
+                            ]}
+                          >
+                            {lesson.title}
+                          </Text>
+                          {isPremiumLesson && (
+                            <View style={styles.premiumBadge}>
+                              <Text style={styles.premiumBadgeText}>PRO</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.lessonDescription,
+                            isLocked && styles.lessonDescriptionLocked,
+                          ]}
+                        >
+                          {isPremiumLocked
+                            ? "Premium lesson - Upgrade to unlock"
+                            : isSequentiallyLocked
+                            ? "Complete the previous lesson to unlock"
+                            : lesson.description}
+                        </Text>
+                        <View style={styles.lessonFooter}>
+                          <Text style={styles.lessonDuration}>
+                            ⏱️ {lesson.duration}
+                          </Text>
+                          {isCompleted && (
+                            <View style={styles.completedBadge}>
+                              <Text style={styles.completedText}>
+                                Completed
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.footer} />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -323,6 +560,33 @@ const styles = StyleSheet.create({
   premiumBannerSubtitle: {
     fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.textSecondary,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.backgroundSecondary,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filterText: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: COLORS.textSecondary,
+  },
+  filterTextActive: {
+    color: COLORS.textPrimary,
   },
   lessonsSection: {
     paddingHorizontal: SPACING.xl,

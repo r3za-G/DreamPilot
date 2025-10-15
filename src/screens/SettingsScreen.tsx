@@ -38,6 +38,7 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
 
 type SettingsScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -54,6 +55,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [editLastName, setEditLastName] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const { userData, refreshUserData } = useData();
+  const toast = useToast(); // ✅ Add this hook
 
   const openPrivacyPolicy = () => {
     hapticFeedback.light();
@@ -67,6 +69,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
   const handleLogout = () => {
     hapticFeedback.warning();
+    // ✅ Keep Alert for confirmation
     Alert.alert("Logout", "Are you sure you want to logout?", [
       {
         text: "Cancel",
@@ -80,10 +83,11 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             setLoading(true);
             await signOut(auth);
             hapticFeedback.success();
+            toast.success("Logged out successfully"); // ✅ Toast
           } catch (error) {
             console.error("Error logging out:", error);
             hapticFeedback.error();
-            Alert.alert("Error", "Failed to logout. Please try again.");
+            toast.error("Failed to logout. Please try again"); // ✅ Toast
           } finally {
             setLoading(false);
           }
@@ -94,6 +98,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
   const handleDeleteAccount = () => {
     hapticFeedback.warning();
+    // ✅ Keep Alert for destructive action
     Alert.alert(
       "Delete Account",
       "⚠️ WARNING: This will permanently delete your account and all data including:\n\n• All dream journal entries\n• Your progress and achievements\n• All settings and preferences\n\nThis action cannot be undone!",
@@ -118,7 +123,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const handleDeleteWithPassword = async () => {
     if (!passwordInput.trim()) {
       hapticFeedback.error();
-      Alert.alert("Error", "Password is required to delete your account.");
+      toast.error("Password is required to delete your account"); // ✅ Toast
       return;
     }
 
@@ -127,7 +132,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       setShowPasswordModal(false);
 
       if (!user || !user.email) {
-        Alert.alert("Error", "User not found.");
+        toast.error("User not found"); // ✅ Toast
         setLoading(false);
         return;
       }
@@ -140,6 +145,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       await deleteUser(user);
       await deleteUserData(user.uid);
       hapticFeedback.success();
+      toast.success("Account deleted successfully"); // ✅ Toast
     } catch (error: any) {
       console.error("Error deleting account:", error);
       hapticFeedback.error();
@@ -150,22 +156,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         error.code === "auth/invalid-credential" ||
         error.code === "auth/invalid-email"
       ) {
-        Alert.alert(
-          "Incorrect Password",
-          "The password you entered is incorrect. Please try again."
-        );
+        toast.error("Incorrect password. Please try again"); // ✅ Toast
       } else if (error.code === "auth/requires-recent-login") {
-        Alert.alert(
-          "Re-authentication Required",
-          "For security, please logout and login again, then try deleting your account."
-        );
+        toast.warning("Please logout and login again, then try deleting", 5000); // ✅ Toast
       } else {
-        Alert.alert(
-          "Error",
-          `Failed to delete account: ${
-            error.message || "Unknown error"
-          }. Please try again.`
-        );
+        toast.error(
+          `Failed to delete account: ${error.message || "Unknown error"}`
+        ); // ✅ Toast
       }
     } finally {
       setLoading(false);
@@ -198,15 +195,9 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
     if (!value) {
       await Notifications.cancelAllScheduledNotificationsAsync();
-      Alert.alert(
-        "Notifications Disabled",
-        "All reality check reminders have been cancelled."
-      );
+      toast.info("All reality check reminders cancelled"); // ✅ Toast
     } else {
-      Alert.alert(
-        "Notifications Enabled",
-        "Go to Reality Check Reminders in Settings to set up your schedule."
-      );
+      toast.info("Go to Reality Check Reminders to set up your schedule"); // ✅ Toast
     }
   };
 
@@ -220,13 +211,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const handleSaveProfile = async () => {
     if (!editFirstName.trim()) {
       hapticFeedback.error();
-      Alert.alert("Error", "Please enter your first name");
+      toast.error("Please enter your first name"); // ✅ Toast
       return;
     }
 
     if (!editLastName.trim()) {
       hapticFeedback.error();
-      Alert.alert("Error", "Please enter your last name");
+      toast.error("Please enter your last name"); // ✅ Toast
       return;
     }
 
@@ -234,7 +225,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       setEditLoading(true);
 
       if (!user) {
-        Alert.alert("Error", "User not found");
+        toast.error("User not found"); // ✅ Toast
         return;
       }
 
@@ -246,9 +237,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       setShowEditModal(false);
       hapticFeedback.success();
 
-      Alert.alert("Success! ✅", "Your profile has been updated.", [
-        { text: "OK" },
-      ]);
+      toast.success("Profile updated successfully! ✅"); // ✅ Toast
 
       if (refreshUserData) {
         await refreshUserData();
@@ -256,7 +245,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     } catch (error) {
       console.error("Error updating profile:", error);
       hapticFeedback.error();
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      toast.error("Failed to update profile. Please try again"); // ✅ Toast
     } finally {
       setEditLoading(false);
     }

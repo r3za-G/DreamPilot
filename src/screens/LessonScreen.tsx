@@ -18,6 +18,7 @@ import Button from "../components/Button";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
 
 type LessonScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -29,6 +30,7 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const toast = useToast(); // ✅ Add this hook
 
   useEffect(() => {
     loadLesson();
@@ -39,6 +41,8 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
     if (foundLesson) {
       setLesson(foundLesson);
       await checkIfCompleted(lessonId);
+    } else {
+      toast.error("Lesson not found"); // ✅ Toast for error
     }
     setLoading(false);
   };
@@ -85,24 +89,13 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
       setCompleted(true);
       hapticFeedback.success();
 
-      Alert.alert(
-        "Lesson Complete! 🎉",
-        `+${XP_REWARDS.LESSON_COMPLETED} XP!\n\n${
-          lesson.content.practiceTask
-            ? `Now go practice: ${lesson.content.practiceTask}`
-            : "Well done! Keep up the great work!"
-        }`,
-        [
-          {
-            text: "Continue",
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      toast.success(`Lesson complete! +${XP_REWARDS.LESSON_COMPLETED} XP 🎉`);
+
+      navigation.goBack();
     } catch (error) {
       console.error("Error marking lesson complete:", error);
       hapticFeedback.error();
-      Alert.alert("Error", "Failed to save progress");
+      toast.error("Failed to save progress");
     } finally {
       setLoading(false);
     }
@@ -125,12 +118,11 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
         );
 
       case "bullet":
-        // ✅ Split content by newlines to show all bullets
         const bulletPoints = section.content
           .split("\n")
           .map((line) => line.trim())
           .filter((line) => line.length > 0)
-          .map((line) => line.replace(/^•\s*/, "")); // Remove existing bullets
+          .map((line) => line.replace(/^•\s*/, ""));
 
         return (
           <View key={index} style={styles.bulletList}>

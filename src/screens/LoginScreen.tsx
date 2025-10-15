@@ -21,6 +21,7 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext";
 
 type LoginScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -37,6 +38,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  const toast = useToast();
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -113,14 +115,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       setResetEmail("");
       hapticFeedback.success();
 
-      // Show success via Alert (we'll replace with toast later)
-      setTimeout(() => {
-        Alert.alert(
-          "Check Your Email 📧",
-          `If an account exists with ${resetEmail.trim()}, password reset instructions have been sent.\n\nCheck your inbox and spam folder.`,
-          [{ text: "OK" }]
-        );
-      }, 300);
+      // ✅ Show success via Toast immediately
+      toast.success(
+        `Check your email! Password reset sent to ${resetEmail.trim()} 📧`,
+        5000
+      );
     } catch (error: any) {
       console.error("Password reset error:", error);
       hapticFeedback.error();

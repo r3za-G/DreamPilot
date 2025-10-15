@@ -1,3 +1,5 @@
+import { enableScreens } from "react-native-screens";
+enableScreens(true);
 import React, { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -10,6 +12,8 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { DataProvider } from "../contexts/DataContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SubscriptionProvider } from "../contexts/SubscriptionContext";
+import { ToastProvider } from "../contexts/ToastContext";
+import { COLORS } from "../theme/design";
 
 // Auth Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -74,7 +78,7 @@ const AppScreens = () => {
       <Stack.Screen
         name="Lesson"
         component={LessonScreen}
-        options={{ title: "Lesson" }}
+        options={{ title: "" }}
       />
       <Stack.Screen
         name="DreamDetail"
@@ -94,7 +98,7 @@ const AppScreens = () => {
       <Stack.Screen
         name="RealityCheck"
         component={RealityCheckScreen}
-        options={{ title: "Reality Check Reminders" }}
+        options={{ title: "Reality Checks" }}
       />
       <Stack.Screen
         name="Insights"
@@ -145,7 +149,9 @@ function TabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          title: "Dashboard",
+          headerShown: false,
+          tabBarLabel: "Dashboard",
+          title: "",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -155,7 +161,9 @@ function TabNavigator() {
         name="Journal"
         component={JournalScreen}
         options={{
-          title: "Journal",
+          headerShown: false,
+          tabBarLabel: "Journal",
+          title: "",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="book" size={size} color={color} />
           ),
@@ -165,7 +173,9 @@ function TabNavigator() {
         name="Learn"
         component={LearnScreen}
         options={{
-          title: "Learn",
+          headerShown: false,
+          tabBarLabel: "Learn",
+          title: "",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="school" size={size} color={color} />
           ),
@@ -175,7 +185,9 @@ function TabNavigator() {
         name="Progress"
         component={ProgressScreen}
         options={{
-          title: "Progress",
+          headerShown: false,
+          tabBarLabel: "Progress",
+          title: "",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="trophy" size={size} color={color} />
           ),
@@ -185,7 +197,9 @@ function TabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: "Profile",
+          headerShown: false,
+          tabBarLabel: "Profile",
+          title: "",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
@@ -228,60 +242,63 @@ export default function App() {
     // <SubscriptionProvider>
     <DataProvider>
       <SafeAreaProvider>
-        <NavigationContainer>
-          <Stack.Navigator
-            screenOptions={{
-              headerStyle: {
-                backgroundColor: "#0f0f23",
-              },
-              headerTintColor: "#fff",
-              headerTitleStyle: {
-                fontWeight: "bold",
-                color: "#fff",
-              },
-              headerShadowVisible: false,
-              contentStyle: {
-                backgroundColor: "#0f0f23",
-              },
-              animation: "slide_from_right",
-              headerBackButtonDisplayMode: "minimal",
-            }}
-          >
-            {!user ? (
-              // Not logged in - Show auth screens
-              <>
-                <Stack.Screen
-                  name="Welcome"
-                  component={WelcomeScreen}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="Login"
-                  component={LoginScreen}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="Signup"
-                  component={SignupScreen}
-                  options={{ headerShown: false }}
-                />
-              </>
-            ) : showOnboarding ? (
-              // Logged in but hasn't seen onboarding
-              <>
-                <Stack.Screen
-                  name="Onboarding"
-                  component={OnboardingScreen}
-                  options={{ headerShown: false }}
-                />
-                {AppScreens()}
-              </>
-            ) : (
-              // Logged in and completed onboarding - Show main app
-              <>{AppScreens()}</>
-            )}
-          </Stack.Navigator>
-        </NavigationContainer>
+        <ToastProvider>
+          <NavigationContainer>
+            <Stack.Navigator
+              screenOptions={{
+                headerStyle: {
+                  backgroundColor: COLORS.background,
+                },
+                headerTintColor: COLORS.textPrimary,
+                headerTitleStyle: {
+                  fontWeight: "bold",
+                  color: COLORS.textPrimary,
+                },
+                headerShadowVisible: false,
+                contentStyle: {
+                  backgroundColor: "#0f0f23",
+                },
+                animation: "fade",
+                headerBackButtonDisplayMode: "minimal",
+                animationDuration: 150,
+              }}
+            >
+              {!user ? (
+                // Not logged in - Show auth screens
+                <>
+                  <Stack.Screen
+                    name="Welcome"
+                    component={WelcomeScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="Login"
+                    component={LoginScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="Signup"
+                    component={SignupScreen}
+                    options={{ headerShown: false }}
+                  />
+                </>
+              ) : showOnboarding ? (
+                // Logged in but hasn't seen onboarding
+                <>
+                  <Stack.Screen
+                    name="Onboarding"
+                    component={OnboardingScreen}
+                    options={{ headerShown: false }}
+                  />
+                  {AppScreens()}
+                </>
+              ) : (
+                // Logged in and completed onboarding - Show main app
+                <>{AppScreens()}</>
+              )}
+            </Stack.Navigator>
+          </NavigationContainer>
+        </ToastProvider>
       </SafeAreaProvider>
     </DataProvider>
     // </SubscriptionProvider>

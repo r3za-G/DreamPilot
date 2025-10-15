@@ -22,6 +22,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext";
 
 type DreamDetailScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -47,6 +48,7 @@ export default function DreamDetailScreen({
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
   const { refreshDreams } = useData();
+  const toast = useToast(); // ✅ Already imported
 
   useEffect(() => {
     loadDream();
@@ -57,9 +59,13 @@ export default function DreamDetailScreen({
       const dreamDoc = await getDoc(doc(db, "dreams", dreamId));
       if (dreamDoc.exists()) {
         setDream(dreamDoc.data() as Dream);
+      } else {
+        toast.error("Dream not found"); // ✅ Toast instead of Alert
+        navigation.goBack();
       }
     } catch (error) {
       console.error("Error loading dream:", error);
+      toast.error("Failed to load dream"); // ✅ Toast instead of Alert
     } finally {
       setLoading(false);
     }
@@ -69,6 +75,7 @@ export default function DreamDetailScreen({
     if (!dream) return;
 
     hapticFeedback.light();
+    // ✅ Keep Alert for confirmation
     Alert.alert(
       "Re-analyze Dream",
       "This will generate a fresh AI analysis of your dream. Continue?",
@@ -93,22 +100,15 @@ export default function DreamDetailScreen({
                 await loadDream();
 
                 hapticFeedback.success();
-                Alert.alert(
-                  "Analysis Complete! 🎉",
-                  "Your dream has been re-analyzed with fresh insights.",
-                  [{ text: "Great!" }]
-                );
+                toast.success("Dream re-analyzed! Fresh insights generateds");
               } else {
                 hapticFeedback.error();
-                Alert.alert(
-                  "Error",
-                  "Failed to analyze dream. Please try again."
-                );
+                toast.error("Failed to analyze dream. Please try again.");
               }
             } catch (error) {
               console.error("Error re-analyzing dream:", error);
               hapticFeedback.error();
-              Alert.alert("Error", "Something went wrong. Please try again.");
+              toast.error("Something went wrong. Please try again.");
             } finally {
               setReanalyzing(false);
             }
@@ -120,6 +120,7 @@ export default function DreamDetailScreen({
 
   const deleteDream = async () => {
     hapticFeedback.warning();
+    // ✅ Keep Alert for destructive confirmation
     Alert.alert(
       "Delete Dream",
       "Are you sure you want to delete this dream? This action cannot be undone.",
@@ -137,14 +138,11 @@ export default function DreamDetailScreen({
               hapticFeedback.success();
               navigation.goBack();
 
-              Alert.alert(
-                "Dream Deleted",
-                "Your dream has been removed from your journal."
-              );
+              toast.success("Dream deleted");
             } catch (error) {
               console.error("Error deleting dream:", error);
               hapticFeedback.error();
-              Alert.alert("Error", "Failed to delete dream. Please try again.");
+              toast.error("Failed to delete dream. Please try again.");
             } finally {
               setLoading(false);
             }
@@ -264,7 +262,7 @@ export default function DreamDetailScreen({
             </View>
 
             {/* Lucidity Potential */}
-            <Card>
+            <Card style={styles.analysisCard}>
               <View style={styles.potentialContent}>
                 <Text style={styles.cardLabel}>Lucidity Potential</Text>
                 <View

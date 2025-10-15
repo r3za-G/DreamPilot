@@ -16,6 +16,8 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
 
 type ProfileScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -24,6 +26,7 @@ type ProfileScreenProps = {
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { userData, dreams, loading, isPremium } = useData();
   const [exporting, setExporting] = useState(false);
+  const toast = useToast(); // ✅ Add this hook
 
   const exportDreams = async () => {
     try {
@@ -33,7 +36,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
       if (dreams.length === 0) {
         hapticFeedback.warning();
-        Alert.alert("No Dreams", "You have no dreams to export yet.");
+        toast.warning("No dreams to export yet"); // ✅ Toast
         return;
       }
 
@@ -65,10 +68,11 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         title: "Dream Journal Export",
       });
       hapticFeedback.success();
+      toast.success(`Exported ${dreams.length} dreams! 📄`); // ✅ Toast
     } catch (error) {
       console.error("Error exporting dreams:", error);
       hapticFeedback.error();
-      Alert.alert("Error", "Failed to export dreams. Please try again.");
+      toast.error("Failed to export dreams. Please try again"); // ✅ Toast
     } finally {
       setExporting(false);
     }
@@ -82,7 +86,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
       if (dreams.length === 0) {
         hapticFeedback.warning();
-        Alert.alert("No Dreams", "You have no dreams to export yet.");
+        toast.warning("No dreams to export yet"); // ✅ Toast
         return;
       }
 
@@ -106,10 +110,11 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         title: "Dream Journal Export (JSON)",
       });
       hapticFeedback.success();
+      toast.success(`Exported ${dreams.length} dreams as JSON! 📊`); // ✅ Toast
     } catch (error) {
       console.error("Error exporting dreams:", error);
       hapticFeedback.error();
-      Alert.alert("Error", "Failed to export dreams. Please try again.");
+      toast.error("Failed to export dreams. Please try again"); // ✅ Toast
     } finally {
       setExporting(false);
     }
@@ -117,6 +122,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
   const showExportOptions = () => {
     hapticFeedback.light();
+    // ✅ Keep Alert for choice selection
     Alert.alert("Export Dreams", "Choose export format", [
       {
         text: "Text File (.txt)",
@@ -143,97 +149,120 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarIcon}>🌙</Text>
-          </View>
-          <Text style={styles.userName}>
-            {userData?.firstName && userData?.lastName
-              ? `${userData.firstName} ${userData.lastName}`
-              : userData?.firstName || "Dreamer"}
-          </Text>
-
-          {/* Premium Badge */}
-          {isPremium ? (
-            <View style={styles.premiumBadge}>
-              <Ionicons name="star" size={14} color={COLORS.textPrimary} />
-              <Text style={styles.premiumBadgeText}>Premium Member</Text>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Header */}
+          <View style={styles.header}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarIcon}>🌙</Text>
             </View>
-          ) : (
-            <View style={styles.freeBadge}>
-              <Text style={styles.freeBadgeText}>Free Plan</Text>
+            <Text style={styles.userName}>
+              {userData?.firstName && userData?.lastName
+                ? `${userData.firstName} ${userData.lastName}`
+                : userData?.firstName || "Dreamer"}
+            </Text>
+
+            {/* Premium Badge */}
+            {isPremium ? (
+              <View style={styles.premiumBadge}>
+                <Ionicons name="star" size={14} color={COLORS.textPrimary} />
+                <Text style={styles.premiumBadgeText}>Premium Member</Text>
+              </View>
+            ) : (
+              <View style={styles.freeBadge}>
+                <Text style={styles.freeBadgeText}>Free Plan</Text>
+              </View>
+            )}
+
+            <Text style={styles.userEmail}>{userData?.email || ""}</Text>
+            <Text style={styles.joinedText}>
+              Member since{" "}
+              {new Date(userData?.createdAt || new Date()).toLocaleDateString(
+                "en-US",
+                {
+                  month: "long",
+                  year: "numeric",
+                }
+              )}
+            </Text>
+          </View>
+
+          {/* Upgrade Banner for Free Users */}
+          {!isPremium && (
+            <View style={styles.upgradeSection}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.navigate("Paywall");
+                }}
+              >
+                <Card variant="highlighted">
+                  <View style={styles.upgradeCardContent}>
+                    <Text style={styles.upgradeCardIcon}>⭐</Text>
+                    <View style={styles.upgradeCardText}>
+                      <Text style={styles.upgradeCardTitle}>
+                        Upgrade to Premium
+                      </Text>
+                      <Text style={styles.upgradeCardSubtitle}>
+                        Unlock unlimited dreams, AI insights & more
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={24}
+                      color={COLORS.primary}
+                    />
+                  </View>
+                </Card>
+              </TouchableOpacity>
             </View>
           )}
 
-          <Text style={styles.userEmail}>{userData?.email || ""}</Text>
-          <Text style={styles.joinedText}>
-            Member since{" "}
-            {new Date(userData?.createdAt || new Date()).toLocaleDateString(
-              "en-US",
-              {
-                month: "long",
-                year: "numeric",
-              }
-            )}
-          </Text>
-        </View>
+          {/* Quick Actions */}
+          <View style={styles.actionsSection}>
+            <Text style={styles.sectionTitle}>Account</Text>
 
-        {/* Upgrade Banner for Free Users */}
-        {!isPremium && (
-          <View style={styles.upgradeSection}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                hapticFeedback.light();
-                navigation.navigate("Paywall");
-              }}
-            >
-              <Card variant="highlighted">
-                <View style={styles.upgradeCardContent}>
-                  <Text style={styles.upgradeCardIcon}>⭐</Text>
-                  <View style={styles.upgradeCardText}>
-                    <Text style={styles.upgradeCardTitle}>
-                      Upgrade to Premium
-                    </Text>
-                    <Text style={styles.upgradeCardSubtitle}>
-                      Unlock unlimited dreams, AI insights & more
-                    </Text>
+            {/* Manage Subscription for Premium Users */}
+            {isPremium && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  hapticFeedback.light();
+                  navigation.navigate("Paywall");
+                }}
+                style={styles.actionWrapper}
+              >
+                <Card>
+                  <View style={styles.actionButton}>
+                    <Ionicons name="star" size={24} color={COLORS.primary} />
+                    <Text style={styles.actionText}>Manage Subscription</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={COLORS.textTertiary}
+                    />
                   </View>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={24}
-                    color={COLORS.primary}
-                  />
-                </View>
-              </Card>
-            </TouchableOpacity>
-          </View>
-        )}
+                </Card>
+              </TouchableOpacity>
+            )}
 
-        {/* Quick Actions */}
-        <View style={styles.actionsSection}>
-          <Text style={styles.sectionTitle}>Account</Text>
-
-          {/* Manage Subscription for Premium Users */}
-          {isPremium && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => {
                 hapticFeedback.light();
-                navigation.navigate("Paywall");
+                navigation.navigate("Settings");
               }}
               style={styles.actionWrapper}
             >
               <Card>
                 <View style={styles.actionButton}>
-                  <Ionicons name="star" size={24} color={COLORS.primary} />
-                  <Text style={styles.actionText}>Manage Subscription</Text>
+                  <Ionicons name="settings" size={24} color={COLORS.primary} />
+                  <Text style={styles.actionText}>Settings</Text>
                   <Ionicons
                     name="chevron-forward"
                     size={20}
@@ -242,78 +271,57 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 </View>
               </Card>
             </TouchableOpacity>
-          )}
 
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              hapticFeedback.light();
-              navigation.navigate("Settings");
-            }}
-            style={styles.actionWrapper}
-          >
-            <Card>
-              <View style={styles.actionButton}>
-                <Ionicons name="settings" size={24} color={COLORS.primary} />
-                <Text style={styles.actionText}>Settings</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textTertiary}
-                />
-              </View>
-            </Card>
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("RealityCheck");
+              }}
+              style={styles.actionWrapper}
+            >
+              <Card>
+                <View style={styles.actionButton}>
+                  <Ionicons
+                    name="notifications"
+                    size={24}
+                    color={COLORS.warning}
+                  />
+                  <Text style={styles.actionText}>Reality Check Reminders</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={COLORS.textTertiary}
+                  />
+                </View>
+              </Card>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              hapticFeedback.light();
-              navigation.navigate("RealityCheck");
-            }}
-            style={styles.actionWrapper}
-          >
-            <Card>
-              <View style={styles.actionButton}>
-                <Ionicons
-                  name="notifications"
-                  size={24}
-                  color={COLORS.warning}
-                />
-                <Text style={styles.actionText}>Reality Check Reminders</Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textTertiary}
-                />
-              </View>
-            </Card>
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={showExportOptions}
+              disabled={exporting}
+            >
+              <Card style={exporting ? styles.actionButtonDisabled : undefined}>
+                <View style={styles.actionButton}>
+                  <Ionicons name="download" size={24} color={COLORS.success} />
+                  <Text style={styles.actionText}>
+                    {exporting ? "Exporting..." : "Export Dream Journal"}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={COLORS.textTertiary}
+                  />
+                </View>
+              </Card>
+            </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={showExportOptions}
-            disabled={exporting}
-          >
-            <Card style={exporting ? styles.actionButtonDisabled : undefined}>
-              <View style={styles.actionButton}>
-                <Ionicons name="download" size={24} color={COLORS.success} />
-                <Text style={styles.actionText}>
-                  {exporting ? "Exporting..." : "Export Dream Journal"}
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textTertiary}
-                />
-              </View>
-            </Card>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.footer} />
-      </ScrollView>
-    </View>
+          <View style={styles.footer} />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 

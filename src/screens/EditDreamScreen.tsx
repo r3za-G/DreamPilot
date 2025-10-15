@@ -20,6 +20,7 @@ import {
 import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
 
 type EditDreamScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -31,6 +32,7 @@ export default function EditDreamScreen({
   route,
 }: EditDreamScreenProps) {
   const { dreamId, dream } = route.params;
+  const toast = useToast(); // ✅ Add this hook
 
   const [title, setTitle] = useState(dream.title);
   const [content, setContent] = useState(dream.content);
@@ -65,7 +67,7 @@ export default function EditDreamScreen({
   const handleUpdateDream = async () => {
     if (!title.trim() || !content.trim()) {
       hapticFeedback.error();
-      Alert.alert("Error", "Please fill in both title and content");
+      toast.error("Please fill in both title and content"); // ✅ Toast
       return;
     }
 
@@ -77,7 +79,7 @@ export default function EditDreamScreen({
 
     if (!hasChanges) {
       hapticFeedback.warning();
-      Alert.alert("No Changes", "You haven't made any changes to this dream.");
+      toast.warning("No changes made to this dream"); // ✅ Toast
       return;
     }
 
@@ -95,10 +97,12 @@ export default function EditDreamScreen({
       });
 
       hapticFeedback.success();
+      toast.success("Dream updated! ✅"); // ✅ Toast
 
+      // ✅ Keep Alert for re-analyze confirmation (needs user choice)
       Alert.alert(
-        "Dream Updated! ✅",
-        "Your dream has been saved. Would you like to re-analyze it with AI for updated insights?",
+        "Re-analyze Dream?",
+        "Would you like to re-analyze this dream with AI for updated insights?",
         [
           {
             text: "Not Now",
@@ -115,17 +119,16 @@ export default function EditDreamScreen({
                 if (analysis) {
                   await saveDreamAnalysis(user.uid, dreamId, analysis);
                   hapticFeedback.success();
-                  Alert.alert(
-                    "Analysis Complete! 🤖",
-                    "Your dream has been re-analyzed with fresh insights.",
-                    [{ text: "Great!", onPress: () => navigation.goBack() }]
-                  );
+                  toast.success("Dream re-analyzed! Fresh insights ready 🤖"); // ✅ Toast
+                  navigation.goBack();
                 } else {
+                  toast.error("Failed to analyze dream"); // ✅ Toast
                   navigation.goBack();
                 }
               } catch (error) {
                 console.error("Error re-analyzing:", error);
                 hapticFeedback.error();
+                toast.error("Analysis failed. Please try again"); // ✅ Toast
                 navigation.goBack();
               } finally {
                 setLoading(false);
@@ -137,7 +140,7 @@ export default function EditDreamScreen({
     } catch (error) {
       console.error("Error updating dream:", error);
       hapticFeedback.error();
-      Alert.alert("Error", "Failed to update dream. Please try again.");
+      toast.error("Failed to update dream. Please try again"); // ✅ Toast
     } finally {
       setLoading(false);
     }
@@ -152,6 +155,7 @@ export default function EditDreamScreen({
 
     if (hasChanges) {
       hapticFeedback.warning();
+      // ✅ Keep Alert for discard confirmation (destructive action)
       Alert.alert(
         "Discard Changes?",
         "You have unsaved changes. Are you sure you want to discard them?",

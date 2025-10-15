@@ -16,6 +16,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import EmptyState from "../components/EmptyState";
+import { SkeletonAchievementCard } from "../components/SkeletonLoader";
 
 type AchievementsScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -137,17 +139,105 @@ export default function AchievementsScreen({
   const totalCount = achievements.length;
   const progress = totalCount > 0 ? (unlockedCount / totalCount) * 100 : 0;
 
+  // ✅ SKELETON LOADER - While loading
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading achievements...</Text>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Card variant="highlighted">
+            <View style={styles.statsContent}>
+              <Text style={styles.statsLabel}>Loading achievements...</Text>
+            </View>
+          </Card>
+        </View>
+        <View style={styles.achievementsGrid}>
+          <SkeletonAchievementCard />
+          <SkeletonAchievementCard />
+          <SkeletonAchievementCard />
+          <SkeletonAchievementCard />
+          <SkeletonAchievementCard />
+          <SkeletonAchievementCard />
+        </View>
       </View>
     );
   }
 
   const filteredAchievements = getFilteredAchievements();
 
+  // ✅ EMPTY STATE - No achievements unlocked with "unlocked" filter
+  if (filter === "unlocked" && filteredAchievements.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Card variant="highlighted">
+            <View style={styles.statsContent}>
+              <Text style={styles.statsNumber}>
+                {unlockedCount}/{totalCount}
+              </Text>
+              <Text style={styles.statsLabel}>Achievements Unlocked</Text>
+              <View style={styles.progressBar}>
+                <View
+                  style={[styles.progressFill, { width: `${progress}%` }]}
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {progress.toFixed(0)}% Complete
+              </Text>
+            </View>
+          </Card>
+        </View>
+
+        <View style={styles.filterContainer}>
+          <TouchableOpacity
+            style={[styles.filterTab]}
+            onPress={() => {
+              hapticFeedback.light();
+              setFilter("all");
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.filterText}>All ({totalCount})</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterTab, styles.filterTabActive]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.filterText, styles.filterTextActive]}>
+              Unlocked ({unlockedCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterTab]}
+            onPress={() => {
+              hapticFeedback.light();
+              setFilter("locked");
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.filterText}>
+              Locked ({totalCount - unlockedCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <EmptyState
+          emoji="🏆"
+          title="No achievements unlocked yet"
+          description="Start logging dreams and completing lessons to unlock achievements! Each achievement brings you closer to mastering lucid dreaming."
+          actionLabel="Log a Dream"
+          onAction={() => navigation.navigate("DreamJournal")}
+          secondaryActionLabel="Browse Lessons"
+          onSecondaryAction={() =>
+            navigation.navigate("MainTabs", { screen: "Learn" })
+          }
+        />
+      </View>
+    );
+  }
+
+  // ✅ Normal content with achievements
   return (
     <View style={styles.container}>
       {/* Header Stats */}
@@ -278,7 +368,7 @@ export default function AchievementsScreen({
                 {achievement.title}
               </Text>
 
-              <Text style={styles.achievementDescription}>
+              <Text style={styles.achievementDescription} numberOfLines={2}>
                 {achievement.description}
               </Text>
 
@@ -308,17 +398,6 @@ export default function AchievementsScreen({
             </Card>
           ))}
         </View>
-
-        {filteredAchievements.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🏆</Text>
-            <Text style={styles.emptyText}>
-              {filter === "unlocked"
-                ? "No achievements unlocked yet"
-                : "Keep going to unlock more achievements!"}
-            </Text>
-          </View>
-        )}
 
         <View style={styles.footer} />
       </ScrollView>
@@ -397,7 +476,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   filterText: {
-    fontSize: TYPOGRAPHY.sizes.md,
+    fontSize: TYPOGRAPHY.sizes.sm,
     fontWeight: TYPOGRAPHY.weights.semibold,
     color: COLORS.textSecondary,
   },
@@ -413,10 +492,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     gap: SPACING.md,
   },
-
   achievementCard: {
     width: "48%",
-    padding: SPACING.lg,
+    padding: SPACING.md,
     alignItems: "center",
   },
   achievementCardLocked: {
@@ -427,7 +505,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   achievementIcon: {
-    fontSize: 48,
+    fontSize: 36,
   },
   achievementIconLocked: {
     opacity: 0.4,
@@ -458,12 +536,13 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: "center",
     marginBottom: SPACING.sm,
+    lineHeight: 14,
   },
   rarityBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: SPACING.xs / 2,
     borderRadius: RADIUS.sm,
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.xs / 2,
   },
   rarityText: {
     fontSize: TYPOGRAPHY.sizes.xs - 2,

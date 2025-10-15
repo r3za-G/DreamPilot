@@ -18,6 +18,10 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS, SHADOWS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useToast } from "../contexts/ToastContext";
+import EmptyState from "../components/EmptyState";
+import { SkeletonDreamCard } from "../components/SkeletonLoader";
 
 type JournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -33,11 +37,12 @@ type Dream = {
 };
 
 export default function JournalScreen({ navigation }: JournalScreenProps) {
-  const { dreams, refreshDreams } = useData();
+  const { dreams, refreshDreams, loading } = useData(); // ✅ Added loading from context
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"all" | "lucid" | "recent">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const toast = useToast();
 
   const onRefresh = async () => {
     hapticFeedback.light();
@@ -110,11 +115,11 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
             });
             await refreshDreams();
             hapticFeedback.success();
-            Alert.alert("Dream Deleted", "Your dream has been removed.");
+            toast.success("Dream deleted");
           } catch (error) {
             console.error("Error deleting dream:", error);
             hapticFeedback.error();
-            Alert.alert("Error", "Failed to delete dream.");
+            toast.error("Failed to delete dream");
           }
         },
       },
@@ -195,45 +200,62 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Dream Journal</Text>
-          <TouchableOpacity
-            style={styles.searchToggle}
-            onPress={() => {
-              hapticFeedback.light();
-              setIsSearching(!isSearching);
-              if (isSearching) setSearchQuery("");
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={isSearching ? "close" : "search"}
-              size={22}
-              color={COLORS.primary}
-            />
-          </TouchableOpacity>
+  // ✅ SKELETON LOADER - While loading initial data
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Dream Journal</Text>
+            </View>
+          </View>
+          <View style={styles.listContent}>
+            <SkeletonDreamCard />
+            <SkeletonDreamCard />
+            <SkeletonDreamCard />
+            <SkeletonDreamCard />
+          </View>
         </View>
+      </SafeAreaView>
+    );
+  }
 
-        {isSearching && (
-          <View style={styles.searchContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color={COLORS.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search dreams, tags..."
-              placeholderTextColor={COLORS.textTertiary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-            />
-            {searchQuery.length > 0 && (
+  // ✅ EMPTY STATE - No dreams match search
+  if (searchQuery.trim() && filteredDreams.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Dream Journal</Text>
+              <TouchableOpacity
+                style={styles.searchToggle}
+                onPress={() => {
+                  hapticFeedback.light();
+                  setIsSearching(!isSearching);
+                  setSearchQuery("");
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Ionicons
+                name="search"
+                size={20}
+                color={COLORS.textSecondary}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search dreams, tags..."
+                placeholderTextColor={COLORS.textTertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
               <TouchableOpacity onPress={() => setSearchQuery("")}>
                 <Ionicons
                   name="close-circle"
@@ -241,112 +263,319 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
                   color={COLORS.textTertiary}
                 />
               </TouchableOpacity>
-            )}
+            </View>
+          </View>
+
+          <EmptyState
+            icon="search"
+            title="No matches found"
+            description={`No dreams match "${searchQuery}". Try different keywords or browse all dreams.`}
+            actionLabel="Clear Search"
+            onAction={() => setSearchQuery("")}
+            secondaryActionLabel="View All Dreams"
+            onSecondaryAction={() => {
+              setSearchQuery("");
+              setFilter("all");
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ✅ EMPTY STATE - No lucid dreams
+  if (filter === "lucid" && filteredDreams.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Dream Journal</Text>
+            </View>
+            <View style={styles.statsRow}>
+              <Card style={styles.statChip}>
+                <Text style={styles.statNumber}>{dreams.length}</Text>
+                <Text style={styles.statLabel}>Total</Text>
+              </Card>
+              <Card
+                style={StyleSheet.flatten([
+                  styles.statChip,
+                  styles.statChipLucid,
+                ])}
+              >
+                <Text style={styles.statNumber}>{lucidCount}</Text>
+                <Text style={styles.statLabel}>Lucid</Text>
+              </Card>
+            </View>
+          </View>
+
+          <View style={styles.filterContainer}>
+            <TouchableOpacity
+              style={[styles.filterTab]}
+              onPress={() => {
+                hapticFeedback.light();
+                setFilter("all");
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterText}>All</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterTab, styles.filterTabActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.filterText, styles.filterTextActive]}>
+                Lucid
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterTab]}
+              onPress={() => {
+                hapticFeedback.light();
+                setFilter("recent");
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterText}>Recent</Text>
+            </TouchableOpacity>
+          </View>
+
+          <EmptyState
+            emoji="✨"
+            title="No lucid dreams yet"
+            description="Keep practicing! Complete lessons to learn techniques for becoming lucid in your dreams."
+            actionLabel="Browse Lessons"
+            onAction={() =>
+              navigation.navigate("MainTabs", { screen: "Learn" })
+            }
+            secondaryActionLabel="Log a Dream"
+            onSecondaryAction={() => navigation.navigate("DreamJournal")}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ✅ EMPTY STATE - No recent dreams
+  if (filter === "recent" && filteredDreams.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Dream Journal</Text>
+            </View>
+          </View>
+
+          <View style={styles.filterContainer}>
+            <TouchableOpacity
+              style={[styles.filterTab]}
+              onPress={() => {
+                hapticFeedback.light();
+                setFilter("all");
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterText}>All</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterTab]}
+              onPress={() => {
+                hapticFeedback.light();
+                setFilter("lucid");
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterText}>Lucid</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterTab, styles.filterTabActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.filterText, styles.filterTextActive]}>
+                Recent
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <EmptyState
+            emoji="📅"
+            title="No recent dreams"
+            description="You haven't logged any dreams in the past 7 days. Keep your streak going!"
+            actionLabel="Log Today's Dream"
+            onAction={() => navigation.navigate("DreamJournal")}
+            secondaryActionLabel="View All Dreams"
+            onSecondaryAction={() => setFilter("all")}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ✅ EMPTY STATE - No dreams at all
+  if (dreams.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.container}>
+          <EmptyState
+            emoji="📖"
+            title="No dreams yet"
+            description="Start your lucid dreaming journey by logging your first dream! Dreams are the gateway to understanding your subconscious."
+            actionLabel="Log Your First Dream"
+            onAction={() => navigation.navigate("DreamJournal")}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ✅ Normal content with dreams
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Dream Journal</Text>
+            <TouchableOpacity
+              style={styles.searchToggle}
+              onPress={() => {
+                hapticFeedback.light();
+                setIsSearching(!isSearching);
+                if (isSearching) setSearchQuery("");
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isSearching ? "close" : "search"}
+                size={22}
+                color={COLORS.primary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {isSearching && (
+            <View style={styles.searchContainer}>
+              <Ionicons
+                name="search"
+                size={20}
+                color={COLORS.textSecondary}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search dreams, tags..."
+                placeholderTextColor={COLORS.textTertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={COLORS.textTertiary}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          <View style={styles.statsRow}>
+            <Card style={styles.statChip}>
+              <Text style={styles.statNumber}>{dreams.length}</Text>
+              <Text style={styles.statLabel}>Total</Text>
+            </Card>
+            <Card
+              style={StyleSheet.flatten([
+                styles.statChip,
+                styles.statChipLucid,
+              ])}
+            >
+              <Text style={styles.statNumber}>{lucidCount}</Text>
+              <Text style={styles.statLabel}>Lucid</Text>
+            </Card>
+          </View>
+        </View>
+
+        <View style={styles.filterContainer}>
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              filter === "all" && styles.filterTabActive,
+            ]}
+            onPress={() => {
+              hapticFeedback.light();
+              setFilter("all");
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === "all" && styles.filterTextActive,
+              ]}
+            >
+              All
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              filter === "lucid" && styles.filterTabActive,
+            ]}
+            onPress={() => {
+              hapticFeedback.light();
+              setFilter("lucid");
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === "lucid" && styles.filterTextActive,
+              ]}
+            >
+              Lucid
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              filter === "recent" && styles.filterTabActive,
+            ]}
+            onPress={() => {
+              hapticFeedback.light();
+              setFilter("recent");
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === "recent" && styles.filterTextActive,
+              ]}
+            >
+              Recent
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {searchQuery.trim() && (
+          <View style={styles.searchResultsBar}>
+            <Text style={styles.searchResultsText}>
+              {filteredDreams.length}{" "}
+              {filteredDreams.length === 1 ? "result" : "results"} found
+            </Text>
           </View>
         )}
 
-        <View style={styles.statsRow}>
-          <Card style={styles.statChip}>
-            <Text style={styles.statNumber}>{dreams.length}</Text>
-            <Text style={styles.statLabel}>Total</Text>
-          </Card>
-          <Card
-            style={StyleSheet.flatten([styles.statChip, styles.statChipLucid])}
-          >
-            <Text style={styles.statNumber}>{lucidCount}</Text>
-            <Text style={styles.statLabel}>Lucid</Text>
-          </Card>
-        </View>
-      </View>
-
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterTab, filter === "all" && styles.filterTabActive]}
-          onPress={() => {
-            hapticFeedback.light();
-            setFilter("all");
-          }}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "all" && styles.filterTextActive,
-            ]}
-          >
-            All
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            filter === "lucid" && styles.filterTabActive,
-          ]}
-          onPress={() => {
-            hapticFeedback.light();
-            setFilter("lucid");
-          }}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "lucid" && styles.filterTextActive,
-            ]}
-          >
-            Lucid
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            filter === "recent" && styles.filterTabActive,
-          ]}
-          onPress={() => {
-            hapticFeedback.light();
-            setFilter("recent");
-          }}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "recent" && styles.filterTextActive,
-            ]}
-          >
-            Recent
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {searchQuery.trim() && (
-        <View style={styles.searchResultsBar}>
-          <Text style={styles.searchResultsText}>
-            {filteredDreams.length}{" "}
-            {filteredDreams.length === 1 ? "result" : "results"} found
-          </Text>
-        </View>
-      )}
-
-      {filteredDreams.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>{searchQuery ? "🔍" : "📖"}</Text>
-          <Text style={styles.emptyTitle}>
-            {searchQuery ? "No matches found" : "No dreams yet"}
-          </Text>
-          <Text style={styles.emptyText}>
-            {searchQuery
-              ? `No dreams match "${searchQuery}"`
-              : filter === "all"
-              ? "Start your lucid dreaming journey by logging your first dream!"
-              : filter === "lucid"
-              ? "No lucid dreams yet. Keep practicing!"
-              : "No dreams logged in the past 7 days."}
-          </Text>
-        </View>
-      ) : (
         <FlatList
           data={filteredDreams}
           renderItem={renderDream}
@@ -362,19 +591,19 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
             />
           }
         />
-      )}
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => {
-          hapticFeedback.medium();
-          navigation.navigate("DreamJournal");
-        }}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="add" size={28} color={COLORS.textPrimary} />
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => {
+            hapticFeedback.medium();
+            navigation.navigate("DreamJournal");
+          }}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="add" size={28} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -563,28 +792,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.xs,
     color: COLORS.textTertiary,
     alignSelf: "center",
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: SPACING.xxxl + 10,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: SPACING.lg,
-  },
-  emptyTitle: {
-    fontSize: TYPOGRAPHY.sizes.xl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
-  },
-  emptyText: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-    lineHeight: 20,
   },
   fab: {
     position: "absolute",
