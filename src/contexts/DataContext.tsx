@@ -7,6 +7,7 @@ import {
   getDocs,
   doc,
   getDoc,
+  setDoc,
 } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 import { getUserDreamPatterns } from "../services/dreamAnalysisService";
@@ -24,7 +25,8 @@ type Dream = {
 };
 
 type UserData = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   level: number;
   xp: number;
@@ -139,17 +141,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (!user) return;
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
 
+      // ✅ NEW: Handle missing user document (zombie account)
+      if (!userDoc.exists()) {
+        console.warn(
+          "⚠️ User document missing - creating default document for zombie account"
+        );
+
+        // Create default user document
+        await setDoc(doc(db, "users", user.uid), {
+          firstName: user.displayName?.split(" ")[0] || "Dream",
+          lastName: user.displayName?.split(" ").slice(1).join(" ") || "Pilot",
+          email: user.email || "",
+          createdAt: new Date().toISOString(),
+          currentStreak: 0,
+          totalDreams: 0,
+          lucidDreams: 0,
+          currentLevel: 1,
+          isPremium: false,
+          lastDreamDate: "",
+        });
+
+        // Reload the document we just created
+        const newUserDoc = await getDoc(doc(db, "users", user.uid));
+        if (!newUserDoc.exists()) {
+          console.error("Failed to create user document");
+          return;
+        }
+
+        const data = newUserDoc.data();
         const totalXP = await getUserXP(user.uid);
         const level = calculateLevel(totalXP);
-
         const premiumStatus = data.isPremium || false;
         setIsPremium(premiumStatus);
 
         setUserData({
-          name: data.name || "Dreamer",
+          firstName: data.firstName || "Dream",
+          lastName: data.lastName || "Pilot",
           email: user.email || "",
           level: level,
           xp: totalXP,
@@ -159,10 +187,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           createdAt: data.createdAt || "",
           isPremium: premiumStatus,
         });
+
+        return;
       }
+
+      // ✅ Normal flow: User document exists
+      const data = userDoc.data();
+
+      const totalXP = await getUserXP(user.uid);
+      const level = calculateLevel(totalXP);
+
+      const premiumStatus = data.isPremium || false;
+      setIsPremium(premiumStatus);
+
+      setUserData({
+        firstName: data.firstName || data.name?.split(" ")[0] || "Dream", // ✅ Backward compatibility
+        lastName:
+          data.lastName || data.name?.split(" ").slice(1).join(" ") || "Pilot", // ✅ Backward compatibility
+        email: user.email || "",
+        level: level,
+        xp: totalXP,
+        totalXP: totalXP,
+        currentStreak: data.currentStreak || 0,
+        lastDreamDate: data.lastDreamDate || "",
+        createdAt: data.createdAt || "",
+        isPremium: premiumStatus,
+      });
     } catch (error) {
       console.error("Error refreshing user data:", error);
-      // ✅ Don't throw - just log
     }
   };
 

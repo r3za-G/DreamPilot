@@ -2,11 +2,11 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "dream-pilot",
+    name: "Dream Pilot",
     slug: "dream-pilot",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/app_icons/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
@@ -21,6 +21,7 @@ export default {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
+      icon: "./assets/app_icons/icon.png",
     },
     android: {
       adaptiveIcon: {

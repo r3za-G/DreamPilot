@@ -49,3 +49,7 @@ yarn-error.*
 src/config/openai.ts.local
 
 .vscode/
+
+app_screenshots/
+assets/app_icons/android
+assets/app_icons/apple-devices

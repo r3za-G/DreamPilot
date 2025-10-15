@@ -133,7 +133,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         {/* Header */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Hello, {userData?.name}! 👋</Text>
+            <Text style={styles.greeting}>
+              Hello, {userData?.firstName}! 👋
+            </Text>
             <Text style={styles.subtitle}>Ready to explore your dreams?</Text>
           </View>
         </View>

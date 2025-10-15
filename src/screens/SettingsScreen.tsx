@@ -12,6 +12,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
@@ -29,8 +30,10 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
 } from "firebase/firestore";
 import * as Notifications from "expo-notifications";
+import { useData } from "../contexts/DataContext";
 
 type SettingsScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -42,6 +45,19 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [showPasswordModal, setShowPasswordModal] = useState(false); // ✅ Modal state
   const [passwordInput, setPasswordInput] = useState(""); // ✅ Password input
   const user = auth.currentUser;
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const { userData, refreshUserData } = useData();
+
+  const openPrivacyPolicy = () => {
+    Linking.openURL("https://r3za-g.github.io/dreampilot-privacy/");
+  };
+
+  const openTermsOfService = () => {
+    Linking.openURL("https://r3za-g.github.io/dreampilot-privacy/terms.html");
+  };
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -115,11 +131,11 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       );
       await reauthenticateWithCredential(user, credential);
 
-      // ✅ Delete all user data from Firestore
-      await deleteUserData(user.uid);
-
-      // ✅ Delete the Firebase Auth account
+      // ✅ IMPORTANT: Delete Auth account FIRST (while we have valid session)
       await deleteUser(user);
+
+      // ✅ THEN delete Firestore data (doesn't require auth)
+      await deleteUserData(user.uid);
 
       // ✅ Auth state listener will handle navigation automatically
     } catch (error: any) {
@@ -143,7 +159,12 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           "For security, please logout and login again, then try deleting your account."
         );
       } else {
-        Alert.alert("Error", "Failed to delete account. Please try again.");
+        Alert.alert(
+          "Error",
+          `Failed to delete account: ${
+            error.message || "Unknown error"
+          }. Please try again or contact support.`
+        );
       }
     } finally {
       setLoading(false);
@@ -191,6 +212,58 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     }
   };
 
+  const handleEditProfile = () => {
+    // Pre-fill with current name
+    setEditFirstName(userData?.firstName || "");
+    setEditLastName(userData?.lastName || "");
+    setShowEditModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editFirstName.trim()) {
+      Alert.alert("Error", "Please enter your first name");
+      return;
+    }
+
+    if (!editLastName.trim()) {
+      Alert.alert("Error", "Please enter your last name");
+      return;
+    }
+
+    try {
+      setEditLoading(true);
+
+      if (!user) {
+        Alert.alert("Error", "User not found");
+        return;
+      }
+
+      // Update Firestore
+      await updateDoc(doc(db, "users", user.uid), {
+        firstName: editFirstName.trim(),
+        lastName: editLastName.trim(),
+      });
+
+      // Close modal
+      setShowEditModal(false);
+
+      // Show success message
+      Alert.alert("Success! ✅", "Your profile has been updated.", [
+        { text: "OK" },
+      ]);
+
+      // Refresh data to show changes
+      if (refreshUserData) {
+        await refreshUserData();
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      Alert.alert("Error", "Failed to update profile. Please try again.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -219,6 +292,14 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               </Text>
             </View>
           </View>
+          {/* ✅ NEW: Edit Profile Button */}
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={handleEditProfile}
+          >
+            <Ionicons name="create-outline" size={20} color="#6366f1" />
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Preferences Section */}
@@ -243,7 +324,10 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data & Privacy</Text>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={openPrivacyPolicy}
+          >
             <View style={styles.settingLeft}>
               <MaterialIcons name="privacy-tip" size={22} color="#888" />
               <Text style={styles.settingText}>Privacy Policy</Text>
@@ -251,7 +335,10 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={openTermsOfService}
+          >
             <View style={styles.settingLeft}>
               <MaterialIcons name="description" size={22} color="#888" />
               <Text style={styles.settingText}>Terms of Service</Text>
@@ -362,6 +449,80 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               </View>
             </TouchableOpacity>
           </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowEditModal(false)}
+            >
+              <Ionicons name="close" size={24} color="#888" />
+            </TouchableOpacity>
+
+            <Ionicons
+              name="person-circle"
+              size={48}
+              color="#6366f1"
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <Text style={styles.modalText}>
+              Update your first and last name
+            </Text>
+
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="First name"
+              placeholderTextColor="#666"
+              value={editFirstName}
+              onChangeText={setEditFirstName}
+              autoCapitalize="words"
+              autoFocus
+            />
+
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Last name"
+              placeholderTextColor="#666"
+              value={editLastName}
+              onChangeText={setEditLastName}
+              autoCapitalize="words"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveButton,
+                  editLoading && { opacity: 0.6 },
+                ]}
+                onPress={handleSaveProfile}
+                disabled={editLoading}
+              >
+                {editLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalDeleteText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -573,5 +734,35 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  editButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#6366f1",
+    gap: 8,
+  },
+  editButtonText: {
+    fontSize: 16,
+    color: "#6366f1",
+    fontWeight: "600",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    zIndex: 10,
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: "#6366f1",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
   },
 });

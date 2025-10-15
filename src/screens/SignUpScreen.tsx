@@ -23,12 +23,19 @@ type SignUpScreenProps = {
 export default function SignUpScreen({ navigation }: SignUpScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState(""); // ✅ Changed from 'name'
+  const [lastName, setLastName] = useState(""); // ✅ NEW
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!name.trim()) {
-      Alert.alert("Error", "Please enter your name");
+    // ✅ Updated validation
+    if (!firstName.trim()) {
+      Alert.alert("Error", "Please enter your first name");
+      return;
+    }
+
+    if (!lastName.trim()) {
+      Alert.alert("Error", "Please enter your last name");
       return;
     }
 
@@ -52,9 +59,10 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
         password
       );
 
-      // Create user document in Firestore
+      // ✅ Updated Firestore document with firstName and lastName
       await setDoc(doc(db, "users", userCredential.user.uid), {
-        name: name.trim(),
+        firstName: firstName.trim(), // ✅ NEW
+        lastName: lastName.trim(), // ✅ NEW
         email: email.trim(),
         createdAt: new Date().toISOString(),
         currentStreak: 0,
@@ -65,7 +73,7 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
         lastDreamDate: "",
       });
 
-      // ✅ Clear onboarding flag for new users - they should see onboarding
+      // Clear onboarding flag for new users
       await AsyncStorage.removeItem("onboardingCompleted");
 
       // Navigation will happen automatically via auth state change
@@ -97,12 +105,23 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
         <Text style={styles.subtitle}>Start your lucid dreaming journey</Text>
 
         <View style={styles.form}>
+          {/* ✅ NEW: First Name Input */}
           <TextInput
             style={styles.input}
-            placeholder="Your name"
+            placeholder="First name"
             placeholderTextColor="#666"
-            value={name}
-            onChangeText={setName}
+            value={firstName}
+            onChangeText={setFirstName}
+            autoCapitalize="words"
+          />
+
+          {/* ✅ NEW: Last Name Input */}
+          <TextInput
+            style={styles.input}
+            placeholder="Last name"
+            placeholderTextColor="#666"
+            value={lastName}
+            onChangeText={setLastName}
             autoCapitalize="words"
           />
 
