@@ -435,9 +435,6 @@ export default function DreamDetailScreen({
             <Text style={styles.noAnalysisText}>
               🤖 AI analysis in progress...
             </Text>
-            <Text style={styles.noAnalysisSubtext}>
-              Check back in a moment for insights about this dream
-            </Text>
           </Card>
         )}
 

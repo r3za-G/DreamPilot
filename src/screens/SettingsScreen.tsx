@@ -154,19 +154,62 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
   const deleteUserData = async (userId: string) => {
     try {
+      console.log("🗑️ Starting complete user data deletion for:", userId);
+
+      // ✅ 1. Delete all dreams
+      console.log("📖 Deleting dreams...");
       const dreamsQuery = query(
         collection(db, "dreams"),
         where("userId", "==", userId)
       );
       const dreamsSnapshot = await getDocs(dreamsQuery);
-      const deletePromises = dreamsSnapshot.docs.map((doc) =>
+      const dreamDeletePromises = dreamsSnapshot.docs.map((doc) =>
         deleteDoc(doc.ref)
       );
-      await Promise.all(deletePromises);
+      await Promise.all(dreamDeletePromises);
+      console.log(`✅ Deleted ${dreamsSnapshot.size} dreams`);
+
+      // ✅ 2. Delete xpHistory subcollection
+      console.log("📊 Deleting xpHistory...");
+      const xpHistoryRef = collection(db, "users", userId, "xpHistory");
+      const xpHistorySnapshot = await getDocs(xpHistoryRef);
+      const xpDeletePromises = xpHistorySnapshot.docs.map((doc) =>
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(xpDeletePromises);
+      console.log(`✅ Deleted ${xpHistorySnapshot.size} xpHistory entries`);
+
+      // ✅ 3. Delete data subcollection
+      console.log("💾 Deleting data subcollection...");
+      const dataRef = collection(db, "users", userId, "data");
+      const dataSnapshot = await getDocs(dataRef);
+      const dataDeletePromises = dataSnapshot.docs.map((doc) =>
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(dataDeletePromises);
+      console.log(`✅ Deleted ${dataSnapshot.size} data entries`);
+
+      // ✅ 4. Delete achievements (if you have this)
+      console.log("🏆 Deleting achievements...");
+      const achievementsQuery = query(
+        collection(db, "achievements"),
+        where("userId", "==", userId)
+      );
+      const achievementsSnapshot = await getDocs(achievementsQuery);
+      const achievementsDeletePromises = achievementsSnapshot.docs.map((doc) =>
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(achievementsDeletePromises);
+      console.log(`✅ Deleted ${achievementsSnapshot.size} achievements`);
+
+      // ✅ 5. Delete the main user document last
+      console.log("👤 Deleting user document...");
       await deleteDoc(doc(db, "users", userId));
-      console.log("All user data deleted successfully");
+      console.log("✅ User document deleted");
+
+      console.log("🎉 All user data deleted successfully");
     } catch (error) {
-      console.error("Error deleting user data:", error);
+      console.error("❌ Error deleting user data:", error);
       throw error;
     }
   };
