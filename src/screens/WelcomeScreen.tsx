@@ -44,15 +44,31 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
 
         <View style={styles.featuresGrid}>
           <Card style={styles.miniFeature}>
-            <Text style={styles.miniFeatureIcon}>📖</Text>
+            <View style={styles.miniFeatureIconContainer}>
+              <Ionicons name="book-outline" size={28} color={COLORS.primary} />
+            </View>
             <Text style={styles.miniFeatureText}>Dream Journal</Text>
           </Card>
+
           <Card style={styles.miniFeature}>
-            <Text style={styles.miniFeatureIcon}>🎓</Text>
+            <View style={styles.miniFeatureIconContainer}>
+              <Ionicons
+                name="school-outline"
+                size={28}
+                color={COLORS.secondary}
+              />
+            </View>
             <Text style={styles.miniFeatureText}>Learn Techniques</Text>
           </Card>
+
           <Card style={styles.miniFeature}>
-            <Text style={styles.miniFeatureIcon}>🏆</Text>
+            <View style={styles.miniFeatureIconContainer}>
+              <Ionicons
+                name="trophy-outline"
+                size={28}
+                color={COLORS.warning}
+              />
+            </View>
             <Text style={styles.miniFeatureText}>Track Progress</Text>
           </Card>
         </View>
@@ -164,8 +180,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(99, 102, 241, 0.3)",
   },
-  miniFeatureIcon: {
-    fontSize: 32,
+  // ✅ NEW: Icon container
+  miniFeatureIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(99, 102, 241, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: SPACING.sm,
   },
   miniFeatureText: {
