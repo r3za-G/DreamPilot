@@ -6,7 +6,8 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-  Alert,
+  Modal,
+  RefreshControl,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { doc, getDoc, deleteDoc } from "firebase/firestore";
@@ -48,7 +49,10 @@ export default function DreamDetailScreen({
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
   const { refreshDreams } = useData();
-  const toast = useToast(); // ✅ Already imported
+  const toast = useToast();
+  const [showReanalyzeModal, setShowReanalyzeModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadDream();
@@ -71,85 +75,115 @@ export default function DreamDetailScreen({
     }
   };
 
-  const handleReanalyze = async () => {
+  const handleReanalyze = () => {
     if (!dream) return;
-
     hapticFeedback.light();
-    // ✅ Keep Alert for confirmation
-    Alert.alert(
-      "Re-analyze Dream",
-      "This will generate a fresh AI analysis of your dream. Continue?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Re-analyze",
-          onPress: async () => {
-            try {
-              setReanalyzing(true);
-              const user = auth.currentUser;
-              if (!user) return;
-
-              const analysis = await analyzeDream(
-                dream.title,
-                dream.content,
-                dream.isLucid
-              );
-
-              if (analysis) {
-                await saveDreamAnalysis(user.uid, dreamId, analysis);
-                await loadDream();
-
-                hapticFeedback.success();
-                toast.success("Dream re-analyzed! Fresh insights generateds");
-              } else {
-                hapticFeedback.error();
-                toast.error("Failed to analyze dream. Please try again.");
-              }
-            } catch (error) {
-              console.error("Error re-analyzing dream:", error);
-              hapticFeedback.error();
-              toast.error("Something went wrong. Please try again.");
-            } finally {
-              setReanalyzing(false);
-            }
-          },
-        },
-      ]
-    );
+    setShowReanalyzeModal(true);
   };
 
-  const deleteDream = async () => {
+  // ✅ NEW: Confirm reanalyze
+  const confirmReanalyze = async () => {
+    setShowReanalyzeModal(false);
+    // ✅ Add null check
+    if (!dream) {
+      toast.error("Dream not found");
+      return;
+    }
+    try {
+      setReanalyzing(true);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const analysis = await analyzeDream(
+        dream.title,
+        dream.content,
+        dream.isLucid
+      );
+
+      if (analysis) {
+        await saveDreamAnalysis(user.uid, dreamId, analysis);
+        await loadDream();
+        hapticFeedback.success();
+        toast.success("Dream re-analyzed! Fresh insights generated");
+      } else {
+        hapticFeedback.error();
+        toast.error("Failed to analyze dream. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error re-analyzing dream:", error);
+      hapticFeedback.error();
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setReanalyzing(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    if (!dream) return;
+
+    setRefreshing(true);
+    hapticFeedback.light();
+
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      if (dream.analysis) {
+        toast.info(
+          "Analysis already exists. Press Re-analyze for fresh insight"
+        );
+        await loadDream();
+        setRefreshing(false);
+        return;
+      }
+
+      // Generate new analysis
+      const analysis = await analyzeDream(
+        dream.title,
+        dream.content,
+        dream.isLucid
+      );
+
+      if (analysis) {
+        await saveDreamAnalysis(user.uid, dreamId, analysis);
+        await loadDream();
+        hapticFeedback.success();
+        toast.success("AI analysis generated! 🧠✨");
+      } else {
+        hapticFeedback.error();
+        toast.error("Failed to analyze dream. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error analyzing dream:", error);
+      hapticFeedback.error();
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const deleteDream = () => {
     hapticFeedback.warning();
-    // ✅ Keep Alert for destructive confirmation
-    Alert.alert(
-      "Delete Dream",
-      "Are you sure you want to delete this dream? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await deleteDoc(doc(db, "dreams", dreamId));
-              await refreshDreams();
+    setShowDeleteModal(true);
+  };
 
-              hapticFeedback.success();
-              navigation.goBack();
-
-              toast.success("Dream deleted");
-            } catch (error) {
-              console.error("Error deleting dream:", error);
-              hapticFeedback.error();
-              toast.error("Failed to delete dream. Please try again.");
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  // ✅ NEW: Confirm delete
+  const confirmDeleteDream = async () => {
+    setShowDeleteModal(false);
+    try {
+      setLoading(true);
+      await deleteDoc(doc(db, "dreams", dreamId));
+      await refreshDreams();
+      hapticFeedback.success();
+      navigation.goBack();
+      toast.success("Dream deleted");
+    } catch (error) {
+      console.error("Error deleting dream:", error);
+      hapticFeedback.error();
+      toast.error("Failed to delete dream. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getPotentialColor = (potential: string) => {
@@ -187,7 +221,36 @@ export default function DreamDetailScreen({
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+            title="Pull to analyze with AI"
+            titleColor={COLORS.textSecondary}
+          />
+        }
       >
+        {!dream.analysis && (
+          <View style={styles.analysisPrompt}>
+            <Card variant="highlighted">
+              <View style={styles.analysisPromptContent}>
+                <Ionicons name="sparkles" size={32} color={COLORS.primary} />
+                <View style={styles.analysisPromptText}>
+                  <Text style={styles.analysisPromptTitle}>
+                    Get AI Insights
+                  </Text>
+                  <Text style={styles.analysisPromptDescription}>
+                    Pull down to refresh and generate AI analysis of your dream
+                  </Text>
+                </View>
+                <Ionicons name="arrow-down" size={24} color={COLORS.primary} />
+              </View>
+            </Card>
+          </View>
+        )}
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -385,16 +448,85 @@ export default function DreamDetailScreen({
             onPress={deleteDream}
             variant="danger"
             icon={
-              <MaterialIcons
-                name="delete"
-                size={24}
-                color={COLORS.textPrimary}
-              />
+              <Ionicons name="trash" size={22} color={COLORS.textPrimary} />
             }
           />
-          <Text style={styles.deleteWarning}>This action cannot be undone</Text>
         </View>
       </ScrollView>
+      <Modal
+        visible={showReanalyzeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReanalyzeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="refresh"
+              size={48}
+              color={COLORS.primary}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Re-analyze Dream</Text>
+            <Text style={styles.modalText}>
+              This will generate a fresh AI analysis of your dream. Continue?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowReanalyzeModal(false)}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Re-analyze"
+                onPress={confirmReanalyze}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ✅ NEW: Delete Dream Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="warning"
+              size={48}
+              color={COLORS.error}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Delete Dream</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to delete this dream? This action cannot be
+              undone.
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowDeleteModal(false)}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Delete"
+                onPress={confirmDeleteDream}
+                variant="danger"
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -644,5 +776,71 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: SPACING.sm,
     fontStyle: "italic",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xxl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: SPACING.md,
+    width: "100%",
+    marginTop: SPACING.md,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  analysisPrompt: {
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
+  },
+  analysisPromptContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
+  },
+  analysisPromptText: {
+    flex: 1,
+  },
+  analysisPromptTitle: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  analysisPromptDescription: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
 });

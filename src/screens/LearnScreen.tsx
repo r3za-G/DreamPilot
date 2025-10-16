@@ -15,7 +15,7 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EmptyState from "../components/EmptyState";
 import { SkeletonLessonCard } from "../components/SkeletonLoader";
 import { useFocusEffect } from "@react-navigation/native";
@@ -30,6 +30,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
   const [filter, setFilter] = useState<"all" | "completed" | "incomplete">(
     "all"
   );
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -96,32 +97,30 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
   // ✅ SKELETON LOADER - While loading
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.container}>
-          <ScrollView style={styles.scrollView}>
-            <View style={styles.header}>
-              <Text style={styles.title}>Learn Lucid Dreaming</Text>
-              <Text style={styles.subtitle}>
-                Master the techniques to control your dreams
-              </Text>
-            </View>
-            <View style={styles.lessonsSection}>
-              <SkeletonLessonCard />
-              <SkeletonLessonCard />
-              <SkeletonLessonCard />
-              <SkeletonLessonCard />
-              <SkeletonLessonCard />
-            </View>
-          </ScrollView>
-        </View>
-      </SafeAreaView>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Learn Lucid Dreaming</Text>
+            <Text style={styles.subtitle}>
+              Master the techniques to control your dreams
+            </Text>
+          </View>
+          <View style={styles.lessonsSection}>
+            <SkeletonLessonCard />
+            <SkeletonLessonCard />
+            <SkeletonLessonCard />
+            <SkeletonLessonCard />
+            <SkeletonLessonCard />
+          </View>
+        </ScrollView>
+      </View>
     );
   }
 
   // ✅ EMPTY STATE - All lessons completed!
   if (filter === "incomplete" && filteredLessons.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <ScrollView style={styles.scrollView}>
             <View style={styles.header}>
@@ -174,14 +173,14 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
             />
           </ScrollView>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ✅ EMPTY STATE - No completed lessons yet
   if (filter === "completed" && filteredLessons.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <ScrollView style={styles.scrollView}>
             <View style={styles.header}>
@@ -230,13 +229,13 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
             />
           </ScrollView>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ✅ Normal content with lessons
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}
@@ -486,7 +485,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
           <View style={styles.footer} />
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

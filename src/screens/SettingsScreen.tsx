@@ -5,7 +5,6 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Switch,
   ActivityIndicator,
   Modal,
@@ -38,7 +37,7 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
-import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
+import { useToast } from "../contexts/ToastContext";
 
 type SettingsScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -48,6 +47,8 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false); // ✅ NEW
+  const [showDeleteModal, setShowDeleteModal] = useState(false); // ✅ NEW
   const [passwordInput, setPasswordInput] = useState("");
   const user = auth.currentUser;
   const [showEditModal, setShowEditModal] = useState(false);
@@ -55,7 +56,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [editLastName, setEditLastName] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const { userData, refreshUserData } = useData();
-  const toast = useToast(); // ✅ Add this hook
+  const toast = useToast();
 
   const openPrivacyPolicy = () => {
     hapticFeedback.light();
@@ -67,63 +68,44 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     Linking.openURL("https://r3za-g.github.io/dreampilot-privacy/terms.html");
   };
 
+  // ✅ UPDATED: Show modal instead of Alert
   const handleLogout = () => {
     hapticFeedback.warning();
-    // ✅ Keep Alert for confirmation
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setLoading(true);
-            await signOut(auth);
-            hapticFeedback.success();
-            toast.success("Logged out successfully"); // ✅ Toast
-          } catch (error) {
-            console.error("Error logging out:", error);
-            hapticFeedback.error();
-            toast.error("Failed to logout. Please try again"); // ✅ Toast
-          } finally {
-            setLoading(false);
-          }
-        },
-      },
-    ]);
+    setShowLogoutModal(true);
   };
 
+  // ✅ NEW: Confirm logout
+  const confirmLogout = async () => {
+    try {
+      setLoading(true);
+      setShowLogoutModal(false);
+      await signOut(auth);
+      hapticFeedback.success();
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Error logging out:", error);
+      hapticFeedback.error();
+      toast.error("Failed to logout. Please try again");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ UPDATED: Show modal instead of Alert
   const handleDeleteAccount = () => {
     hapticFeedback.warning();
-    // ✅ Keep Alert for destructive action
-    Alert.alert(
-      "Delete Account",
-      "⚠️ WARNING: This will permanently delete your account and all data including:\n\n• All dream journal entries\n• Your progress and achievements\n• All settings and preferences\n\nThis action cannot be undone!",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "I understand, delete my account",
-          style: "destructive",
-          onPress: () => confirmDeleteAccount(),
-        },
-      ]
-    );
+    setShowDeleteModal(true);
   };
 
   const confirmDeleteAccount = () => {
+    setShowDeleteModal(false);
     setShowPasswordModal(true);
   };
 
   const handleDeleteWithPassword = async () => {
     if (!passwordInput.trim()) {
       hapticFeedback.error();
-      toast.error("Password is required to delete your account"); // ✅ Toast
+      toast.error("Password is required to delete your account");
       return;
     }
 
@@ -132,7 +114,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       setShowPasswordModal(false);
 
       if (!user || !user.email) {
-        toast.error("User not found"); // ✅ Toast
+        toast.error("User not found");
         setLoading(false);
         return;
       }
@@ -145,7 +127,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       await deleteUser(user);
       await deleteUserData(user.uid);
       hapticFeedback.success();
-      toast.success("Account deleted successfully"); // ✅ Toast
+      toast.success("Account deleted successfully");
     } catch (error: any) {
       console.error("Error deleting account:", error);
       hapticFeedback.error();
@@ -156,13 +138,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         error.code === "auth/invalid-credential" ||
         error.code === "auth/invalid-email"
       ) {
-        toast.error("Incorrect password. Please try again"); // ✅ Toast
+        toast.error("Incorrect password. Please try again");
       } else if (error.code === "auth/requires-recent-login") {
-        toast.warning("Please logout and login again, then try deleting", 5000); // ✅ Toast
+        toast.warning("Please logout and login again, then try deleting", 5000);
       } else {
         toast.error(
           `Failed to delete account: ${error.message || "Unknown error"}`
-        ); // ✅ Toast
+        );
       }
     } finally {
       setLoading(false);
@@ -195,9 +177,9 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
     if (!value) {
       await Notifications.cancelAllScheduledNotificationsAsync();
-      toast.info("All reality check reminders cancelled"); // ✅ Toast
+      toast.info("All reality check reminders cancelled");
     } else {
-      toast.info("Go to Reality Check Reminders to set up your schedule"); // ✅ Toast
+      toast.info("Go to Reality Check Reminders to set up your schedule");
     }
   };
 
@@ -211,13 +193,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const handleSaveProfile = async () => {
     if (!editFirstName.trim()) {
       hapticFeedback.error();
-      toast.error("Please enter your first name"); // ✅ Toast
+      toast.error("Please enter your first name");
       return;
     }
 
     if (!editLastName.trim()) {
       hapticFeedback.error();
-      toast.error("Please enter your last name"); // ✅ Toast
+      toast.error("Please enter your last name");
       return;
     }
 
@@ -225,7 +207,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       setEditLoading(true);
 
       if (!user) {
-        toast.error("User not found"); // ✅ Toast
+        toast.error("User not found");
         return;
       }
 
@@ -237,7 +219,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       setShowEditModal(false);
       hapticFeedback.success();
 
-      toast.success("Profile updated successfully! ✅"); // ✅ Toast
+      toast.success("Profile updated successfully! ✅");
 
       if (refreshUserData) {
         await refreshUserData();
@@ -245,7 +227,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     } catch (error) {
       console.error("Error updating profile:", error);
       hapticFeedback.error();
-      toast.error("Failed to update profile. Please try again"); // ✅ Toast
+      toast.error("Failed to update profile. Please try again");
     } finally {
       setEditLoading(false);
     }
@@ -400,11 +382,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             onPress={handleDeleteAccount}
             variant="danger"
             icon={
-              <MaterialIcons
-                name="delete-forever"
-                size={22}
-                color={COLORS.textPrimary}
-              />
+              <Ionicons name="trash" size={22} color={COLORS.textPrimary} />
             }
           />
         </View>
@@ -417,7 +395,89 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         </View>
       </ScrollView>
 
-      {/* Delete Account Modal */}
+      {/* ✅ NEW: Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="log-out-outline"
+              size={48}
+              color={COLORS.warning}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to logout?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowLogoutModal(false)}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Logout"
+                onPress={confirmLogout}
+                variant="secondary"
+                textStyle={{ color: COLORS.warning }}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ✅ NEW: Delete Account Warning Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="warning"
+              size={48}
+              color={COLORS.error}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.modalText}>
+              ⚠️ WARNING: This will permanently delete your account and all data
+              including:{"\n\n"}• All dream journal entries{"\n"}• Your progress
+              and achievements{"\n"}• All settings and preferences{"\n\n"}
+              This action cannot be undone!
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowDeleteModal(false)}
+                variant="ghost"
+                style={styles.modalButton}
+                textStyle={{ fontSize: TYPOGRAPHY.sizes.md }}
+              />
+              <Button
+                title="I understand, delete my account"
+                onPress={confirmDeleteAccount}
+                variant="danger"
+                style={{ flex: 2 }}
+                textStyle={{ fontSize: TYPOGRAPHY.sizes.md }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ✅ Delete Account Password Modal (unchanged) */}
       <Modal
         visible={showPasswordModal}
         transparent
@@ -463,19 +523,21 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
                 }}
                 variant="ghost"
                 style={styles.modalButton}
+                textStyle={{ fontSize: TYPOGRAPHY.sizes.md }}
               />
               <Button
                 title="Delete Forever"
                 onPress={handleDeleteWithPassword}
                 variant="danger"
                 style={styles.modalButton}
+                textStyle={{ fontSize: TYPOGRAPHY.sizes.md }}
               />
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile Modal (unchanged) */}
       <Modal
         visible={showEditModal}
         transparent
@@ -547,6 +609,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   );
 }
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -697,7 +760,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.md,
     color: COLORS.textSecondary,
     marginBottom: SPACING.lg,
-    lineHeight: 20,
+    lineHeight: 22,
     textAlign: "center",
   },
   modalInput: {

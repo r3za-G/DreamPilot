@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   RefreshControl,
-  Alert,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { doc, updateDoc } from "firebase/firestore";
@@ -18,10 +17,12 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS, SHADOWS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "../contexts/ToastContext";
 import EmptyState from "../components/EmptyState";
 import { SkeletonDreamCard } from "../components/SkeletonLoader";
+import { Modal } from "react-native";
+import Button from "../components/Button";
 
 type JournalScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -37,12 +38,16 @@ type Dream = {
 };
 
 export default function JournalScreen({ navigation }: JournalScreenProps) {
-  const { dreams, refreshDreams, loading } = useData(); // ✅ Added loading from context
+  const { dreams, refreshDreams, initialLoadComplete } = useData(); // ✅ Use initialLoadComplete
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"all" | "lucid" | "recent">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const toast = useToast();
+  const insets = useSafeAreaInsets(); // ✅ Get insets manually
+  // Add this state after your existing state declarations
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [dreamToDelete, setDreamToDelete] = useState<string | null>(null);
 
   const onRefresh = async () => {
     hapticFeedback.light();
@@ -97,33 +102,31 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
     );
   };
 
-  const handleDeleteDream = async (dreamId: string) => {
+  const handleDeleteDream = (dreamId: string) => {
     hapticFeedback.warning();
-    Alert.alert("Delete Dream", "Are you sure you want to delete this dream?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await updateDoc(doc(db, "dreams", dreamId), {
-              isDeleted: true,
-              deletedAt: new Date().toISOString(),
-            });
-            await refreshDreams();
-            hapticFeedback.success();
-            toast.success("Dream deleted");
-          } catch (error) {
-            console.error("Error deleting dream:", error);
-            hapticFeedback.error();
-            toast.error("Failed to delete dream");
-          }
-        },
-      },
-    ]);
+    setDreamToDelete(dreamId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteDream = async () => {
+    if (!dreamToDelete) return;
+
+    setShowDeleteModal(false);
+    try {
+      await updateDoc(doc(db, "dreams", dreamToDelete), {
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+      });
+      await refreshDreams();
+      hapticFeedback.success();
+      toast.success("Dream deleted");
+    } catch (error) {
+      console.error("Error deleting dream:", error);
+      hapticFeedback.error();
+      toast.error("Failed to delete dream");
+    } finally {
+      setDreamToDelete(null);
+    }
   };
 
   const renderDream = ({ item }: { item: Dream }) => {
@@ -157,7 +160,7 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
                   handleDeleteDream(item.id);
                 }}
               >
-                <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                <Ionicons name="trash" size={18} color={COLORS.error} />
               </TouchableOpacity>
             </View>
           </View>
@@ -200,10 +203,10 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
     );
   };
 
-  // ✅ SKELETON LOADER - While loading initial data
-  if (loading) {
+  // ✅ ONLY show skeleton on FIRST app load, not on tab switches
+  if (!initialLoadComplete) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
@@ -217,14 +220,14 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
             <SkeletonDreamCard />
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ✅ EMPTY STATE - No dreams match search
   if (searchQuery.trim() && filteredDreams.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
@@ -279,14 +282,14 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
             }}
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ✅ EMPTY STATE - No lucid dreams
   if (filter === "lucid" && filteredDreams.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
@@ -354,14 +357,14 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
             onSecondaryAction={() => navigation.navigate("DreamJournal")}
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ✅ EMPTY STATE - No recent dreams
   if (filter === "recent" && filteredDreams.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
@@ -412,14 +415,14 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
             onSecondaryAction={() => setFilter("all")}
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ✅ EMPTY STATE - No dreams at all
   if (dreams.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <EmptyState
             emoji="📖"
@@ -429,13 +432,12 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
             onAction={() => navigation.navigate("DreamJournal")}
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  // ✅ Normal content with dreams
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -603,7 +605,50 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
           <MaterialIcons name="add" size={28} color={COLORS.textPrimary} />
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+      {/* ✅ NEW: Delete Dream Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowDeleteModal(false);
+          setDreamToDelete(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="warning"
+              size={48}
+              color={COLORS.error}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Delete Dream</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to delete this dream?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setDreamToDelete(null);
+                }}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Delete"
+                onPress={confirmDeleteDream}
+                variant="danger"
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -804,5 +849,48 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     ...SHADOWS.large,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xxl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: SPACING.md,
+    width: "100%",
+    marginTop: SPACING.md,
+  },
+  modalButton: {
+    flex: 1,
   },
 });

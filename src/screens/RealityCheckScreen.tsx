@@ -5,8 +5,8 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Switch,
+  Modal,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -57,6 +57,7 @@ export default function RealityCheckScreen({
   const [useSound, setUseSound] = useState<boolean>(true);
   const [useVibration, setUseVibration] = useState<boolean>(true);
   const toast = useToast(); // ✅ Add this hook
+  const [showCancelModal, setShowCancelModal] = useState(false); // ✅ NEW
 
   useEffect(() => {
     loadSettings();
@@ -174,27 +175,19 @@ export default function RealityCheckScreen({
     await scheduleReminders(hours);
   };
 
-  const cancelAllReminders = async () => {
+  const cancelAllReminders = () => {
     hapticFeedback.warning();
-    // ✅ Keep Alert for destructive confirmation
-    Alert.alert(
-      "Cancel All Reminders",
-      "Are you sure you want to cancel all reality check reminders?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Cancel All",
-          style: "destructive",
-          onPress: async () => {
-            await Notifications.cancelAllScheduledNotificationsAsync();
-            setRemindersEnabled(false);
-            await saveSettings({ ...(await getSettings()), enabled: false });
-            hapticFeedback.success();
-            toast.success("All reminders cancelled"); // ✅ Toast
-          },
-        },
-      ]
-    );
+    setShowCancelModal(true); // ✅ Show modal instead of Alert
+  };
+
+  // ✅ NEW: Confirm cancel function
+  const confirmCancelReminders = async () => {
+    setShowCancelModal(false);
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    setRemindersEnabled(false);
+    await saveSettings({ ...(await getSettings()), enabled: false });
+    hapticFeedback.success();
+    toast.success("All reminders cancelled");
   };
 
   const getSettings = async () => {
@@ -474,13 +467,6 @@ export default function RealityCheckScreen({
                 title="Cancel All Reminders"
                 onPress={cancelAllReminders}
                 variant="danger"
-                icon={
-                  <Ionicons
-                    name="close-circle"
-                    size={20}
-                    color={COLORS.textPrimary}
-                  />
-                }
               />
             )
           )}
@@ -488,6 +474,43 @@ export default function RealityCheckScreen({
 
         <View style={styles.footer} />
       </ScrollView>
+      {/* ✅ NEW: Cancel Reminders Confirmation Modal */}
+      <Modal
+        visible={showCancelModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCancelModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="warning"
+              size={48}
+              color={COLORS.warning}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Cancel All Reminders</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to cancel all reality check reminders?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowCancelModal(false)}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Cancel All"
+                onPress={confirmCancelReminders}
+                variant="danger"
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -628,5 +651,49 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: SPACING.xxxl,
+  },
+  // Add to your existing styles object
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xxl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: SPACING.md,
+    width: "100%",
+    marginTop: SPACING.md,
+  },
+  modalButton: {
+    flex: 1,
   },
 });

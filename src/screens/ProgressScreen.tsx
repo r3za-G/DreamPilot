@@ -19,7 +19,7 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EmptyState from "../components/EmptyState";
 import { SkeletonAchievementCard } from "../components/SkeletonLoader";
 
@@ -31,6 +31,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
   const { userData, dreams, loading, refreshData } = useData();
   const [refreshing, setRefreshing] = useState(false);
   const [achievementsUnlocked, setAchievementsUnlocked] = useState(0);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!loading && userData) {
@@ -120,7 +121,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
   const hasEnoughDataForInsights = totalDreams >= 3;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}
@@ -407,7 +408,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
           <View style={styles.footer} />
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -598,7 +599,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weights.medium,
     textAlign: "center",
   },
-  // ✅ Empty State Styles
   emptyStateContainer: {
     alignItems: "center",
     paddingVertical: SPACING.lg,
@@ -629,7 +629,8 @@ const styles = StyleSheet.create({
   emptyStateButton: {
     flex: 1,
     backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl, // ✅ Increase horizontal padding (was probably md or lg)
+    paddingVertical: SPACING.lg, // ✅ Increase vertical padding
     borderRadius: RADIUS.md,
     alignItems: "center",
   },

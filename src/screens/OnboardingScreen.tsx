@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  Image,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,9 +29,10 @@ type OnboardingSlide = {
   id: string;
   title: string;
   description: string;
-  icon: string;
+  icon?: string;
   features?: { icon: string; text: string }[];
   goals?: { id: string; icon: string; text: string }[];
+  image?: any;
 };
 
 const slides: OnboardingSlide[] = [
@@ -38,7 +40,7 @@ const slides: OnboardingSlide[] = [
     id: "1",
     title: "Welcome to DreamPilot",
     description: "Your personal guide to lucid dreaming and dream exploration",
-    icon: "🌙",
+    image: require("../../assets/app_icons/icon.png"),
   },
   {
     id: "2",
@@ -154,7 +156,11 @@ export default function OnboardingScreen({
   const renderSlide = ({ item }: { item: OnboardingSlide }) => {
     return (
       <View style={styles.slide}>
-        <Text style={styles.icon}>{item.icon}</Text>
+        {item.image ? (
+          <Image source={item.image} style={styles.iconImage} />
+        ) : (
+          <Text style={styles.icon}>{item.icon}</Text>
+        )}
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
 
@@ -328,7 +334,14 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: 80,
-    marginBottom: SPACING.xxxl,
+    marginBottom: 20,
+  },
+
+  iconImage: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+    borderRadius: 20,
   },
   title: {
     fontSize: TYPOGRAPHY.sizes.xxxl - 4,

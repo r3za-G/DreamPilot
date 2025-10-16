@@ -1,12 +1,5 @@
 import React, { useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  Animated,
-  TouchableOpacity,
-  Modal,
-} from "react-native";
+import { StyleSheet, Text, Animated, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS, SHADOWS } from "../theme/design";
@@ -53,6 +46,10 @@ export default function Toast({
       }, duration);
 
       return () => clearTimeout(timer);
+    } else {
+      // Reset animation when not visible
+      opacity.setValue(0);
+      translateY.setValue(-100);
     }
   }, [visible]);
 
@@ -81,26 +78,26 @@ export default function Toast({
         return {
           icon: "checkmark-circle" as const,
           color: COLORS.success,
-          backgroundColor: "#1a3229", // Dark green
+          backgroundColor: "#1a3229",
         };
       case "error":
         return {
           icon: "close-circle" as const,
           color: COLORS.error,
-          backgroundColor: "#3a1a1a", // Dark red
+          backgroundColor: "#3a1a1a",
         };
       case "warning":
         return {
           icon: "warning" as const,
           color: COLORS.warning,
-          backgroundColor: "#3a2a1a", // Dark orange
+          backgroundColor: "#3a2a1a",
         };
       case "info":
       default:
         return {
           icon: "information-circle" as const,
           color: COLORS.primary,
-          backgroundColor: "#1a1a3a", // Dark blue
+          backgroundColor: "#1a1a3a",
         };
     }
   };
@@ -108,59 +105,48 @@ export default function Toast({
   const config = getToastConfig();
 
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={dismiss}
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          top: insets.top + 16,
+          opacity,
+          transform: [{ translateY }],
+        },
+      ]}
+      pointerEvents="box-none"
     >
-      <View style={styles.modalOverlay} pointerEvents="box-none">
-        {/* ✅ Added pointerEvents */}
-        <Animated.View
-          style={[
-            styles.container,
-            {
-              top: insets.top + 16,
-              opacity,
-              transform: [{ translateY }],
-            },
-          ]}
+      <TouchableOpacity
+        style={[
+          styles.toast,
+          {
+            backgroundColor: config.backgroundColor,
+            borderLeftColor: config.color,
+          },
+        ]}
+        onPress={dismiss}
+        activeOpacity={0.9}
+      >
+        <Ionicons name={config.icon} size={24} color={config.color} />
+        <Text style={styles.message}>{message}</Text>
+        <TouchableOpacity
+          onPress={dismiss}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <TouchableOpacity
-            style={[
-              styles.toast,
-              {
-                backgroundColor: config.backgroundColor,
-                borderLeftColor: config.color,
-              },
-            ]}
-            onPress={dismiss}
-            activeOpacity={0.9}
-          >
-            <Ionicons name={config.icon} size={24} color={config.color} />
-            <Text style={styles.message}>{message}</Text>
-            <TouchableOpacity
-              onPress={dismiss}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={20} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
-    </Modal>
+          <Ionicons name="close" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1, // ✅ Take full screen
-  },
   container: {
     position: "absolute",
     left: SPACING.lg,
     right: SPACING.lg,
+    zIndex: 9999,
+    elevation: 9999,
   },
   toast: {
     flexDirection: "row",

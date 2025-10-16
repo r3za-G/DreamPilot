@@ -21,7 +21,7 @@ import { auth } from "../../firebaseConfig";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
 type HomeScreenProps = {
@@ -47,6 +47,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     achievement: null,
   });
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
+  const insets = useSafeAreaInsets(); // ✅ Get insets manually
 
   // ✅ FIX: Refresh lesson data when screen comes into focus
   useFocusEffect(
@@ -142,7 +143,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const currentStreak = calculateStreak(dreamEntries);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}
@@ -363,7 +364,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           onClose={handleCloseAchievement}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

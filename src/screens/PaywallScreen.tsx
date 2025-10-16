@@ -28,7 +28,7 @@ const PREMIUM_FEATURES = [
   },
   {
     icon: "🎓",
-    title: "50+ Expert Lessons",
+    title: "20+ Expert Lessons",
     description: "Master lucid dreaming techniques",
   },
   {
@@ -51,8 +51,6 @@ const PREMIUM_FEATURES = [
     title: "Premium Features",
     description: "Custom reality checks & more",
   },
-  { icon: "💾", title: "Cloud Backup", description: "Never lose your dreams" },
-  { icon: "🚫", title: "Ad-Free", description: "Distraction-free experience" },
 ];
 
 const MOCK_MONTHLY_PACKAGE = {

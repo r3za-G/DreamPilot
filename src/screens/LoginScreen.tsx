@@ -8,7 +8,7 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Alert,
+  Image,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
@@ -147,7 +147,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.icon}>🌙</Text>
+            <Image
+              source={require("../../assets/app_icons/icon.png")}
+              style={styles.avatarIcon}
+            />
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
               Continue your lucid dreaming journey
@@ -391,5 +394,10 @@ const styles = StyleSheet.create({
   modalButton: {
     width: "100%",
     marginBottom: SPACING.md,
+  },
+  avatarIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
 });

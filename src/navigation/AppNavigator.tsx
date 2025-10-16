@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { SafeAreaProvider } from "react-native-safe-area-context";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
 import * as Notifications from "expo-notifications";
@@ -14,6 +13,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SubscriptionProvider } from "../contexts/SubscriptionContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { COLORS } from "../theme/design";
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from "react-native-safe-area-context";
 
 // Auth Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -125,12 +128,12 @@ function TabNavigator() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: "#1a1a2e",
-          borderTopColor: "#333",
+          backgroundColor: COLORS.background,
+          borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 25,
-          paddingTop: 8,
+          left: 0,
+          right: 0,
+          bottom: 0,
         },
         tabBarActiveTintColor: "#6366f1",
         tabBarInactiveTintColor: "#888",
@@ -143,6 +146,9 @@ function TabNavigator() {
         headerTitleStyle: {
           fontWeight: "bold",
         },
+        lazy: false,
+        headerShown: false,
+        freezeOnBlur: true,
       }}
     >
       <Tab.Screen
@@ -150,6 +156,7 @@ function TabNavigator() {
         component={HomeScreen}
         options={{
           headerShown: false,
+          freezeOnBlur: true,
           tabBarLabel: "Dashboard",
           title: "",
           tabBarIcon: ({ color, size }) => (
@@ -161,6 +168,7 @@ function TabNavigator() {
         name="Journal"
         component={JournalScreen}
         options={{
+          freezeOnBlur: true,
           headerShown: false,
           tabBarLabel: "Journal",
           title: "",
@@ -173,6 +181,7 @@ function TabNavigator() {
         name="Learn"
         component={LearnScreen}
         options={{
+          freezeOnBlur: true,
           headerShown: false,
           tabBarLabel: "Learn",
           title: "",
@@ -185,6 +194,7 @@ function TabNavigator() {
         name="Progress"
         component={ProgressScreen}
         options={{
+          freezeOnBlur: true,
           headerShown: false,
           tabBarLabel: "Progress",
           title: "",
@@ -197,6 +207,7 @@ function TabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
+          freezeOnBlur: true,
           headerShown: false,
           tabBarLabel: "Profile",
           title: "",
@@ -239,9 +250,9 @@ export default function App() {
   }
 
   return (
-    // <SubscriptionProvider>
-    <DataProvider>
-      <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      {/* /<SubscriptionProvider> */}
+      <DataProvider>
         <ToastProvider>
           <NavigationContainer>
             <Stack.Navigator
@@ -299,8 +310,8 @@ export default function App() {
             </Stack.Navigator>
           </NavigationContainer>
         </ToastProvider>
-      </SafeAreaProvider>
-    </DataProvider>
-    // </SubscriptionProvider>
+      </DataProvider>
+      {/* // </SubscriptionProvider> */}
+    </SafeAreaProvider>
   );
 }

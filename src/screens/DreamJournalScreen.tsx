@@ -224,6 +224,8 @@ export default function DreamJournalScreen({
         isDeleted: false,
       });
 
+      const dreamId = dreamRef.id; // ✅ Store the dream ID
+
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const userData = userDoc.data();
       const lastDreamDate = userData?.lastDreamDate || "";
@@ -266,12 +268,14 @@ export default function DreamJournalScreen({
       analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
 
       hapticFeedback.success();
-      navigation.goBack();
+      // ✅ Navigate to dream detail instead of going back
+      navigation.replace("DreamDetail", { dreamId });
 
       toast.success(
         `Dream saved! +${xpAmount} XP${
           newStreak > 1 ? ` • ${newStreak} day streak 🔥` : ""
-        }`
+        }`,
+        3000
       );
     } catch (error) {
       console.error("Error saving dream:", error);
@@ -301,6 +305,7 @@ export default function DreamJournalScreen({
 
         await refreshDreams();
 
+        // ✅ Only show recurring dream sign notification if count >= 3
         if (analysis.dreamSigns.length > 0) {
           const patterns = await getUserDreamPatterns(userId);
 
@@ -315,17 +320,11 @@ export default function DreamJournalScreen({
               (p) => p.sign.toLowerCase() === recurringSign.toLowerCase()
             );
 
+            // ✅ Use toast instead of Alert so it doesn't interrupt
             setTimeout(() => {
-              Alert.alert(
-                "🎯 Recurring Dream Sign Detected!",
-                `"${recurringSign}" has appeared ${signData?.count} times in your dreams.\n\nThis is a perfect reality check trigger! Try checking if you're dreaming whenever you see this.`,
-                [
-                  { text: "Got it!", style: "default" },
-                  {
-                    text: "View Insights",
-                    onPress: () => navigation.navigate("Insights"),
-                  },
-                ]
+              toast.info(
+                `🎯 Recurring sign detected: "${recurringSign}" (${signData?.count}x). Perfect reality check trigger!`,
+                5000
               );
             }, 2000);
           }

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { StyleSheet, Text, View, Image } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,7 +21,10 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
       >
         <View style={styles.topSection}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoIcon}>🌙</Text>
+            <Image
+              source={require("../../assets/app_icons/icon.png")}
+              style={styles.avatarIcon}
+            />
           </View>
           <Text style={styles.title}>Dream Pilot</Text>
           <Text style={styles.tagline}>Master the Art of Lucid Dreaming</Text>
@@ -181,5 +184,10 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     ...SHADOWS.large,
+  },
+  avatarIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
 });

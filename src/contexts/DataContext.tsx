@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { View, ActivityIndicator, Text } from "react-native"; // ✅ Add these imports
+import { View, ActivityIndicator, Text } from "react-native";
 import {
   collection,
   query,
@@ -14,7 +14,7 @@ import { auth, db } from "../../firebaseConfig";
 import { getUserDreamPatterns } from "../services/dreamAnalysisService";
 import { calculateLevel } from "../data/levels";
 import { getUserXP } from "../utils/xpManager";
-import { COLORS } from "../theme/design"; // ✅ Import colors
+import { COLORS } from "../theme/design";
 
 type Dream = {
   id: string;
@@ -45,6 +45,7 @@ type DataContextType = {
   completedLessons: number[];
   dreamPatterns: any;
   loading: boolean;
+  initialLoadComplete: boolean; // ✅ ADD THIS
   isPremium: boolean;
   refreshData: () => Promise<void>;
   refreshDreams: () => Promise<void>;
@@ -60,7 +61,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [dreamPatterns, setDreamPatterns] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false); // ✅ NEW: Track initial load
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
@@ -69,7 +70,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await loadAllData();
       } else {
         setLoading(false);
-        setInitialLoadComplete(true); // ✅ NEW: Mark as complete even if not logged in
+        setInitialLoadComplete(true);
       }
     });
 
@@ -80,13 +81,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
 
-      // ✅ Load all data in parallel
       await Promise.all([refreshDreams(), refreshUserData(), refreshLessons()]);
 
-      setInitialLoadComplete(true); // ✅ NEW: Mark initial load as complete
+      setInitialLoadComplete(true);
     } catch (error) {
       console.error("Error loading data:", error);
-      setInitialLoadComplete(true); // ✅ NEW: Mark complete even on error
+      setInitialLoadComplete(true);
     } finally {
       setLoading(false);
     }
@@ -234,7 +234,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await loadAllData();
   };
 
-  // ✅ NEW: Show loading screen only on initial load
   if (!initialLoadComplete) {
     return (
       <View
@@ -259,7 +258,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // ✅ Render children after initial load
   return (
     <DataContext.Provider
       value={{
@@ -268,6 +266,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         completedLessons,
         dreamPatterns,
         loading,
+        initialLoadComplete,
         isPremium,
         refreshData,
         refreshDreams,

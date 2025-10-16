@@ -6,7 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  Image,
+  Modal,
   Share,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -16,8 +17,9 @@ import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
+import Button from "../components/Button";
 
 type ProfileScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -27,16 +29,24 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { userData, dreams, loading, isPremium } = useData();
   const [exporting, setExporting] = useState(false);
   const toast = useToast(); // ✅ Add this hook
+  const insets = useSafeAreaInsets();
+  const [showExportModal, setShowExportModal] = useState(false); // ✅ NEW
 
   const exportDreams = async () => {
+    console.log("🔍 Export started");
+
     try {
       setExporting(true);
       const user = auth.currentUser;
-      if (!user) return;
+
+      if (!user) {
+        console.log("❌ No user found");
+        return;
+      }
 
       if (dreams.length === 0) {
         hapticFeedback.warning();
-        toast.warning("No dreams to export yet"); // ✅ Toast
+        toast.warning("No dreams to export yet");
         return;
       }
 
@@ -63,16 +73,28 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         textContent += `\n${"-".repeat(50)}\n\n`;
       });
 
-      await Share.share({
-        message: textContent,
-        title: "Dream Journal Export",
-      });
-      hapticFeedback.success();
-      toast.success(`Exported ${dreams.length} dreams! 📄`); // ✅ Toast
-    } catch (error) {
-      console.error("Error exporting dreams:", error);
+      console.log("📝 Text content length:", textContent.length);
+
+      // ✅ Simple Share.share - works everywhere
+      try {
+        const result = await Share.share({
+          message: textContent,
+        });
+
+        console.log("✅ Share result:", result);
+
+        if (result.action === Share.sharedAction) {
+          hapticFeedback.success();
+          toast.success(`Exported ${dreams.length} dreams! 📄`);
+        }
+      } catch (shareError: any) {
+        console.error("Share error:", shareError);
+        throw shareError;
+      }
+    } catch (error: any) {
+      console.error("❌ Export error:", error);
       hapticFeedback.error();
-      toast.error("Failed to export dreams. Please try again"); // ✅ Toast
+      toast.error(`Export failed: ${error.message}`);
     } finally {
       setExporting(false);
     }
@@ -86,7 +108,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
       if (dreams.length === 0) {
         hapticFeedback.warning();
-        toast.warning("No dreams to export yet"); // ✅ Toast
+        toast.warning("No dreams to export yet");
         return;
       }
 
@@ -105,16 +127,21 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         dreams: dreams,
       };
 
-      await Share.share({
-        message: JSON.stringify(exportData, null, 2),
-        title: "Dream Journal Export (JSON)",
+      const jsonContent = JSON.stringify(exportData, null, 2);
+
+      // ✅ Simple Share.share
+      const result = await Share.share({
+        message: jsonContent,
       });
-      hapticFeedback.success();
-      toast.success(`Exported ${dreams.length} dreams as JSON! 📊`); // ✅ Toast
-    } catch (error) {
-      console.error("Error exporting dreams:", error);
+
+      if (result.action === Share.sharedAction) {
+        hapticFeedback.success();
+        toast.success(`Exported ${dreams.length} dreams as JSON! 📊`);
+      }
+    } catch (error: any) {
+      console.error("❌ JSON Export error:", error);
       hapticFeedback.error();
-      toast.error("Failed to export dreams. Please try again"); // ✅ Toast
+      toast.error(`Export failed: ${error.message}`);
     } finally {
       setExporting(false);
     }
@@ -122,21 +149,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
   const showExportOptions = () => {
     hapticFeedback.light();
-    // ✅ Keep Alert for choice selection
-    Alert.alert("Export Dreams", "Choose export format", [
-      {
-        text: "Text File (.txt)",
-        onPress: exportDreams,
-      },
-      {
-        text: "JSON File (.json)",
-        onPress: exportDreamsJSON,
-      },
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-    ]);
+    setShowExportModal(true); // ✅ Show modal instead of Alert
   };
 
   if (loading) {
@@ -149,7 +162,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}
@@ -158,7 +171,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           {/* Profile Header */}
           <View style={styles.header}>
             <View style={styles.avatarContainer}>
-              <Text style={styles.avatarIcon}>🌙</Text>
+              <Image
+                source={require("../../assets/app_icons/icon.png")}
+                style={styles.avatarIcon}
+              />
             </View>
             <Text style={styles.userName}>
               {userData?.firstName && userData?.lastName
@@ -320,8 +336,69 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
           <View style={styles.footer} />
         </ScrollView>
+        {/* ✅ NEW: Export Options Modal */}
+        <Modal
+          visible={showExportModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowExportModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Ionicons
+                name="download"
+                size={48}
+                color={COLORS.success}
+                style={styles.modalIcon}
+              />
+              <Text style={styles.modalTitle}>Export Dreams</Text>
+              <Text style={styles.modalText}>
+                Choose your preferred export format
+              </Text>
+
+              <View style={styles.exportButtonsContainer}>
+                <Button
+                  title="Text File (.txt)"
+                  onPress={() => {
+                    setShowExportModal(false);
+                    exportDreams();
+                  }}
+                  variant="secondary"
+                  icon={
+                    <Ionicons
+                      name="document-text"
+                      size={20}
+                      color={COLORS.primary}
+                    />
+                  }
+                  style={styles.exportButton}
+                />
+
+                <Button
+                  title="JSON File (.json)"
+                  onPress={() => {
+                    setShowExportModal(false);
+                    exportDreamsJSON();
+                  }}
+                  variant="secondary"
+                  icon={
+                    <Ionicons name="code" size={20} color={COLORS.primary} />
+                  }
+                  style={styles.exportButton}
+                />
+
+                <Button
+                  title="Cancel"
+                  onPress={() => setShowExportModal(false)}
+                  variant="ghost"
+                  style={styles.exportButton}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -361,7 +438,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   avatarIcon: {
-    fontSize: 48,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   userName: {
     fontSize: TYPOGRAPHY.sizes.xxxl - 4,
@@ -458,5 +537,47 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: SPACING.xxxl,
+  },
+  // Add to your existing styles object
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xxl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  exportButtonsContainer: {
+    width: "100%",
+    gap: SPACING.sm,
+  },
+  exportButton: {
+    width: "100%",
   },
 });

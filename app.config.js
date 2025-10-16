@@ -24,13 +24,16 @@ export default {
       icon: "./assets/app_icons/icon.png",
     },
     android: {
+      package: "com.gharooni.dreampilot",
+      versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
+      icon: "./assets/app_icons/icon.png",
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.gharooni.dreampilot",
+      permissions: ["NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"],
     },
     web: {
       favicon: "./assets/favicon.png",
