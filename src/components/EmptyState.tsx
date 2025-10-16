@@ -5,7 +5,7 @@ import Button from "./Button";
 import { COLORS, SPACING, TYPOGRAPHY } from "../theme/design";
 
 interface EmptyStateProps {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   emoji?: string;
   title: string;
   description: string;
@@ -27,10 +27,12 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      {emoji ? (
+      {icon ? (
+        <View style={styles.iconCircle}>
+          <Ionicons name={icon as any} size={48} color={COLORS.textSecondary} />
+        </View>
+      ) : emoji ? (
         <Text style={styles.emoji}>{emoji}</Text>
-      ) : icon ? (
-        <Ionicons name={icon} size={80} color={COLORS.textTertiary} />
       ) : null}
 
       <Text style={styles.title}>{title}</Text>
@@ -89,5 +91,17 @@ const styles = StyleSheet.create({
   },
   button: {
     width: "100%",
+  },
+  // Add to styles
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACING.lg,
+    borderWidth: 2,
+    borderColor: COLORS.border,
   },
 });

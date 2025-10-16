@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
+  Modal,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LESSONS } from "../data/lessons";
@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EmptyState from "../components/EmptyState";
 import { SkeletonLessonCard } from "../components/SkeletonLoader";
 import { useFocusEffect } from "@react-navigation/native";
+import Button from "../components/Button";
 
 type LearnScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -31,6 +32,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
     "all"
   );
   const insets = useSafeAreaInsets();
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -54,18 +56,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
 
     if (isPremiumLesson && !isPremium) {
       hapticFeedback.warning();
-      Alert.alert(
-        "🔒 Premium Lesson",
-        "This lesson is part of our Premium collection. Upgrade to unlock all 50+ expert lessons!",
-        [
-          { text: "Maybe Later", style: "cancel" },
-          {
-            text: "Upgrade to Premium",
-            onPress: () => navigation.navigate("Paywall"),
-            style: "default",
-          },
-        ]
-      );
+      setShowPremiumModal(true);
       return;
     }
 
@@ -81,12 +72,20 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
       // Only show lessons that are incomplete AND unlocked
       return LESSONS.filter((lesson, idx) => {
         const isCompleted = completedLessons.includes(lesson.id);
-        // First lesson is always unlocked
-        if (idx === 0) return !isCompleted;
+
+        // ✅ Check if it's a premium lesson
+        const isPremiumLesson = idx >= 5;
+        const isPremiumLocked = isPremiumLesson && !isPremium;
+
+        // First lesson is always unlocked (if not premium locked)
+        if (idx === 0) return !isCompleted && !isPremiumLocked;
+
         // Unlocked if previous lesson is completed
         const prevLessonId = LESSONS[idx - 1].id;
         const isPrevCompleted = completedLessons.includes(prevLessonId);
-        return !isCompleted && isPrevCompleted;
+
+        // ✅ Exclude if premium locked OR sequentially locked OR already completed
+        return !isCompleted && isPrevCompleted && !isPremiumLocked;
       });
     }
     return LESSONS;
@@ -161,7 +160,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
             </View>
 
             <EmptyState
-              emoji="🎓"
+              icon="school"
               title="All lessons completed!"
               description="Congratulations! You've finished all available lessons."
               actionLabel="View All Lessons"
@@ -221,7 +220,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
             </View>
 
             <EmptyState
-              emoji="📚"
+              icon="book"
               title="No lessons completed yet"
               description="Start your learning journey!"
               actionLabel="Browse All Lessons"
@@ -287,13 +286,12 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
               >
                 <Card variant="highlighted">
                   <View style={styles.premiumBannerContent}>
-                    <Text style={styles.premiumBannerIcon}>⭐</Text>
                     <View style={styles.premiumBannerText}>
                       <Text style={styles.premiumBannerTitle}>
                         Unlock All Lessons
                       </Text>
                       <Text style={styles.premiumBannerSubtitle}>
-                        Get access to 50+ expert lessons with Premium
+                        Get access to 20+ expert lessons with Premium
                       </Text>
                     </View>
                     <Ionicons
@@ -464,7 +462,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
                         </Text>
                         <View style={styles.lessonFooter}>
                           <Text style={styles.lessonDuration}>
-                            ⏱️ {lesson.duration}
+                            {lesson.duration}
                           </Text>
                           {isCompleted && (
                             <View style={styles.completedBadge}>
@@ -485,6 +483,46 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
           <View style={styles.footer} />
         </ScrollView>
       </View>
+      {/* ✅ Premium Lesson Modal */}
+      <Modal
+        visible={showPremiumModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPremiumModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="lock-closed"
+              size={48}
+              color={COLORS.primary}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Premium Lesson</Text>
+            <Text style={styles.modalText}>
+              This lesson is part of our Premium collection. Upgrade to unlock
+              all 50+ expert lessons!
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Maybe Later"
+                onPress={() => setShowPremiumModal(false)}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Upgrade"
+                onPress={() => {
+                  setShowPremiumModal(false);
+                  navigation.navigate("Paywall");
+                }}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -552,9 +590,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.md,
-  },
-  premiumBannerIcon: {
-    fontSize: 32,
   },
   premiumBannerText: {
     flex: 1,
@@ -698,5 +733,48 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: SPACING.xxxl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xxl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: SPACING.md,
+    width: "100%",
+    marginTop: SPACING.md,
+  },
+  modalButton: {
+    flex: 1,
   },
 });

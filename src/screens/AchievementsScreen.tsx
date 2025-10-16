@@ -223,7 +223,7 @@ export default function AchievementsScreen({
         </View>
 
         <EmptyState
-          emoji="🏆"
+          icon="trophy-outline"
           title="No achievements unlocked yet"
           description="Start logging dreams and completing lessons to unlock achievements! Each achievement brings you closer to mastering lucid dreaming."
           actionLabel="Log a Dream"
@@ -392,7 +392,13 @@ export default function AchievementsScreen({
                 </>
               ) : (
                 <View style={styles.lockedBadge}>
-                  <Text style={styles.lockedText}>🔒 Locked</Text>
+                  <MaterialCommunityIcons
+                    name="lock"
+                    size={12}
+                    color={COLORS.textTertiary}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.lockedText}>Locked</Text>
                 </View>
               )}
             </Card>
@@ -551,6 +557,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   lockedBadge: {
+    flexDirection: "row", // ✅ Add this
+    alignItems: "center", // ✅ Add this
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.sm,

@@ -252,16 +252,20 @@ export default function StreakCalendarScreen({
             </View>
           </View>
         </Card>
-
         {stats.currentStreak > 0 && (
           <Card style={styles.motivationCard}>
-            <Text style={styles.motivationEmoji}>
-              {stats.currentStreak >= 30
-                ? "🏆"
-                : stats.currentStreak >= 7
-                ? "⭐"
-                : "🔥"}
-            </Text>
+            <Ionicons
+              name={
+                stats.currentStreak >= 30
+                  ? "trophy"
+                  : stats.currentStreak >= 7
+                  ? "star"
+                  : "flame"
+              }
+              size={48}
+              color={COLORS.success}
+              style={{ marginBottom: SPACING.sm }}
+            />
             <Text style={styles.motivationTitle}>
               {stats.currentStreak >= 30
                 ? "Incredible Dedication!"
@@ -419,10 +423,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderLeftWidth: 4,
     borderLeftColor: COLORS.success,
-  },
-  motivationEmoji: {
-    fontSize: 48,
-    marginBottom: SPACING.sm,
   },
   motivationTitle: {
     fontSize: TYPOGRAPHY.sizes.xl,

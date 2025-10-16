@@ -19,6 +19,8 @@ import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
 import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
+import { Ionicons } from "@expo/vector-icons";
+import { useData } from "../contexts/DataContext";
 
 type LessonScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -31,6 +33,7 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
   const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
   const toast = useToast(); // ✅ Add this hook
+  const { triggerLevelUp } = useData(); // ✅ Add this
 
   useEffect(() => {
     loadLesson();
@@ -71,6 +74,7 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
 
       setLoading(true);
 
+      // Save lesson progress
       await setDoc(
         doc(db, "users", user.uid, "lessonProgress", `lesson_${lesson.id}`),
         {
@@ -80,7 +84,8 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
         }
       );
 
-      await awardXP(
+      // Award XP and check for level up
+      const result = await awardXP(
         user.uid,
         XP_REWARDS.LESSON_COMPLETED,
         `Completed lesson: ${lesson.title}`
@@ -91,7 +96,10 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
 
       toast.success(`Lesson complete! +${XP_REWARDS.LESSON_COMPLETED} XP 🎉`);
 
-      navigation.goBack();
+      // ✅ If leveled up, trigger the modal globally
+      if (result.leveledUp && result.newLevel) {
+        triggerLevelUp(result.newLevel);
+      }
     } catch (error) {
       console.error("Error marking lesson complete:", error);
       hapticFeedback.error();
@@ -138,7 +146,10 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
       case "tip":
         return (
           <Card key={index} style={styles.tipBox}>
-            <Text style={styles.tipLabel}>💡 Tip</Text>
+            <View style={styles.labelContainer}>
+              <Ionicons name="bulb-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.tipLabel}>Tip</Text>
+            </View>
             <Text style={styles.tipText}>{section.content}</Text>
           </Card>
         );
@@ -146,7 +157,14 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
       case "exercise":
         return (
           <Card key={index} style={styles.exerciseBox}>
-            <Text style={styles.exerciseLabel}>✨ Exercise</Text>
+            <View style={styles.labelContainer}>
+              <Ionicons
+                name="fitness-outline"
+                size={18}
+                color={COLORS.success}
+              />
+              <Text style={styles.exerciseLabel}>Exercise</Text>
+            </View>
             <Text style={styles.exerciseText}>{section.content}</Text>
           </Card>
         );
@@ -176,7 +194,13 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
           <Text style={styles.title}>{lesson.title}</Text>
           <View style={styles.metaContainer}>
             <View style={styles.metaChip}>
-              <Text style={styles.duration}>⏱ {lesson.duration}</Text>
+              <Ionicons
+                name="time-outline"
+                size={14}
+                color={COLORS.textSecondary}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.duration}>{lesson.duration}</Text>
             </View>
             <View style={[styles.metaChip, styles.levelChip]}>
               <Text style={styles.level}>Level {lesson.level}</Text>
@@ -192,7 +216,13 @@ export default function LessonScreen({ navigation, route }: LessonScreenProps) {
 
         {completed ? (
           <Card style={styles.completedBanner}>
-            <Text style={styles.completedText}>✅ Lesson Completed</Text>
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={COLORS.success}
+              style={{ marginRight: SPACING.sm }}
+            />
+            <Text style={styles.completedText}>Lesson Completed</Text>
           </Card>
         ) : (
           <View style={styles.buttonWrapper}>
@@ -246,6 +276,8 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   metaChip: {
+    flexDirection: "row", // ✅ Add this
+    alignItems: "center", // ✅ Add this
     backgroundColor: COLORS.backgroundSecondary,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
@@ -253,6 +285,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
   levelChip: {
     borderColor: COLORS.primary,
   },
@@ -334,10 +367,18 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weights.medium,
   },
   completedBanner: {
+    flexDirection: "row", // ✅ Add this
+    alignItems: "center", // ✅ Add this
+    justifyContent: "center", // ✅ Add this
     marginHorizontal: SPACING.xl,
     backgroundColor: "#1a3229",
-    alignItems: "center",
     marginBottom: SPACING.xl,
+  },
+  labelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
   },
   completedText: {
     color: COLORS.success,

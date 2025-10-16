@@ -66,7 +66,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            '📝 Your Task: Tonight before bed, say to yourself "I will remember my dreams tonight." This is your first step toward lucidity!',
+            'Your Task: Tonight before bed, say to yourself "I will remember my dreams tonight." This is your first step toward lucidity!',
         },
       ],
       practiceTask: "Set an intention to remember your dreams tonight",
@@ -96,7 +96,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "bullet",
           content:
-            "Look at your hand\n• Try to push your finger through your palm\n• In waking life: It stops (solid)\n• In a dream: It passes through! ✨",
+            "Look at your hand\n• Try to push your finger through your palm\n• In waking life: It stops (solid)\n• In a dream: It passes through!",
         },
         {
           type: "tip",
@@ -120,7 +120,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "✅ Today's Goal: Perform 10 finger-palm reality checks. Set reminders on your phone if needed!",
+            "Today's Goal: Perform 10 finger-palm reality checks. Set reminders on your phone if needed!",
         },
       ],
       practiceTask: "Perform 10 reality checks throughout today",
@@ -174,7 +174,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "📖 Challenge: Journal your dreams for 7 consecutive days. Most people see major recall improvement by day 5!",
+            "Challenge: Journal your dreams for 7 consecutive days. Most people see major recall improvement by day 5!",
         },
       ],
       practiceTask: "Start a 7-day dream journaling streak",
@@ -219,7 +219,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "🎯 Tonight: Set an alarm for 5 hours after you sleep. When it goes off, practice MILD for 5-10 minutes before going back to sleep.",
+            "Tonight: Set an alarm for 5 hours after you sleep. When it goes off, practice MILD for 5-10 minutes before going back to sleep.",
         },
       ],
       practiceTask: "Practice MILD technique tonight with a 5-hour alarm",
@@ -273,7 +273,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "🔍 Assignment: Review your last 10 dreams and list your top 3 most common dream signs.",
+            "Assignment: Review your last 10 dreams and list your top 3 most common dream signs.",
         },
       ],
       practiceTask: "Identify your top 3 dream signs from your journal",
@@ -348,7 +348,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "bullet",
           content:
-            '• Rub your hands together (creates sensory grounding)\n• Spin in circles (resets the dream scene)\n• Touch objects and feel their texture\n• Shout "Increase clarity!" or "Stabilize!"\n• Look at your hands periodically\n• Stay calm - excitement = waking',
+            'Rub your hands together (creates sensory grounding)\n Spin in circles (resets the dream scene)\n Touch objects and feel their texture\n Shout "Increase clarity!" or "Stabilize!"\n Look at your hands periodically\n Stay calm - excitement = waking',
         },
         {
           type: "tip",
@@ -372,7 +372,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "💭 Mental practice: Visualize yourself becoming lucid, rubbing hands, and staying calm. This mental rehearsal actually works!",
+            "Mental practice: Visualize yourself becoming lucid, rubbing hands, and staying calm. This mental rehearsal actually works!",
         },
       ],
       practiceTask: "Visualize stabilization techniques before sleep",
@@ -448,7 +448,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "🎯 This week: Add 3 new reality check types to your daily practice. Variety is key!",
+            "This week: Add 3 new reality check types to your daily practice. Variety is key!",
         },
       ],
       practiceTask: "Add 3 new reality check types to your daily routine",
@@ -511,7 +511,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "✈️ Goal: In your next lucid dream, try to levitate even just 1 inch off the ground. Small wins count!",
+            "Goal: In your next lucid dream, try to levitate even just 1 inch off the ground. Small wins count!",
         },
       ],
       practiceTask: "Set intention to practice levitation in next lucid dream",
@@ -574,7 +574,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "🛏️ Challenge: Implement the 3-2-1 rule for 7 consecutive days and notice the difference in dream recall.",
+            "Challenge: Implement the 3-2-1 rule for 7 consecutive days and notice the difference in dream recall.",
         },
       ],
       practiceTask: "Follow the 3-2-1 rule for better sleep this week",
@@ -637,7 +637,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "🧘 Practice: Try WILD after a WBTB alarm this weekend. Even failing teaches you about the transition to sleep!",
+            "Practice: Try WILD after a WBTB alarm this weekend. Even failing teaches you about the transition to sleep!",
         },
       ],
       practiceTask: "Attempt WILD technique with WBTB support",
@@ -700,7 +700,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            '💪 Affirmation: Before bed tonight, say "If I have a nightmare, I will realize I\'m dreaming and take control."',
+            'Affirmation: Before bed tonight, say "If I have a nightmare, I will realize I\'m dreaming and take control."',
         },
       ],
       practiceTask: "Do reality checks whenever you feel fear or anxiety",
@@ -772,7 +772,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            '💬 Goal: In your next lucid dream, have a meaningful conversation with a dream character. Ask "What do I need to know?"',
+            'Goal: In your next lucid dream, have a meaningful conversation with a dream character. Ask "What do I need to know?"',
         },
       ],
       practiceTask: "Set intention to talk with dream characters",
@@ -835,7 +835,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "📝 Tonight: Write down one clear question or intention before bed. Visualize it for 10 minutes. See what your dreams reveal!",
+            "Tonight: Write down one clear question or intention before bed. Visualize it for 10 minutes. See what your dreams reveal!",
         },
       ],
       practiceTask: "Write and visualize a dream incubation question",
@@ -907,7 +907,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "🔬 Research: If interested in supplements, research thoroughly and consult a healthcare provider first.",
+            "Research: If interested in supplements, research thoroughly and consult a healthcare provider first.",
         },
       ],
       practiceTask: "Research supplements safely and consult a doctor",
@@ -974,7 +974,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "📋 Create your lucid dream bucket list: Write down 10 things you want to try in lucid dreams!",
+            "Create your lucid dream bucket list: Write down 10 things you want to try in lucid dreams!",
         },
       ],
       practiceTask: "Write your top 10 lucid dream goals",
@@ -1041,7 +1041,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "✅ Create a habit: Do a reality check EVERY time you wake up for the next 30 days. This will catch false awakenings!",
+            "Create a habit: Do a reality check EVERY time you wake up for the next 30 days. This will catch false awakenings!",
         },
       ],
       practiceTask: "Reality check immediately upon every waking",
@@ -1113,7 +1113,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "🤝 Find a lucid dreaming partner and attempt a shared dream experiment. Record your experiences!",
+            "Find a lucid dreaming partner and attempt a shared dream experiment. Record your experiences!",
         },
       ],
       practiceTask: "Attempt a shared dream with a practice partner",
@@ -1180,7 +1180,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "💭 Reflection: Write about why you started lucid dreaming. Keep this somewhere visible for motivation!",
+            "Reflection: Write about why you started lucid dreaming. Keep this somewhere visible for motivation!",
         },
       ],
       practiceTask: "Write about your lucid dreaming motivation",
@@ -1265,7 +1265,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "📅 Create your personal lucid dreaming routine. Write it down and commit to following it for 30 days!",
+            "Create your personal lucid dreaming routine. Write it down and commit to following it for 30 days!",
         },
       ],
       practiceTask: "Design and commit to your 30-day practice routine",

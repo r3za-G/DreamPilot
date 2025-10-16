@@ -8,7 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
 import * as Notifications from "expo-notifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { DataProvider } from "../contexts/DataContext";
+import { DataProvider, useData } from "../contexts/DataContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SubscriptionProvider } from "../contexts/SubscriptionContext";
 import { ToastProvider } from "../contexts/ToastContext";
@@ -17,6 +17,7 @@ import {
   SafeAreaProvider,
   initialWindowMetrics,
 } from "react-native-safe-area-context";
+import LevelUpModal from "../components/LevelUpModal";
 
 // Auth Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -220,17 +221,18 @@ function TabNavigator() {
   );
 }
 
-export default function App() {
+// ✅ NEW: Navigation wrapper that can access DataContext
+function NavigationContent() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const { showLevelUpModal, newLevel, dismissLevelUp } = useData(); // ✅ Access modal state
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setLoading(true); // ✅ Keep loading while checking
+      setLoading(true);
 
       if (user) {
-        // Check if user has completed onboarding
         const completed = await AsyncStorage.getItem("onboardingCompleted");
         console.log("Onboarding completed:", completed);
         setShowOnboarding(completed !== "true");
@@ -250,68 +252,84 @@ export default function App() {
   }
 
   return (
+    <>
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: COLORS.background,
+            },
+            headerTintColor: COLORS.textPrimary,
+            headerTitleStyle: {
+              fontWeight: "bold",
+              color: COLORS.textPrimary,
+            },
+            headerShadowVisible: false,
+            contentStyle: {
+              backgroundColor: "#0f0f23",
+            },
+            animation: "fade",
+            headerBackButtonDisplayMode: "minimal",
+            animationDuration: 150,
+          }}
+        >
+          {!user ? (
+            // Not logged in
+            <>
+              <Stack.Screen
+                name="Welcome"
+                component={WelcomeScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Login"
+                component={LoginScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Signup"
+                component={SignupScreen}
+                options={{ headerShown: false }}
+              />
+            </>
+          ) : showOnboarding ? (
+            // Logged in but onboarding not done
+            <>
+              <Stack.Screen
+                name="Onboarding"
+                component={OnboardingScreen}
+                options={{ headerShown: false }}
+              />
+              {AppScreens()}
+            </>
+          ) : (
+            // Logged in and onboarding done
+            <>{AppScreens()}</>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+
+      {/* ✅ Global Level-Up Modal */}
+      <LevelUpModal
+        visible={showLevelUpModal}
+        level={newLevel}
+        onClose={dismissLevelUp}
+      />
+    </>
+  );
+}
+
+// ✅ Main App export
+export default function App() {
+  return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      {/* /<SubscriptionProvider> */}
+      {/* <SubscriptionProvider> */}
       <DataProvider>
         <ToastProvider>
-          <NavigationContainer>
-            <Stack.Navigator
-              screenOptions={{
-                headerStyle: {
-                  backgroundColor: COLORS.background,
-                },
-                headerTintColor: COLORS.textPrimary,
-                headerTitleStyle: {
-                  fontWeight: "bold",
-                  color: COLORS.textPrimary,
-                },
-                headerShadowVisible: false,
-                contentStyle: {
-                  backgroundColor: "#0f0f23",
-                },
-                animation: "fade",
-                headerBackButtonDisplayMode: "minimal",
-                animationDuration: 150,
-              }}
-            >
-              {!user ? (
-                // Not logged in - Show auth screens
-                <>
-                  <Stack.Screen
-                    name="Welcome"
-                    component={WelcomeScreen}
-                    options={{ headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="Login"
-                    component={LoginScreen}
-                    options={{ headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="Signup"
-                    component={SignupScreen}
-                    options={{ headerShown: false }}
-                  />
-                </>
-              ) : showOnboarding ? (
-                // Logged in but hasn't seen onboarding
-                <>
-                  <Stack.Screen
-                    name="Onboarding"
-                    component={OnboardingScreen}
-                    options={{ headerShown: false }}
-                  />
-                  {AppScreens()}
-                </>
-              ) : (
-                // Logged in and completed onboarding - Show main app
-                <>{AppScreens()}</>
-              )}
-            </Stack.Navigator>
-          </NavigationContainer>
+          <NavigationContent />
         </ToastProvider>
       </DataProvider>
-      {/* // </SubscriptionProvider> */}
+      {/* </SubscriptionProvider> */}
     </SafeAreaProvider>
   );
 }

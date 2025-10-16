@@ -22,32 +22,32 @@ type PaywallScreenProps = {
 
 const PREMIUM_FEATURES = [
   {
-    icon: "✨",
+    icon: "infinite-outline",
     title: "Unlimited Dreams",
     description: "Log as many dreams as you want",
   },
   {
-    icon: "🎓",
+    icon: "school-outline",
     title: "20+ Expert Lessons",
     description: "Master lucid dreaming techniques",
   },
   {
-    icon: "🤖",
+    icon: "analytics-outline",
     title: "Unlimited AI Analysis",
     description: "Deep insights for every dream",
   },
   {
-    icon: "📊",
+    icon: "bar-chart-outline",
     title: "Advanced Analytics",
     description: "Track patterns & progress",
   },
   {
-    icon: "🔥",
+    icon: "flame-outline",
     title: "Full Streak Calendar",
     description: "Visualize your consistency",
   },
   {
-    icon: "🎯",
+    icon: "star-outline",
     title: "Premium Features",
     description: "Custom reality checks & more",
   },
@@ -121,7 +121,7 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
             <Ionicons name="close" size={28} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>⭐ PREMIUM</Text>
+            <Text style={styles.badgeText}>PREMIUM</Text>
           </View>
           <Text style={styles.headerTitle}>Unlock Your Dream Potential</Text>
           <Text style={styles.headerSubtitle}>
@@ -133,7 +133,13 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
         <View style={styles.featuresContainer}>
           {PREMIUM_FEATURES.map((feature, index) => (
             <Card key={index} style={styles.featureCard}>
-              <Text style={styles.featureIcon}>{feature.icon}</Text>
+              <View style={styles.featureIconContainer}>
+                <Ionicons
+                  name={feature.icon as any}
+                  size={24}
+                  color={COLORS.primary}
+                />
+              </View>
               <Text style={styles.featureTitle}>{feature.title}</Text>
               <Text style={styles.featureDescription}>
                 {feature.description}
@@ -176,7 +182,6 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
                   <Text style={styles.pricingPrice}>
                     {yearlyPackage.product.priceString}/year
                   </Text>
-                  <Text style={styles.pricingPerMonth}>Just $3.33/month</Text>
                 </View>
                 <Ionicons
                   name={
@@ -192,7 +197,7 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
                   }
                 />
               </View>
-              <Text style={styles.saveBadge}>💰 Save 33% vs monthly</Text>
+              <Text style={styles.saveBadge}>Save 33% vs monthly</Text>
             </Card>
           </TouchableOpacity>
 
@@ -341,10 +346,6 @@ const styles = StyleSheet.create({
     width: "48%",
     padding: SPACING.lg,
   },
-  featureIcon: {
-    fontSize: 28,
-    marginBottom: SPACING.sm,
-  },
   featureTitle: {
     fontSize: TYPOGRAPHY.sizes.md,
     fontWeight: TYPOGRAPHY.weights.semibold,
@@ -410,7 +411,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   saveBadge: {
-    fontSize: TYPOGRAPHY.sizes.sm,
+    fontSize: TYPOGRAPHY.sizes.md,
     color: COLORS.success,
     fontWeight: TYPOGRAPHY.weights.semibold,
   },
@@ -443,5 +444,15 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: SPACING.xxxl,
+  },
+  // ✅ Add
+  featureIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACING.sm,
   },
 });

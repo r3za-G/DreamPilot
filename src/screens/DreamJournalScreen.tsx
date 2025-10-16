@@ -56,20 +56,21 @@ export default function DreamJournalScreen({
   const [showTip, setShowTip] = useState(true);
   const [monthlyDreamCount, setMonthlyDreamCount] = useState(0);
   const toast = useToast();
+  const { triggerLevelUp } = useData();
 
   const commonTags = [
-    "🌊 Water",
-    "✈️ Flying",
-    "👥 People",
-    "🏃 Running",
-    "🏠 House",
-    "🌳 Nature",
-    "🐕 Animals",
-    "🚗 Vehicles",
-    "😨 Nightmare",
-    "😊 Pleasant",
-    "🤔 Confusing",
-    "🎨 Vivid",
+    "Water",
+    "Flying",
+    "People",
+    "Running",
+    "House",
+    "Nature",
+    "Animals",
+    "Vehicles",
+    "Nightmare",
+    "Pleasant",
+    "Confusing",
+    "Vivid",
   ];
 
   useEffect(() => {
@@ -82,7 +83,6 @@ export default function DreamJournalScreen({
       setMonthlyDreamCount(0);
       return;
     }
-
     try {
       const user = auth.currentUser;
       if (!user) return;
@@ -224,7 +224,7 @@ export default function DreamJournalScreen({
         isDeleted: false,
       });
 
-      const dreamId = dreamRef.id; // ✅ Store the dream ID
+      const dreamId = dreamRef.id;
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const userData = userDoc.data();
@@ -257,20 +257,30 @@ export default function DreamJournalScreen({
 
       await updateDoc(userRef, updates);
 
+      // ✅ Award XP and check for level up
       const xpAmount = isLucid
         ? XP_REWARDS.LUCID_DREAM
         : XP_REWARDS.DREAM_LOGGED;
       const xpReason = isLucid ? "Logged a lucid dream" : "Logged a dream";
-      await awardXP(user.uid, xpAmount, xpReason);
+      const result = await awardXP(user.uid, xpAmount, xpReason);
 
       await Promise.all([refreshDreams(), refreshUserData()]);
 
+      // Start background analysis
       analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
 
       hapticFeedback.success();
-      // ✅ Navigate to dream detail instead of going back
+
+      // ✅ Check for level up BEFORE navigating
+      if (result.leveledUp && result.newLevel) {
+        console.log("🎊 Dream caused level up!", result.newLevel);
+        triggerLevelUp(result.newLevel);
+      }
+
+      // Navigate to dream detail
       navigation.replace("DreamDetail", { dreamId });
 
+      // Show success toast
       toast.success(
         `Dream saved! +${xpAmount} XP${
           newStreak > 1 ? ` • ${newStreak} day streak 🔥` : ""

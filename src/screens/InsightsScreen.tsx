@@ -181,11 +181,9 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     });
   };
 
-  const renderPremiumLockedSection = (title: string, icon: string) => (
+  const renderPremiumLockedSection = (title: string) => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>
-        {icon} {title}
-      </Text>
+      <Text style={styles.sectionTitle}>{title}</Text>
       <TouchableOpacity
         style={styles.lockedCard}
         onPress={() => {
@@ -225,7 +223,11 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
   if (patterns.totalDreams === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📊</Text>
+        <Ionicons
+          name="bar-chart-outline"
+          size={64}
+          color={COLORS.textSecondary}
+        />
         <Text style={styles.emptyTitle}>No Data Yet</Text>
         <Text style={styles.emptyText}>
           Start logging dreams to see your patterns and insights!
@@ -269,7 +271,6 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
             >
               <Card variant="highlighted">
                 <View style={styles.premiumBannerContent}>
-                  <Text style={styles.premiumBannerIcon}>🤖</Text>
                   <View style={styles.premiumBannerText}>
                     <Text style={styles.premiumBannerTitle}>
                       Unlock AI Insights
@@ -316,11 +317,11 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
         </View>
 
         {!isPremium
-          ? renderPremiumLockedSection("Your Personal Dream Signs", "🎯")
+          ? renderPremiumLockedSection("Dream Signs")
           : dreamPatterns.topDreamSigns.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                  🎯 Your Personal Dream Signs
+                  Your Personal Dream Signs
                 </Text>
                 <Card>
                   <Text style={styles.dreamSignDescription}>
@@ -331,9 +332,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
                     .slice(0, 5)
                     .map((item: { sign: string; count: number }) => (
                       <View key={item.sign} style={styles.dreamSignRow}>
-                        <View style={styles.dreamSignBadge}>
-                          <Text style={styles.dreamSignIcon}>✨</Text>
-                        </View>
+                        <View style={styles.dreamSignBadge}></View>
                         <View style={styles.dreamSignInfo}>
                           <Text style={styles.dreamSignName}>{item.sign}</Text>
                           <View style={styles.dreamSignBar}>
@@ -359,10 +358,10 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
             )}
 
         {!isPremium
-          ? renderPremiumLockedSection("Emotional Patterns", "💭")
+          ? renderPremiumLockedSection("Emotional Patterns")
           : dreamPatterns.topEmotions.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>💭 Emotional Patterns</Text>
+                <Text style={styles.sectionTitle}>Emotional Patterns</Text>
                 <Card>
                   <View style={styles.emotionGrid}>
                     {dreamPatterns.topEmotions.map(
@@ -379,18 +378,16 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
             )}
 
         {!isPremium
-          ? renderPremiumLockedSection("AI-Detected Themes", "🎨")
+          ? renderPremiumLockedSection("Common Themes")
           : dreamPatterns.topThemes.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>🎨 AI-Detected Themes</Text>
+                <Text style={styles.sectionTitle}>Common Themes</Text>
                 <Card>
                   <View style={styles.themesContainer}>
                     {dreamPatterns.topThemes.map(
                       (item: { theme: string; count: number }) => (
                         <View key={item.theme} style={styles.themeRow}>
-                          <View style={styles.themeIconContainer}>
-                            <Text style={styles.themeIcon}>🌟</Text>
-                          </View>
+                          <View style={styles.themeIconContainer}></View>
                           <View style={styles.themeInfo}>
                             <Text style={styles.themeName}>{item.theme}</Text>
                             <Text style={styles.themeCount}>
@@ -406,7 +403,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
             )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📅 Most Active Day</Text>
+          <Text style={styles.sectionTitle}>Most Active Day</Text>
           <Card>
             <View style={styles.insightContent}>
               <Text style={styles.insightValue}>
@@ -422,7 +419,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
 
         {patterns.topTags.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🏷️ Common Dream Tags</Text>
+            <Text style={styles.sectionTitle}>Common Tags</Text>
             <Card>
               {patterns.topTags.map((item, index) => (
                 <View key={item.tag} style={styles.tagRow}>
@@ -453,7 +450,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
 
         {patterns.dreamsByMonth.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📈 Dream Activity</Text>
+            <Text style={styles.sectionTitle}>Dream Activity</Text>
             <Card>
               <View style={styles.chartContainer}>
                 {patterns.dreamsByMonth.map((month, index) => {
@@ -539,10 +536,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: SPACING.xxxl + 10,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: SPACING.lg,
+    gap: SPACING.lg, // ✅ Add gap
   },
   emptyTitle: {
     fontSize: TYPOGRAPHY.sizes.xxl,
@@ -581,9 +575,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.md,
-  },
-  premiumBannerIcon: {
-    fontSize: 32,
   },
   premiumBannerText: {
     flex: 1,
@@ -696,14 +687,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   dreamSignBadge: {
-    width: 36,
+    width: 8, // ✅ Make it a simple color indicator
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.sm,
     backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
     marginRight: SPACING.md,
   },
+
   dreamSignIcon: {
     fontSize: 18,
   },
@@ -774,12 +764,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   themeIconContainer: {
-    width: 40,
+    width: 8, // ✅ Thin color bar
     height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.backgroundSecondary,
-    justifyContent: "center",
-    alignItems: "center",
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.secondary,
     marginRight: SPACING.md,
   },
   themeIcon: {

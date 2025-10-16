@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LESSONS, Lesson } from "../data/lessons";
@@ -16,13 +17,17 @@ import AchievementModal from "../components/AchievementModal";
 import { Achievement } from "../data/achievements";
 import { Ionicons } from "@expo/vector-icons";
 import { useData } from "../contexts/DataContext";
-import { getLevelTier, getProgressToNextLevel } from "../data/levels";
+import { getProgressToNextLevel } from "../data/levels";
 import { auth } from "../../firebaseConfig";
 import Card from "../components/Card";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
+import CircularProgressLevel from "../components/CircularProgressLevel";
+import DailyGoals from "../components/DailyGoals";
+import LevelUpModal from "../components/LevelUpModal";
+import { useRoute } from "@react-navigation/native";
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -36,6 +41,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     loading,
     refreshData,
     refreshLessons,
+    isPremium,
+    refreshUserData,
   } = useData();
   const [nextLesson, setNextLesson] = useState<Lesson | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,12 +54,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     achievement: null,
   });
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
-  const insets = useSafeAreaInsets(); // ✅ Get insets manually
+  const insets = useSafeAreaInsets();
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [newLevel, setNewLevel] = useState(0);
+  const route = useRoute<any>();
 
-  // ✅ FIX: Refresh lesson data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      refreshLessons(); // Refresh completed lessons from Firebase
+      // Check for level up params
+      if (route.params?.showLevelUp && route.params?.newLevel) {
+        setNewLevel(route.params.newLevel);
+        setShowLevelUpModal(true);
+
+        // Clear params so it doesn't show again
+        navigation.setParams({
+          showLevelUp: undefined,
+          newLevel: undefined,
+        });
+      }
+    }, [route.params])
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshLessons();
     }, [])
   );
 
@@ -62,13 +87,23 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   }, [loading, userData, dreams, completedLessons]);
 
-  // ✅ FIX: Update next lesson whenever completedLessons changes
   useEffect(() => {
-    const firstIncomplete = LESSONS.find(
-      (lesson) => !completedLessons.includes(lesson.id)
-    );
+    const firstIncomplete = LESSONS.find((lesson, index) => {
+      const isCompleted = completedLessons.includes(lesson.id);
+      const isPremiumLesson = index >= 5;
+
+      // ✅ Skip if completed
+      if (isCompleted) return false;
+
+      // ✅ Skip if premium lesson and user is not premium
+      if (isPremiumLesson && !isPremium) return false;
+
+      // ✅ This is the next lesson to show
+      return true;
+    });
+
     setNextLesson(firstIncomplete || null);
-  }, [completedLessons]);
+  }, [completedLessons, isPremium]); // ✅ Add isPremium to dependencies
 
   const checkForAchievements = async () => {
     try {
@@ -144,226 +179,188 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.container}>
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={COLORS.primary}
-              colors={[COLORS.primary]}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+          />
+        }
+      >
+        <View style={styles.hero}>
+          <Image
+            source={require("../../assets/app_icons/icon.png")}
+            style={styles.mascot}
+          />
+          <Text style={styles.heroGreeting}>Hello, {userData?.firstName}!</Text>
+          <Text style={styles.heroSubtitle}>Ready to dream?</Text>
+        </View>
+        <View style={styles.section}>
+          <Card style={styles.progressCard}>
+            <CircularProgressLevel
+              level={userData?.level || 1}
+              currentXP={
+                userData?.xp
+                  ? getProgressToNextLevel(userData.totalXP).current
+                  : 0
+              }
+              requiredXP={
+                userData?.xp
+                  ? getProgressToNextLevel(userData.totalXP).required
+                  : 100
+              }
+              percentage={
+                userData?.xp
+                  ? getProgressToNextLevel(userData.totalXP).percentage
+                  : 0
+              }
             />
-          }
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>
-                Hello, {userData?.firstName}! 👋
-              </Text>
-              <Text style={styles.subtitle}>Ready to explore your dreams?</Text>
-            </View>
-          </View>
+          </Card>
+        </View>
 
-          {/* Level Progress Card */}
+        <View style={styles.statsGrid}>
+          <Card style={styles.statCardStreak}>
+            <Text style={styles.statLabel}>Streak</Text>
+            <Text style={styles.statNumber}>{currentStreak}</Text>
+          </Card>
+          <Card style={styles.statCardDreams}>
+            <Text style={styles.statLabel}>Dreams</Text>
+            <Text style={styles.statNumber}>{dreams.length}</Text>
+          </Card>
+          <Card style={styles.statCardLucid}>
+            <Text style={styles.statLabel}>Lucid</Text>
+            <Text style={styles.statNumber}>{lucidDreams}</Text>
+          </Card>
+        </View>
+        {/* Daily Goals */}
+        <View style={styles.section}>
+          <DailyGoals
+            goals={[
+              {
+                id: "1",
+                text: "Log a dream",
+                completed:
+                  dreams.length > 0 &&
+                  new Date(dreams[0].createdAt).toDateString() ===
+                    new Date().toDateString(),
+                icon: "book-outline",
+              },
+              {
+                id: "2",
+                text: "Maintain your streak",
+                completed: currentStreak > 0,
+                icon: "flame-outline",
+              },
+              {
+                id: "3",
+                text: "Complete a lesson",
+                completed: completedLessons.length > 0,
+                icon: "school-outline",
+              },
+            ]}
+          />
+        </View>
+
+        {/* ✅ CLEANED: Today's Lesson - Simpler design */}
+        {nextLesson && (
           <View style={styles.section}>
-            <Card variant="highlighted" style={styles.levelCard}>
-              <View style={styles.levelHeader}>
-                <Text style={styles.levelIcon}>
-                  {userData?.level ? getLevelTier(userData.level).icon : "😴"}
-                </Text>
-                <View style={styles.levelInfo}>
-                  <Text style={styles.levelTitle}>
-                    {userData?.level
-                      ? getLevelTier(userData.level).title
-                      : "Beginner Dreamer"}
+            <Text style={styles.sectionTitle}>Continue Learning</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                hapticFeedback.light();
+                navigation.navigate("Lesson", { lessonId: nextLesson.id });
+              }}
+            >
+              <Card variant="highlighted" style={styles.lessonCard}>
+                <View style={styles.lessonContent}>
+                  <Text style={styles.lessonTitle}>{nextLesson.title}</Text>
+                  <Text style={styles.lessonDescription}>
+                    {nextLesson.description}
                   </Text>
-                  <Text
-                    style={[
-                      styles.levelText,
-                      {
-                        color: userData?.level
-                          ? getLevelTier(userData.level).color
-                          : COLORS.textSecondary,
-                      },
-                    ]}
-                  >
-                    Level {userData?.level || 1}
-                  </Text>
-                </View>
-              </View>
-
-              {/* XP Progress Bar */}
-              <View style={styles.xpContainer}>
-                <View style={styles.xpBar}>
-                  <View
-                    style={[
-                      styles.xpProgress,
-                      {
-                        width: `${
-                          userData?.xp
-                            ? getProgressToNextLevel(userData.totalXP)
-                                .percentage
-                            : 0
-                        }%`,
-                        backgroundColor: userData?.level
-                          ? getLevelTier(userData.level).color
-                          : COLORS.textSecondary,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.xpText}>
-                  {userData?.xp
-                    ? getProgressToNextLevel(userData.totalXP).current
-                    : 0}{" "}
-                  /{" "}
-                  {userData?.xp
-                    ? getProgressToNextLevel(userData.totalXP).required
-                    : 100}{" "}
-                  XP
-                </Text>
-              </View>
-            </Card>
-          </View>
-
-          {/* Quick Stats */}
-          <View style={styles.statsContainer}>
-            <Card style={styles.statCard}>
-              <Text style={styles.statIcon}>🔥</Text>
-              <Text style={styles.statNumber}>{currentStreak}</Text>
-              <Text style={styles.statLabel}>Day Streak</Text>
-            </Card>
-            <Card style={styles.statCard}>
-              <Text style={styles.statIcon}>📖</Text>
-              <Text style={styles.statNumber}>{dreams.length}</Text>
-              <Text style={styles.statLabel}>Dreams</Text>
-            </Card>
-            <Card style={styles.statCard}>
-              <Text style={styles.statIcon}>✨</Text>
-              <Text style={styles.statNumber}>{lucidDreams}</Text>
-              <Text style={styles.statLabel}>Lucid</Text>
-            </Card>
-          </View>
-
-          {/* Streak Motivation Banner */}
-          {currentStreak > 0 && (
-            <View style={styles.section}>
-              <Card style={styles.motivationBanner}>
-                <Text style={styles.motivationText}>
-                  {currentStreak < 7
-                    ? `🔥 ${currentStreak} day streak! Keep it going!`
-                    : currentStreak < 30
-                    ? `⭐ Amazing ${currentStreak}-day streak!`
-                    : `🏆 Incredible ${currentStreak}-day streak!`}
-                </Text>
-              </Card>
-            </View>
-          )}
-
-          {/* Daily Lesson Card */}
-          {nextLesson && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Today's Lesson</Text>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  hapticFeedback.light();
-                  navigation.navigate("Lesson", { lessonId: nextLesson.id });
-                }}
-              >
-                <Card variant="highlighted">
-                  <View style={styles.lessonCard}>
-                    <View style={styles.lessonIconCircle}>
-                      <Ionicons name="book" size={24} color={COLORS.primary} />
-                    </View>
-                    <View style={styles.lessonContent}>
-                      <Text style={styles.lessonTitle}>{nextLesson.title}</Text>
-                      <Text style={styles.lessonDescription}>
-                        {nextLesson.description}
-                      </Text>
-                      <Text style={styles.lessonDuration}>
-                        ⏱️ {nextLesson.duration}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={24}
-                      color={COLORS.textTertiary}
-                    />
+                  <View style={styles.lessonMeta}>
+                    <Text style={styles.lessonDuration}>
+                      {nextLesson.duration}
+                    </Text>
                   </View>
-                </Card>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ✅ NEW: Show completion message if all lessons done */}
-          {!nextLesson && completedLessons.length > 0 && (
-            <View style={styles.section}>
-              <Card style={styles.completionCard}>
-                <Text style={styles.completionIcon}>🎓</Text>
-                <Text style={styles.completionTitle}>
-                  All Lessons Completed!
-                </Text>
-                <Text style={styles.completionText}>
-                  Congratulations! You've finished all available lessons.
-                </Text>
-              </Card>
-            </View>
-          )}
-
-          {/* Quick Actions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => handleActionPress("DreamJournal")}
-              style={styles.actionWrapper}
-            >
-              <Card>
-                <View style={styles.actionButton}>
-                  <Ionicons name="create" size={22} color={COLORS.primary} />
-                  <Text style={styles.actionText}>Log a Dream</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={COLORS.textTertiary}
-                  />
                 </View>
-              </Card>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => handleActionPress("StreakCalendar")}
-            >
-              <Card>
-                <View style={styles.actionButton}>
-                  <Ionicons name="calendar" size={22} color={COLORS.warning} />
-                  <Text style={styles.actionText}>View Streak Calendar</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={COLORS.textTertiary}
-                  />
-                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={24}
+                  color={COLORS.primary}
+                />
               </Card>
             </TouchableOpacity>
           </View>
+        )}
 
-          {/* Bottom Spacing */}
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
+        {/* ✅ CLEANED: All lessons completed */}
+        {!nextLesson && completedLessons.length > 0 && (
+          <View style={styles.section}>
+            <Card style={styles.completedCard}>
+              <Text style={styles.completedTitle}>All Lessons Complete!</Text>
+              <Text style={styles.completedText}>
+                You've mastered the basics of lucid dreaming
+              </Text>
+            </Card>
+          </View>
+        )}
 
-        <AchievementModal
-          visible={achievementModal.visible}
-          achievement={achievementModal.achievement}
-          onClose={handleCloseAchievement}
-        />
-      </View>
+        {/* ✅ CLEANED: Quick Actions - Text only, no icons */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleActionPress("DreamJournal")}
+            style={styles.actionWrapper}
+          >
+            <Card style={styles.actionCard}>
+              <Text style={styles.actionText}>Log a Dream</Text>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={COLORS.textTertiary}
+              />
+            </Card>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleActionPress("StreakCalendar")}
+          >
+            <Card style={styles.actionCard}>
+              <Text style={styles.actionText}>View Calendar</Text>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={COLORS.textTertiary}
+              />
+            </Card>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      <AchievementModal
+        visible={achievementModal.visible}
+        achievement={achievementModal.achievement}
+        onClose={handleCloseAchievement}
+      />
+      <LevelUpModal
+        visible={showLevelUpModal}
+        level={newLevel}
+        onClose={async () => {
+          setShowLevelUpModal(false);
+          hapticFeedback.success();
+          await refreshUserData();
+        }}
+      />
     </View>
   );
 }
@@ -387,65 +384,74 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    padding: SPACING.xl,
-    paddingTop: SPACING.xl,
+
+  // ✅ NEW: Hero Section
+  hero: {
+    alignItems: "center",
+    paddingVertical: SPACING.xxxl,
+    paddingHorizontal: SPACING.xl,
   },
-  greeting: {
-    fontSize: TYPOGRAPHY.sizes.xxxl - 4,
+  mascot: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    marginBottom: SPACING.lg,
+  },
+  heroGreeting: {
+    fontSize: TYPOGRAPHY.sizes.xxxl,
     fontWeight: TYPOGRAPHY.weights.bold,
     color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
-  subtitle: {
-    fontSize: TYPOGRAPHY.sizes.md,
+  heroSubtitle: {
+    fontSize: TYPOGRAPHY.sizes.lg,
     color: COLORS.textSecondary,
   },
+
+  // ✅ CLEANED: Streak Card
   section: {
     paddingHorizontal: SPACING.xl,
     marginBottom: SPACING.lg,
   },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.sizes.xl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-  },
-  // Level Card
-  levelCard: {
+
+  // ✅ CLEANED: Progress Card
+  progressCard: {
     padding: SPACING.lg,
   },
-  levelHeader: {
+  progressHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: SPACING.md,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
-  levelIcon: {
-    fontSize: 32,
-  },
-  levelInfo: {
-    flex: 1,
-  },
-  levelTitle: {
-    fontSize: TYPOGRAPHY.sizes.xs,
+  progressLabel: {
+    fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
-  levelText: {
+  levelNumber: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
+  },
+  levelBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  levelBadgeText: {
     fontSize: TYPOGRAPHY.sizes.xl,
     fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.background,
   },
   xpContainer: {
     width: "100%",
   },
   xpBar: {
-    height: 6,
+    height: 8,
     backgroundColor: COLORS.background,
     borderRadius: RADIUS.sm,
     overflow: "hidden",
@@ -453,66 +459,34 @@ const styles = StyleSheet.create({
   },
   xpProgress: {
     height: "100%",
+    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.sm,
   },
   xpText: {
-    fontSize: TYPOGRAPHY.sizes.xs,
+    fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.textSecondary,
     textAlign: "right",
   },
-  // Stats
-  statsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: SPACING.xl,
-    gap: SPACING.sm,
-    marginBottom: SPACING.lg,
-  },
-  statCard: {
-    flex: 1,
-    padding: SPACING.md,
-    alignItems: "center",
-  },
-  statIcon: {
-    fontSize: 24,
-    marginBottom: SPACING.sm,
-  },
-  statNumber: {
-    fontSize: TYPOGRAPHY.sizes.xl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.primary,
+  statLabel: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
   },
-  statLabel: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.textSecondary,
-    textAlign: "center",
+  statNumber: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
   },
-  // Motivation Banner
-  motivationBanner: {
-    backgroundColor: "#1a3229",
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.success,
-    padding: SPACING.lg,
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
   },
-  motivationText: {
-    color: COLORS.success,
-    fontSize: TYPOGRAPHY.sizes.md,
-    fontWeight: TYPOGRAPHY.weights.semibold,
-    textAlign: "center",
-  },
-  // Lesson Card
   lessonCard: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  lessonIconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: COLORS.background,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: SPACING.md,
+    padding: SPACING.lg,
   },
   lessonContent: {
     flex: 1,
@@ -528,50 +502,78 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SPACING.sm,
   },
-  lessonDuration: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.primary,
-  },
-  // ✅ NEW: Completion Card Styles
-  completionCard: {
-    backgroundColor: "#1a2f3a",
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.success,
-    padding: SPACING.lg,
-    alignItems: "center",
-  },
-  completionIcon: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
-  },
-  completionTitle: {
-    fontSize: TYPOGRAPHY.sizes.xl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.success,
-    marginBottom: SPACING.sm,
-    textAlign: "center",
-  },
-  completionText: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-  },
-  // Actions
-  actionWrapper: {
-    marginBottom: SPACING.sm,
-  },
-  actionButton: {
+  lessonMeta: {
     flexDirection: "row",
     alignItems: "center",
   },
+  lessonDuration: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.primary,
+  },
+
+  // ✅ Completed Card
+  completedCard: {
+    padding: SPACING.lg,
+    backgroundColor: "#1a2f3a",
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.success,
+  },
+  completedTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.success,
+    marginBottom: SPACING.xs,
+  },
+  completedText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+  },
+
+  actionWrapper: {
+    marginBottom: SPACING.sm,
+  },
+  actionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: SPACING.lg,
+  },
   actionText: {
-    flex: 1,
     fontSize: TYPOGRAPHY.sizes.lg,
     color: COLORS.textPrimary,
-    marginLeft: SPACING.md,
     fontWeight: TYPOGRAPHY.weights.medium,
   },
+
   bottomSpacer: {
-    height: SPACING.xxl,
+    height: SPACING.xxxl,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    paddingHorizontal: SPACING.xl,
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  statCard: {
+    flex: 1,
+    padding: SPACING.lg,
+    borderLeftWidth: 4,
+  },
+  statCardStreak: {
+    flex: 1,
+    padding: SPACING.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF9600",
+  },
+  statCardDreams: {
+    flex: 1,
+    padding: SPACING.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  statCardLucid: {
+    flex: 1,
+    padding: SPACING.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: "#CE82FF",
   },
 });

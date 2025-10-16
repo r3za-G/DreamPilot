@@ -51,6 +51,10 @@ type DataContextType = {
   refreshDreams: () => Promise<void>;
   refreshUserData: () => Promise<void>;
   refreshLessons: () => Promise<void>;
+  showLevelUpModal: boolean;
+  newLevel: number;
+  triggerLevelUp: (level: number) => void;
+  dismissLevelUp: () => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -63,6 +67,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [newLevel, setNewLevel] = useState(0);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -90,6 +96,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const triggerLevelUp = (level: number) => {
+    setNewLevel(level);
+    setShowLevelUpModal(true);
+  };
+
+  const dismissLevelUp = async () => {
+    setShowLevelUpModal(false);
+    await refreshUserData();
   };
 
   const refreshDreams = async () => {
@@ -130,12 +146,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const user = auth.currentUser;
       if (!user) return;
 
+      // ✅ Force fetch from Firebase (not cache)
       const userDoc = await getDoc(doc(db, "users", user.uid));
 
       if (!userDoc.exists()) {
-        console.warn(
-          "⚠️ User document missing - creating default document for zombie account"
-        );
+        console.warn("⚠️ User document missing - creating default document");
 
         await setDoc(doc(db, "users", user.uid), {
           firstName: user.displayName?.split(" ")[0] || "Dream",
@@ -145,7 +160,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           currentStreak: 0,
           totalDreams: 0,
           lucidDreams: 0,
-          currentLevel: 1,
+          level: 1,
+          totalXP: 0,
           isPremium: false,
           lastDreamDate: "",
         });
@@ -157,8 +173,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
 
         const data = newUserDoc.data();
-        const totalXP = await getUserXP(user.uid);
-        const level = calculateLevel(totalXP);
         const premiumStatus = data.isPremium || false;
         setIsPremium(premiumStatus);
 
@@ -166,9 +180,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           firstName: data.firstName || "Dream",
           lastName: data.lastName || "Pilot",
           email: user.email || "",
-          level: level,
-          xp: totalXP,
-          totalXP: totalXP,
+          level: data.level || 1, // ✅ Read directly from document
+          xp: data.totalXP || 0, // ✅ Read directly from document
+          totalXP: data.totalXP || 0, // ✅ Read directly from document
           currentStreak: data.currentStreak || 0,
           lastDreamDate: data.lastDreamDate || "",
           createdAt: data.createdAt || "",
@@ -179,19 +193,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = userDoc.data();
-      const totalXP = await getUserXP(user.uid);
-      const level = calculateLevel(totalXP);
       const premiumStatus = data.isPremium || false;
       setIsPremium(premiumStatus);
+
+      // ✅ Read level and totalXP directly from the document
+      // Your xpManager already updates these fields
+      const level = data.level || calculateLevel(data.totalXP || 0);
+      const totalXP = data.totalXP || 0;
+
+      console.log(
+        "🔄 Refreshed user data - Level:",
+        level,
+        "TotalXP:",
+        totalXP
+      ); // ✅ Debug log
 
       setUserData({
         firstName: data.firstName || data.name?.split(" ")[0] || "Dream",
         lastName:
           data.lastName || data.name?.split(" ").slice(1).join(" ") || "Pilot",
         email: user.email || "",
-        level: level,
-        xp: totalXP,
-        totalXP: totalXP,
+        level: level, // ✅ Use the level from document
+        xp: totalXP, // ✅ Use totalXP from document
+        totalXP: totalXP, // ✅ Use totalXP from document
         currentStreak: data.currentStreak || 0,
         lastDreamDate: data.lastDreamDate || "",
         createdAt: data.createdAt || "",
@@ -272,6 +296,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         refreshDreams,
         refreshUserData,
         refreshLessons,
+        showLevelUpModal,
+        newLevel,
+        triggerLevelUp,
+        dismissLevelUp,
       }}
     >
       {children}

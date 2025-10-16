@@ -140,7 +140,13 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
             <Text style={styles.title}>Your Progress</Text>
             <Card variant="highlighted" style={{ borderColor: tier.color }}>
               <View style={styles.levelCardContent}>
-                <Text style={styles.levelIcon}>{tier.icon}</Text>
+                <View
+                  style={[styles.levelBadge, { backgroundColor: tier.color }]}
+                >
+                  <Text style={styles.levelBadgeText}>
+                    {userData?.level || 1}
+                  </Text>
+                </View>
                 <View style={styles.levelInfo}>
                   <Text style={styles.levelTitle}>{tier.title}</Text>
                   <Text style={[styles.levelText, { color: tier.color }]}>
@@ -210,10 +216,16 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
                   <Text style={styles.sectionTitle}>Achievements</Text>
                 </View>
                 <View style={styles.emptyStateContainer}>
-                  <Text style={styles.emptyStateEmoji}>🏆</Text>
+                  <Ionicons
+                    name="trophy-outline"
+                    size={48}
+                    color={COLORS.warning}
+                    style={{ marginBottom: SPACING.md }}
+                  />
                   <Text style={styles.emptyStateTitle}>
                     No achievements yet
                   </Text>
+
                   <Text style={styles.emptyStateText}>
                     Start logging dreams and completing lessons to unlock
                     achievements!
@@ -315,10 +327,16 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
                   <Text style={styles.sectionTitle}>Dream Insights</Text>
                 </View>
                 <View style={styles.emptyStateContainer}>
-                  <Text style={styles.emptyStateEmoji}>📊</Text>
+                  <Ionicons
+                    name="bar-chart-outline"
+                    size={48}
+                    color={COLORS.secondary}
+                    style={{ marginBottom: SPACING.md }}
+                  />
                   <Text style={styles.emptyStateTitle}>
                     Not enough data yet
                   </Text>
+
                   <Text style={styles.emptyStateText}>
                     You need at least 3 dreams to generate insights. You have{" "}
                     {totalDreams} {totalDreams === 1 ? "dream" : "dreams"} so
@@ -445,9 +463,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: SPACING.md,
   },
-  levelIcon: {
-    fontSize: 48,
-  },
+
   levelInfo: {
     flex: 1,
   },
@@ -603,10 +619,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: SPACING.lg,
   },
-  emptyStateEmoji: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
-  },
   emptyStateTitle: {
     fontSize: TYPOGRAPHY.sizes.lg,
     fontWeight: TYPOGRAPHY.weights.bold,
@@ -651,5 +663,17 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: SPACING.xxxl,
+  },
+  levelBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  levelBadgeText: {
+    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.background,
   },
 });

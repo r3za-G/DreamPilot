@@ -346,7 +346,7 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
           </View>
 
           <EmptyState
-            emoji="✨"
+            icon="star"
             title="No lucid dreams yet"
             description="Keep practicing! Complete lessons to learn techniques for becoming lucid in your dreams."
             actionLabel="Browse Lessons"
@@ -406,7 +406,7 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
           </View>
 
           <EmptyState
-            emoji="📅"
+            icon="calendar"
             title="No recent dreams"
             description="You haven't logged any dreams in the past 7 days. Keep your streak going!"
             actionLabel="Log Today's Dream"
@@ -425,7 +425,7 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.container}>
           <EmptyState
-            emoji="📖"
+            icon="book"
             title="No dreams yet"
             description="Start your lucid dreaming journey by logging your first dream! Dreams are the gateway to understanding your subconscious."
             actionLabel="Log Your First Dream"

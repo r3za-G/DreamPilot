@@ -494,7 +494,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             />
             <Text style={styles.modalTitle}>Delete Account</Text>
             <Text style={styles.modalText}>
-              ⚠️ WARNING: This will permanently delete your account and all data
+              WARNING: This will permanently delete your account and all data
               including:{"\n\n"}• All dream journal entries{"\n"}• Your progress
               and achievements{"\n"}• All settings and preferences{"\n\n"}
               This action cannot be undone!

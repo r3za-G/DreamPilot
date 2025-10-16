@@ -185,12 +185,11 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             {/* Premium Badge */}
             {isPremium ? (
               <View style={styles.premiumBadge}>
-                <Ionicons name="star" size={14} color={COLORS.textPrimary} />
-                <Text style={styles.premiumBadgeText}>Premium Member</Text>
+                <Text style={styles.premiumBadgeText}>Premium</Text>
               </View>
             ) : (
               <View style={styles.freeBadge}>
-                <Text style={styles.freeBadgeText}>Free Plan</Text>
+                <Text style={styles.freeBadgeText}>Free</Text>
               </View>
             )}
 
@@ -219,7 +218,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               >
                 <Card variant="highlighted">
                   <View style={styles.upgradeCardContent}>
-                    <Text style={styles.upgradeCardIcon}>⭐</Text>
                     <View style={styles.upgradeCardText}>
                       <Text style={styles.upgradeCardTitle}>
                         Upgrade to Premium
@@ -255,7 +253,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               >
                 <Card>
                   <View style={styles.actionButton}>
-                    <Ionicons name="star" size={24} color={COLORS.primary} />
                     <Text style={styles.actionText}>Manage Subscription</Text>
                     <Ionicons
                       name="chevron-forward"
@@ -277,7 +274,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             >
               <Card>
                 <View style={styles.actionButton}>
-                  <Ionicons name="settings" size={24} color={COLORS.primary} />
                   <Text style={styles.actionText}>Settings</Text>
                   <Ionicons
                     name="chevron-forward"
@@ -298,11 +294,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             >
               <Card>
                 <View style={styles.actionButton}>
-                  <Ionicons
-                    name="notifications"
-                    size={24}
-                    color={COLORS.warning}
-                  />
                   <Text style={styles.actionText}>Reality Check Reminders</Text>
                   <Ionicons
                     name="chevron-forward"
@@ -320,7 +311,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             >
               <Card style={exporting ? styles.actionButtonDisabled : undefined}>
                 <View style={styles.actionButton}>
-                  <Ionicons name="download" size={24} color={COLORS.success} />
                   <Text style={styles.actionText}>
                     {exporting ? "Exporting..." : "Export Dream Journal"}
                   </Text>
@@ -530,7 +520,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: TYPOGRAPHY.sizes.lg,
     color: COLORS.textPrimary,
-    marginLeft: SPACING.md,
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
   actionButtonDisabled: {
     opacity: 0.5,

@@ -24,25 +24,25 @@ type RealityCheckScreenProps = {
 };
 
 const REMINDER_MESSAGES = [
-  { title: "✨ Reality Check Time!", body: "Am I dreaming? Check your hands!" },
+  { title: "Reality Check Time!", body: "Am I dreaming? Check your hands!" },
   {
-    title: "🔍 Quick Reality Check",
+    title: "Quick Reality Check",
     body: "Look around. Does anything seem strange?",
   },
   {
-    title: "👁️ Awareness Check",
+    title: "Awareness Check",
     body: "Try to push your finger through your palm!",
   },
   {
-    title: "💭 Dream or Reality?",
+    title: "Dream or Reality?",
     body: "Pinch your nose and try to breathe!",
   },
-  { title: "🌟 Stay Lucid", body: "Read some text twice. Does it change?" },
+  { title: "Stay Lucid", body: "Read some text twice. Does it change?" },
   {
-    title: "⚡ Reality Test",
+    title: "Reality Test",
     body: "Look at your hands. Do they look normal?",
   },
-  { title: "🎯 Lucidity Trigger", body: "Question your reality right now!" },
+  { title: "Lucidity Trigger", body: "Question your reality right now!" },
 ];
 
 export default function RealityCheckScreen({
@@ -256,9 +256,7 @@ export default function RealityCheckScreen({
                 size={24}
                 color={COLORS.success}
               />
-              <Text style={styles.statusText}>
-                Reality checks are active! 🔥
-              </Text>
+              <Text style={styles.statusText}>Reality checks are active!</Text>
             </Card>
           </View>
         )}
@@ -407,7 +405,9 @@ export default function RealityCheckScreen({
           <Text style={styles.sectionTitle}>Reality Check Techniques</Text>
 
           <Card style={styles.tipWrapper}>
-            <Text style={styles.tipEmoji}>🤚</Text>
+            <View style={styles.tipIconContainer}>
+              <Ionicons name="hand-left" size={28} color={COLORS.primary} />
+            </View>
             <Text style={styles.tipTitle}>Finger Through Palm</Text>
             <Text style={styles.tipText}>
               Try to push your finger through your palm. In dreams, it often
@@ -416,7 +416,9 @@ export default function RealityCheckScreen({
           </Card>
 
           <Card style={styles.tipWrapper}>
-            <Text style={styles.tipEmoji}>👃</Text>
+            <View style={styles.tipIconContainer}>
+              <Ionicons name="fitness" size={28} color={COLORS.primary} />
+            </View>
             <Text style={styles.tipTitle}>Nose Pinch</Text>
             <Text style={styles.tipText}>
               Pinch your nose and try to breathe. In dreams, you can still
@@ -425,7 +427,9 @@ export default function RealityCheckScreen({
           </Card>
 
           <Card style={styles.tipWrapper}>
-            <Text style={styles.tipEmoji}>📖</Text>
+            <View style={styles.tipIconContainer}>
+              <Ionicons name="document-text" size={28} color={COLORS.primary} />
+            </View>
             <Text style={styles.tipTitle}>Read Twice</Text>
             <Text style={styles.tipText}>
               Read text, look away, then read again. In dreams, text changes!
@@ -624,10 +628,6 @@ const styles = StyleSheet.create({
   tipWrapper: {
     marginBottom: SPACING.md,
   },
-  tipEmoji: {
-    fontSize: 32,
-    marginBottom: SPACING.sm,
-  },
   tipTitle: {
     fontSize: TYPOGRAPHY.sizes.lg,
     fontWeight: TYPOGRAPHY.weights.semibold,
@@ -695,5 +695,14 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  tipIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACING.md,
   },
 });

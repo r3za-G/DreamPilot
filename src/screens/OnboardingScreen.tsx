@@ -47,49 +47,69 @@ const slides: OnboardingSlide[] = [
     title: "Take Control of Your Dreams",
     description:
       "Lucid dreaming is when you become aware you're dreaming—and can control what happens. Imagine flying, exploring fantasy worlds, or meeting anyone you want.\n\n55% of people have experienced it at least once!",
-    icon: "✨",
+    // ✅ No icon
   },
   {
     id: "3",
     title: "Your Path to Lucid Dreams",
     description: "Most people have their first lucid dream within 2-4 weeks",
-    icon: "🎯",
     features: [
-      { icon: "📖", text: "Log Dreams Daily - Train your dream recall" },
-      { icon: "🎓", text: "Complete Lessons - Learn proven techniques" },
-      { icon: "⏰", text: "Reality Checks - Build awareness habits" },
+      {
+        icon: "book-outline",
+        text: "Log Dreams Daily - Train your dream recall",
+      },
+      {
+        icon: "school-outline",
+        text: "Complete Lessons - Learn proven techniques",
+      },
+      {
+        icon: "alarm-outline",
+        text: "Reality Checks - Build awareness habits",
+      },
     ],
   },
   {
     id: "4",
     title: "Everything You Need",
     description: "Powerful features to help you succeed",
-    icon: "🚀",
     features: [
-      { icon: "🤖", text: "AI Dream Analysis - Discover patterns & signs" },
-      { icon: "🔥", text: "Streak Tracking - Build daily habits" },
-      { icon: "📊", text: "Progress Insights - See your improvement" },
-      { icon: "🎓", text: "Expert Lessons - Learn from masters" },
+      {
+        icon: "analytics-outline",
+        text: "AI Dream Analysis - Discover patterns & signs",
+      },
+      { icon: "flame-outline", text: "Streak Tracking - Build daily habits" },
+      {
+        icon: "bar-chart-outline",
+        text: "Progress Insights - See your improvement",
+      },
+      { icon: "school-outline", text: "Expert Lessons - Learn from masters" },
     ],
   },
   {
     id: "5",
     title: "What's Your Dream Goal?",
     description: "We'll personalize your experience",
-    icon: "🎨",
     goals: [
       {
         id: "first_lucid",
-        icon: "🚀",
+        icon: "rocket-outline",
         text: "Experience my first lucid dream",
       },
-      { id: "dream_recall", icon: "🌈", text: "Improve dream recall" },
+      {
+        id: "dream_recall",
+        icon: "color-wand-outline",
+        text: "Improve dream recall",
+      },
       {
         id: "master_lucid",
-        icon: "🧠",
+        icon: "bulb-outline",
         text: "Master lucid dreaming techniques",
       },
-      { id: "creative", icon: "🎨", text: "Explore creative inspiration" },
+      {
+        id: "creative",
+        icon: "brush-outline",
+        text: "Explore creative inspiration",
+      },
     ],
   },
 ];
@@ -159,7 +179,9 @@ export default function OnboardingScreen({
         {item.image ? (
           <Image source={item.image} style={styles.iconImage} />
         ) : (
-          <Text style={styles.icon}>{item.icon}</Text>
+          <View style={styles.iconCircle}>
+            <Ionicons name="sparkles" size={48} color={COLORS.primary} />
+          </View>
         )}
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
@@ -168,7 +190,13 @@ export default function OnboardingScreen({
           <View style={styles.featuresList}>
             {item.features.map((feature, index) => (
               <Card key={index} style={styles.featureItem}>
-                <Text style={styles.featureIcon}>{feature.icon}</Text>
+                <View style={styles.featureIconContainer}>
+                  <Ionicons
+                    name={feature.icon as any}
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                </View>
                 <Text style={styles.featureText}>{feature.text}</Text>
               </Card>
             ))}
@@ -198,7 +226,17 @@ export default function OnboardingScreen({
                         : COLORS.backgroundSecondary,
                   }}
                 >
-                  <Text style={styles.goalIcon}>{goal.icon}</Text>
+                  <View style={styles.goalIconContainer}>
+                    <Ionicons
+                      name={goal.icon as any}
+                      size={20}
+                      color={
+                        selectedGoal === goal.id
+                          ? COLORS.success
+                          : COLORS.textSecondary
+                      }
+                    />
+                  </View>
                   <Text
                     style={[
                       styles.goalText,
@@ -332,10 +370,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: SPACING.xxxl + 10,
   },
-  icon: {
-    fontSize: 80,
-    marginBottom: 20,
-  },
 
   iconImage: {
     width: 120,
@@ -367,10 +401,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     marginBottom: SPACING.md,
   },
-  featureIcon: {
-    fontSize: 24,
-    marginRight: SPACING.md,
-  },
+
   featureText: {
     flex: 1,
     fontSize: TYPOGRAPHY.sizes.md,
@@ -386,10 +417,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: SPACING.lg,
     marginBottom: SPACING.md,
-  },
-  goalIcon: {
-    fontSize: 24,
-    marginRight: SPACING.md,
   },
   goalText: {
     flex: 1,
@@ -424,5 +451,34 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 2,
+  },
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  featureIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
+  },
+  goalIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
   },
 });
