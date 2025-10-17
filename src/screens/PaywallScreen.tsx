@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,14 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import Purchases, { PurchasesPackage } from "react-native-purchases";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
+import { useToast } from "../contexts/ToastContext";
 
 type PaywallScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -53,54 +54,145 @@ const PREMIUM_FEATURES = [
   },
 ];
 
-const MOCK_MONTHLY_PACKAGE = {
-  identifier: "$rc_monthly",
-  product: {
-    priceString: "$4.99",
-  },
-};
-
-const MOCK_YEARLY_PACKAGE = {
-  identifier: "$rc_annual",
-  product: {
-    priceString: "$39.99",
-  },
-};
-
 export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   const [selectedPackage, setSelectedPackage] = useState<string>("yearly");
   const [purchasing, setPurchasing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
+  const [yearlyPackage, setYearlyPackage] = useState<PurchasesPackage | null>(null);
+  const toast = useToast();
 
-  const handlePurchase = (pkg: any) => {
-    hapticFeedback.light();
-    setPurchasing(true);
-    setTimeout(() => {
-      hapticFeedback.success();
-      Alert.alert(
-        "Mock Purchase",
-        `Pretend you purchased: ${pkg.identifier} (${pkg.product.priceString})`
-      );
-      setPurchasing(false);
-      navigation.goBack();
-    }, 1000);
+  useEffect(() => {
+    loadOfferings();
+  }, []);
+
+  const loadOfferings = async () => {
+    try {
+      setLoading(true);
+      const offerings = await Purchases.getOfferings();
+      
+      if (offerings.current && offerings.current.availablePackages.length > 0) {
+        const packages = offerings.current.availablePackages;
+        
+        // Find monthly and yearly packages
+        const monthly = packages.find(
+          (pkg) => pkg.identifier === "$rc_monthly" || pkg.packageType === "MONTHLY"
+        );
+        const yearly = packages.find(
+          (pkg) => pkg.identifier === "$rc_annual" || pkg.packageType === "ANNUAL"
+        );
+
+        setMonthlyPackage(monthly || null);
+        setYearlyPackage(yearly || null);
+
+        console.log("📦 Loaded packages:", {
+          monthly: monthly?.product.priceString,
+          yearly: yearly?.product.priceString,
+        });
+      } else {
+        console.warn("⚠️ No offerings available");
+        toast.error("Unable to load subscription options");
+      }
+    } catch (error) {
+      console.error("Error loading offerings:", error);
+      toast.error("Failed to load subscriptions. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRestore = () => {
-    hapticFeedback.light();
-    setPurchasing(true);
-    setTimeout(() => {
-      hapticFeedback.success();
-      Alert.alert(
-        "Mock Restore",
-        "Pretend your subscription has been restored."
-      );
+  const handlePurchase = async () => {
+    const pkg = selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
+    
+    if (!pkg) {
+      toast.error("Package not available");
+      return;
+    }
+
+    try {
+      setPurchasing(true);
+      hapticFeedback.light();
+
+      const { customerInfo } = await Purchases.purchasePackage(pkg);
+
+      // Check if user is now premium
+      if (customerInfo.entitlements.active["premium"]) {
+        hapticFeedback.success();
+        toast.success("Welcome to Premium! 🎉");
+        navigation.goBack();
+      } else {
+        toast.error("Purchase failed. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Purchase error:", error);
+      hapticFeedback.error();
+
+      // Handle different error types
+      if (error.userCancelled) {
+        // User cancelled, don't show error
+        console.log("User cancelled purchase");
+      } else {
+        toast.error("Purchase failed. Please try again.");
+      }
+    } finally {
       setPurchasing(false);
-      navigation.goBack();
-    }, 1000);
+    }
   };
 
-  const monthlyPackage = MOCK_MONTHLY_PACKAGE;
-  const yearlyPackage = MOCK_YEARLY_PACKAGE;
+  const handleRestore = async () => {
+    try {
+      setPurchasing(true);
+      hapticFeedback.light();
+
+      const customerInfo = await Purchases.restorePurchases();
+
+      if (customerInfo.entitlements.active["premium"]) {
+        hapticFeedback.success();
+        toast.success("Subscription restored! 🎉");
+        navigation.goBack();
+      } else {
+        hapticFeedback.warning();
+        toast.info("No active subscription found");
+      }
+    } catch (error) {
+      console.error("Restore error:", error);
+      hapticFeedback.error();
+      toast.error("Failed to restore purchases");
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  // Show loading state while fetching offerings
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading subscription options...</Text>
+      </View>
+    );
+  }
+
+  // Show error if no packages available
+  if (!monthlyPackage && !yearlyPackage) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="warning-outline" size={48} color={COLORS.error} />
+        <Text style={styles.errorText}>Unable to load subscriptions</Text>
+        <Button
+          title="Try Again"
+          onPress={loadOfferings}
+          style={{ marginTop: SPACING.lg }}
+        />
+        <Button
+          title="Close"
+          onPress={() => navigation.goBack()}
+          variant="ghost"
+          style={{ marginTop: SPACING.sm }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -153,119 +245,119 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
           <Text style={styles.sectionTitle}>Choose Your Plan</Text>
 
           {/* Yearly Plan */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.light();
-              setSelectedPackage("yearly");
-            }}
-            activeOpacity={0.7}
-            style={styles.pricingCardWrapper}
-          >
-            <Card
-              style={{
-                ...styles.pricingCard,
-                borderColor:
-                  selectedPackage === "yearly" ? COLORS.success : COLORS.border,
-                borderWidth: 2,
-                backgroundColor:
-                  selectedPackage === "yearly"
-                    ? "#1a1a3a"
-                    : COLORS.backgroundSecondary,
+          {yearlyPackage && (
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.light();
+                setSelectedPackage("yearly");
               }}
+              activeOpacity={0.7}
+              style={styles.pricingCardWrapper}
             >
-              <View style={styles.popularBadge}>
-                <Text style={styles.popularText}>BEST VALUE</Text>
-              </View>
-              <View style={styles.pricingHeader}>
-                <View>
-                  <Text style={styles.pricingTitle}>Annual</Text>
-                  <Text style={styles.pricingPrice}>
-                    {yearlyPackage.product.priceString}/year
-                  </Text>
+              <Card
+                style={{
+                  ...styles.pricingCard,
+                  borderColor:
+                    selectedPackage === "yearly" ? COLORS.success : COLORS.border,
+                  borderWidth: 2,
+                  backgroundColor:
+                    selectedPackage === "yearly"
+                      ? "#1a1a3a"
+                      : COLORS.backgroundSecondary,
+                }}
+              >
+                <View style={styles.popularBadge}>
+                  <Text style={styles.popularText}>BEST VALUE</Text>
                 </View>
-                <Ionicons
-                  name={
-                    selectedPackage === "yearly"
-                      ? "radio-button-on"
-                      : "radio-button-off"
-                  }
-                  size={28}
-                  color={
-                    selectedPackage === "yearly"
-                      ? COLORS.success
-                      : COLORS.textSecondary
-                  }
-                />
-              </View>
-              <Text style={styles.saveBadge}>Save 33% vs monthly</Text>
-            </Card>
-          </TouchableOpacity>
+                <View style={styles.pricingHeader}>
+                  <View>
+                    <Text style={styles.pricingTitle}>Annual</Text>
+                    <Text style={styles.pricingPrice}>
+                      {yearlyPackage.product.priceString}/year
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={
+                      selectedPackage === "yearly"
+                        ? "radio-button-on"
+                        : "radio-button-off"
+                    }
+                    size={28}
+                    color={
+                      selectedPackage === "yearly"
+                        ? COLORS.success
+                        : COLORS.textSecondary
+                    }
+                  />
+                </View>
+                <Text style={styles.saveBadge}>Save 33% vs monthly</Text>
+              </Card>
+            </TouchableOpacity>
+          )}
 
           {/* Monthly Plan */}
-          <TouchableOpacity
-            onPress={() => {
-              hapticFeedback.light();
-              setSelectedPackage("monthly");
-            }}
-            activeOpacity={0.7}
-          >
-            <Card
-              style={{
-                ...styles.pricingCard,
-                borderColor:
-                  selectedPackage === "monthly"
-                    ? COLORS.primary
-                    : COLORS.border,
-                borderWidth: 2,
-                backgroundColor:
-                  selectedPackage === "monthly"
-                    ? "#1a1a3a"
-                    : COLORS.backgroundSecondary,
+          {monthlyPackage && (
+            <TouchableOpacity
+              onPress={() => {
+                hapticFeedback.light();
+                setSelectedPackage("monthly");
               }}
+              activeOpacity={0.7}
             >
-              <View style={styles.pricingHeader}>
-                <View>
-                  <Text style={styles.pricingTitle}>Monthly</Text>
-                  <Text style={styles.pricingPrice}>
-                    {monthlyPackage.product.priceString}/month
-                  </Text>
-                  <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
-                </View>
-                <Ionicons
-                  name={
-                    selectedPackage === "monthly"
-                      ? "radio-button-on"
-                      : "radio-button-off"
-                  }
-                  size={28}
-                  color={
+              <Card
+                style={{
+                  ...styles.pricingCard,
+                  borderColor:
                     selectedPackage === "monthly"
                       ? COLORS.primary
-                      : COLORS.textSecondary
-                  }
-                />
-              </View>
-            </Card>
-          </TouchableOpacity>
+                      : COLORS.border,
+                  borderWidth: 2,
+                  backgroundColor:
+                    selectedPackage === "monthly"
+                      ? "#1a1a3a"
+                      : COLORS.backgroundSecondary,
+                }}
+              >
+                <View style={styles.pricingHeader}>
+                  <View>
+                    <Text style={styles.pricingTitle}>Monthly</Text>
+                    <Text style={styles.pricingPrice}>
+                      {monthlyPackage.product.priceString}/month
+                    </Text>
+                    <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
+                  </View>
+                  <Ionicons
+                    name={
+                      selectedPackage === "monthly"
+                        ? "radio-button-on"
+                        : "radio-button-off"
+                    }
+                    size={28}
+                    color={
+                      selectedPackage === "monthly"
+                        ? COLORS.primary
+                        : COLORS.textSecondary
+                    }
+                  />
+                </View>
+              </Card>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* CTA Button */}
         <View style={styles.ctaWrapper}>
           <Button
             title="Start Free Trial"
-            onPress={() => {
-              const pkg =
-                selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
-              handlePurchase(pkg);
-            }}
+            onPress={handlePurchase}
             loading={purchasing}
             disabled={purchasing}
           />
           <Text style={styles.ctaSubtext}>
             7 days free, then{" "}
             {selectedPackage === "yearly"
-              ? yearlyPackage.product.priceString
-              : monthlyPackage.product.priceString}
+              ? yearlyPackage?.product.priceString
+              : monthlyPackage?.product.priceString}
           </Text>
         </View>
 
@@ -296,6 +388,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.xl,
+  },
+  loadingText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.md,
+  },
+  errorText: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.md,
+    textAlign: "center",
   },
   scrollView: {
     flex: 1,
@@ -345,6 +455,15 @@ const styles = StyleSheet.create({
   featureCard: {
     width: "48%",
     padding: SPACING.lg,
+  },
+  featureIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACING.sm,
   },
   featureTitle: {
     fontSize: TYPOGRAPHY.sizes.md,
@@ -444,15 +563,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: SPACING.xxxl,
-  },
-  // ✅ Add
-  featureIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.background,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SPACING.sm,
   },
 });

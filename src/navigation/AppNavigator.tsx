@@ -323,13 +323,13 @@ function NavigationContent() {
 export default function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      {/* <SubscriptionProvider> */}
+      <SubscriptionProvider>
       <DataProvider>
         <ToastProvider>
           <NavigationContent />
         </ToastProvider>
       </DataProvider>
-      {/* </SubscriptionProvider> */}
+      </SubscriptionProvider>
     </SafeAreaProvider>
   );
 }

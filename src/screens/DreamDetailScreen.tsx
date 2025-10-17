@@ -306,7 +306,10 @@ export default function DreamDetailScreen({
         {dream.analyzed && dream.analysis ? (
           <View style={styles.aiSection}>
             <View style={styles.aiHeader}>
-              <Text style={styles.aiTitle}>🤖 AI Analysis</Text>
+            <View style={styles.aiTitleContainer}>
+              <Ionicons name="analytics" size={24} color={COLORS.primary} />
+              <Text style={styles.aiTitle}>AI Analysis</Text>
+            </View>
               <TouchableOpacity
                 style={styles.reanalyzeButton}
                 onPress={handleReanalyze}
@@ -357,7 +360,10 @@ export default function DreamDetailScreen({
             {/* Dream Signs */}
             {dream.analysis.dreamSigns.length > 0 && (
               <Card style={styles.analysisCard}>
-                <Text style={styles.cardTitle}>🎯 Dream Signs</Text>
+                <View style={styles.cardTitleRow}>
+                  <Ionicons name="flag-outline" size={20} color={COLORS.primary} />
+                  <Text style={styles.cardTitle}>Dream Signs</Text>
+                </View>
                 <Text style={styles.cardDescription}>
                   Watch for these in future dreams to trigger lucidity
                 </Text>
@@ -374,7 +380,10 @@ export default function DreamDetailScreen({
             {/* Themes */}
             {dream.analysis.themes.length > 0 && (
               <Card style={styles.analysisCard}>
-                <Text style={styles.cardTitle}>💭 Themes</Text>
+                <View style={styles.cardTitleRow}>
+                  <Ionicons name="color-palette-outline" size={20} color={COLORS.secondary} />
+                  <Text style={styles.cardTitle}>Themes</Text>
+                </View>
                 <View style={styles.chipContainer}>
                   {dream.analysis.themes.map((theme, index) => (
                     <View key={index} style={[styles.chip, styles.themeChip]}>
@@ -388,7 +397,10 @@ export default function DreamDetailScreen({
             {/* Emotions */}
             {dream.analysis.emotions.length > 0 && (
               <Card style={styles.analysisCard}>
-                <Text style={styles.cardTitle}>❤️ Emotions</Text>
+               <View style={styles.cardTitleRow}>
+  <Ionicons name="heart-outline" size={20} color="#ec4899" />
+  <Text style={styles.cardTitle}>Emotions</Text>
+</View>
                 <View style={styles.chipContainer}>
                   {dream.analysis.emotions.map((emotion, index) => (
                     <View key={index} style={[styles.chip, styles.emotionChip]}>
@@ -401,7 +413,10 @@ export default function DreamDetailScreen({
 
             {/* Insights */}
             <Card style={styles.analysisCard}>
-              <Text style={styles.cardTitle}>💡 Insights</Text>
+             <View style={styles.cardTitleRow}>
+  <Ionicons name="bulb-outline" size={20} color={COLORS.warning} />
+  <Text style={styles.cardTitle}>Insights</Text>
+</View>
               <Text style={styles.insightText}>{dream.analysis.insights}</Text>
             </Card>
 
@@ -432,10 +447,11 @@ export default function DreamDetailScreen({
           </View>
         ) : (
           <Card style={styles.noAnalysisCard}>
-            <Text style={styles.noAnalysisText}>
-              🤖 AI analysis in progress...
-            </Text>
-          </Card>
+  <Ionicons name="hourglass-outline" size={32} color={COLORS.textSecondary} style={{ marginBottom: SPACING.sm }} />
+  <Text style={styles.noAnalysisText}>
+    AI analysis in progress...
+  </Text>
+</Card>
         )}
 
         {/* Delete Button */}
@@ -689,7 +705,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.xl,
     fontWeight: TYPOGRAPHY.weights.bold,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
   },
   cardDescription: {
     fontSize: TYPOGRAPHY.sizes.sm,
@@ -840,4 +855,15 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 18,
   },
+  aiTitleContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: SPACING.sm,
+},
+cardTitleRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: SPACING.sm,
+  marginBottom: SPACING.sm,
+},
 });

@@ -37,32 +37,36 @@ export const SubscriptionProvider = ({
   }, []);
 
   const initializePurchases = async () => {
-    try {
-      console.log("🚀 Initializing RevenueCat...");
+  try {
+    console.log("🚀 Initializing RevenueCat...");
 
-      // Set debug logs FIRST
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-
-      // Configure with API key
-      if (Platform.OS === "ios") {
-        await Purchases.configure({
-          apiKey: IOS_API_KEY,
-        });
-      } else if (Platform.OS === "android") {
-        // Skip Android for now
-        setLoading(false);
-        return;
-      }
-
-      console.log("✅ RevenueCat configured successfully");
-
-      // NOW check subscription (after configure completes)
-      await checkSubscriptionStatus();
-    } catch (error) {
-      console.error("❌ Error initializing purchases:", error);
+    if (Constants.appOwnership === "expo") {
+      console.log("⚠️ Running in Expo Go - skipping RevenueCat");
       setLoading(false);
+      return;
     }
-  };
+
+    // Set debug logs FIRST
+    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+
+    // Configure with API key
+    if (Platform.OS === "ios") {
+      await Purchases.configure({
+        apiKey: IOS_API_KEY,
+      });
+    } else if (Platform.OS === "android") {
+      setLoading(false);
+      return;
+    }
+
+    console.log("✅ RevenueCat configured successfully");
+    await checkSubscriptionStatus();
+  } catch (error) {
+    console.error("❌ Error initializing purchases:", error);
+    setLoading(false);
+  }
+};
+
 
   const checkSubscriptionStatus = async () => {
     try {
