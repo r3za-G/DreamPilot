@@ -4,9 +4,9 @@ import Purchases, {
   CustomerInfo,
   PurchasesPackage,
 } from "react-native-purchases";
-import { Platform, Alert } from "react-native";
+import { Platform } from "react-native";
 import { auth, db } from "../../firebaseConfig";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import Constants from "expo-constants";
 
 interface SubscriptionContextType {
@@ -37,36 +37,58 @@ export const SubscriptionProvider = ({
   }, []);
 
   const initializePurchases = async () => {
-  try {
-    console.log("🚀 Initializing RevenueCat...");
+    try {
+      console.log("🚀 Initializing RevenueCat...");
 
-    if (Constants.appOwnership === "expo") {
-      console.log("⚠️ Running in Expo Go - skipping RevenueCat");
-      setLoading(false);
-      return;
-    }
+      if (Constants.appOwnership === "expo") {
+        console.log("⚠️ Running in Expo Go - skipping RevenueCat");
+        setLoading(false);
+        return;
+      }
 
-    // Set debug logs FIRST
-    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      // Set debug logs FIRST
+      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
 
-    // Configure with API key
-    if (Platform.OS === "ios") {
-      await Purchases.configure({
-        apiKey: IOS_API_KEY,
+      // Configure with API key
+      if (Platform.OS === "ios") {
+        await Purchases.configure({
+          apiKey: IOS_API_KEY,
+        });
+      } else if (Platform.OS === "android") {
+        setLoading(false);
+        return;
+      }
+
+      console.log("✅ RevenueCat configured successfully");
+
+      // ✅ ADD LISTENER FOR REAL-TIME UPDATES
+      console.log("👂 Setting up RevenueCat listener...");
+      Purchases.addCustomerInfoUpdateListener(async (customerInfo) => {
+        console.log("🔄 RevenueCat: Customer info updated!");
+        console.log("📦 Updated customer info:", JSON.stringify(customerInfo.entitlements.active, null, 2));
+
+        const hasPremium = customerInfo.entitlements.active["premium"] !== undefined;
+        console.log("💎 Premium status changed to:", hasPremium);
+
+        setIsPremium(hasPremium);
+
+        // Sync with Firebase
+        const user = auth.currentUser;
+        if (user) {
+          console.log("💾 Syncing to Firebase...");
+          const userRef = doc(db, "users", user.uid);
+          await setDoc(userRef, { isPremium: hasPremium }, { merge: true });
+          console.log("✅ Firebase sync complete");
+        }
       });
-    } else if (Platform.OS === "android") {
+
+      // Initial check
+      await checkSubscriptionStatus();
+    } catch (error) {
+      console.error("❌ Error initializing purchases:", error);
       setLoading(false);
-      return;
     }
-
-    console.log("✅ RevenueCat configured successfully");
-    await checkSubscriptionStatus();
-  } catch (error) {
-    console.error("❌ Error initializing purchases:", error);
-    setLoading(false);
-  }
-};
-
+  };
 
   const checkSubscriptionStatus = async () => {
     try {
@@ -82,7 +104,7 @@ export const SubscriptionProvider = ({
 
       // Get customer info from RevenueCat
       const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
-      console.log("📦 Customer Info:", customerInfo);
+      console.log("📦 Customer Info:", JSON.stringify(customerInfo.entitlements.active, null, 2));
 
       // Check if premium entitlement is active
       const hasPremium =
@@ -115,25 +137,37 @@ export const SubscriptionProvider = ({
 
   const purchasePackage = async (pkg: PurchasesPackage): Promise<boolean> => {
     try {
+      console.log("🛒 Starting purchase...");
       const { customerInfo } = await Purchases.purchasePackage(pkg);
+      
+      console.log("🎉 Purchase completed!");
+      console.log("📦 Customer info after purchase:", JSON.stringify(customerInfo.entitlements.active, null, 2));
+
       const hasPremium =
         customerInfo.entitlements.active["premium"] !== undefined;
+
+      console.log("💎 Premium active:", hasPremium);
 
       setIsPremium(hasPremium);
 
       // Update Firebase
       const user = auth.currentUser;
       if (user) {
+        console.log("💾 Updating Firebase...");
         const userRef = doc(db, "users", user.uid);
         await setDoc(userRef, { isPremium: hasPremium }, { merge: true });
+        console.log("✅ Firebase updated");
       }
+
+      // ✅ FORCE A REFRESH TO MAKE SURE STATE IS UPDATED
+      await checkSubscriptionStatus();
 
       return hasPremium;
     } catch (error: any) {
       if (error.userCancelled) {
         console.log("User cancelled purchase");
       } else {
-        console.error("Purchase error:", error);
+        console.error("❌ Purchase error:", error);
       }
       return false;
     }
@@ -141,9 +175,15 @@ export const SubscriptionProvider = ({
 
   const restorePurchases = async (): Promise<boolean> => {
     try {
+      console.log("🔄 Restoring purchases...");
       const customerInfo = await Purchases.restorePurchases();
+      
+      console.log("📦 Restored customer info:", JSON.stringify(customerInfo.entitlements.active, null, 2));
+
       const hasPremium =
         customerInfo.entitlements.active["premium"] !== undefined;
+
+      console.log("💎 Premium status after restore:", hasPremium);
 
       setIsPremium(hasPremium);
 
@@ -155,7 +195,7 @@ export const SubscriptionProvider = ({
 
       return hasPremium;
     } catch (error) {
-      console.error("Restore error:", error);
+      console.error("❌ Restore error:", error);
       return false;
     }
   };

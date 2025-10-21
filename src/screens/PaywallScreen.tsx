@@ -6,15 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import Purchases, { PurchasesPackage } from "react-native-purchases";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
 import { useToast } from "../contexts/ToastContext";
+import { useSubscription } from "../contexts/SubscriptionContext"; // ✅ Import this
 
 type PaywallScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -58,9 +59,12 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   const [selectedPackage, setSelectedPackage] = useState<string>("yearly");
   const [purchasing, setPurchasing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
-  const [yearlyPackage, setYearlyPackage] = useState<PurchasesPackage | null>(null);
+  const [monthlyPackage, setMonthlyPackage] = useState<any>(null);
+  const [yearlyPackage, setYearlyPackage] = useState<any>(null);
   const toast = useToast();
+  
+  // ✅ USE THE CONTEXT
+  const { purchasePackage, restorePurchases, getOfferings, checkSubscriptionStatus } = useSubscription();
 
   useEffect(() => {
     loadOfferings();
@@ -69,17 +73,17 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   const loadOfferings = async () => {
     try {
       setLoading(true);
-      const offerings = await Purchases.getOfferings();
-      
-      if (offerings.current && offerings.current.availablePackages.length > 0) {
+      const offerings = await getOfferings();
+
+      if (offerings?.current && offerings.current.availablePackages.length > 0) {
         const packages = offerings.current.availablePackages;
-        
+
         // Find monthly and yearly packages
         const monthly = packages.find(
-          (pkg) => pkg.identifier === "$rc_monthly" || pkg.packageType === "MONTHLY"
+          (pkg: any) => pkg.identifier === "$rc_monthly" || pkg.packageType === "MONTHLY"
         );
         const yearly = packages.find(
-          (pkg) => pkg.identifier === "$rc_annual" || pkg.packageType === "ANNUAL"
+          (pkg: any) => pkg.identifier === "$rc_annual" || pkg.packageType === "ANNUAL"
         );
 
         setMonthlyPackage(monthly || null);
@@ -103,7 +107,7 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
 
   const handlePurchase = async () => {
     const pkg = selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
-    
+
     if (!pkg) {
       toast.error("Package not available");
       return;
@@ -113,25 +117,41 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
       setPurchasing(true);
       hapticFeedback.light();
 
-      const { customerInfo } = await Purchases.purchasePackage(pkg);
+      console.log("🛒 Initiating purchase for:", pkg.product.identifier);
 
-      // Check if user is now premium
-      if (customerInfo.entitlements.active["premium"]) {
+      // ✅ USE THE CONTEXT METHOD
+      const success = await purchasePackage(pkg);
+
+      if (success) {
+        console.log("✅ Purchase successful - Premium activated!");
         hapticFeedback.success();
-        toast.success("Welcome to Premium! 🎉");
-        navigation.goBack();
+        
+        // ✅ FORCE ONE MORE CHECK TO BE SURE
+        await checkSubscriptionStatus();
+        
+        // Show success alert
+        Alert.alert(
+          "Welcome to Premium! 🎉",
+          "All premium features are now unlocked!",
+          [
+            {
+              text: "Start Dreaming",
+              onPress: () => {
+                toast.success("Premium activated!");
+                navigation.goBack();
+              },
+            },
+          ]
+        );
       } else {
-        toast.error("Purchase failed. Please try again.");
+        console.log("❌ Purchase failed or was cancelled");
+        toast.error("Purchase was not completed");
       }
     } catch (error: any) {
-      console.error("Purchase error:", error);
+      console.error("❌ Purchase error:", error);
       hapticFeedback.error();
 
-      // Handle different error types
-      if (error.userCancelled) {
-        // User cancelled, don't show error
-        console.log("User cancelled purchase");
-      } else {
+      if (!error.userCancelled) {
         toast.error("Purchase failed. Please try again.");
       }
     } finally {
@@ -144,18 +164,23 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
       setPurchasing(true);
       hapticFeedback.light();
 
-      const customerInfo = await Purchases.restorePurchases();
+      console.log("🔄 Restoring purchases...");
 
-      if (customerInfo.entitlements.active["premium"]) {
+      // ✅ USE THE CONTEXT METHOD
+      const restored = await restorePurchases();
+
+      if (restored) {
+        console.log("✅ Purchases restored successfully!");
         hapticFeedback.success();
         toast.success("Subscription restored! 🎉");
         navigation.goBack();
       } else {
+        console.log("ℹ️ No active subscription found");
         hapticFeedback.warning();
         toast.info("No active subscription found");
       }
     } catch (error) {
-      console.error("Restore error:", error);
+      console.error("❌ Restore error:", error);
       hapticFeedback.error();
       toast.error("Failed to restore purchases");
     } finally {
