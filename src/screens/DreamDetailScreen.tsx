@@ -17,7 +17,7 @@ import {
   analyzeDream,
   saveDreamAnalysis,
 } from "../services/dreamAnalysisService";
-import { MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useData } from "../contexts/DataContext";
 import Card from "../components/Card";
 import Button from "../components/Button";

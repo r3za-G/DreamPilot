@@ -1,125 +1,117 @@
-import { openai, OPENAI_CONFIG } from '../config/openai';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import {httpsCallable} from "firebase/functions";
+import {functions, db, auth} from "../../firebaseConfig";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  limit,
+  doc,
+  setDoc,
+  getDoc,
+} from "firebase/firestore";
 
+// ✅ Export the type
 export type DreamAnalysis = {
   dreamSigns: string[];
   themes: string[];
   emotions: string[];
-  lucidityPotential: 'low' | 'medium' | 'high';
+  lucidityPotential: "low" | "medium" | "high";
   insights: string;
   suggestions: string[];
   analyzedAt: string;
 };
 
-export const analyzeDream = async (
+interface AnalyzeDreamResponse {
+  success: boolean;
+  analysis: DreamAnalysis;
+}
+
+// ✅ Cloud Function for AI analysis
+export const analyzeDreamWithAI = async (
+  dreamText: string,
   dreamTitle: string,
-  dreamContent: string,
-  isLucid: boolean
+  isLucid?: boolean
 ): Promise<DreamAnalysis | null> => {
+  if (!dreamText || dreamText.trim().length < 10) {
+    console.warn("⚠️ Dream text too short");
+    return null;
+  }
+
   try {
-    const prompt = `You are an expert lucid dreaming coach analyzing a dream journal entry. 
+    console.log("🔮 Analyzing dream with Cloud Function...");
 
-Dream Title: "${dreamTitle}"
-Dream Content: "${dreamContent}"
-Was Lucid: ${isLucid ? 'Yes' : 'No'}
+    const analyzeDream = httpsCallable<
+      {dreamText: string; dreamTitle: string; isLucid?: boolean},
+      AnalyzeDreamResponse
+    >(functions, "analyzeDream");
 
-Analyze this dream and provide:
-1. Dream Signs: Identify 2-4 specific unusual elements that could serve as reality check triggers. Be specific (e.g., "flying without wings", "deceased grandmother appearing", "smartphone with impossible features", "location morphing between home and school")
-
-2. Themes: 2-3 main psychological or narrative themes (e.g., "loss of control", "adventure seeking", "confronting fears", "wish fulfillment")
-
-3. Emotions: 2-4 emotions experienced (e.g., "anxiety", "exhilaration", "confusion", "peace")
-
-4. Lucidity Potential: Rate as:
-   - "high" if 3+ strong dream signs, vivid bizarre elements, or emotional intensity
-   - "medium" if 1-2 dream signs or moderate unusual elements
-   - "low" if mundane/realistic with few triggers
-
-5. Insights: Write 2-3 sentences about what this dream reveals about the dreamer's subconscious patterns and how it relates to their lucid dreaming journey. ${isLucid ? 'Explain what likely triggered lucidity and how to replicate it.' : 'Explain what dream signs were missed opportunities for lucidity.'}
-
-6. Suggestions: Provide 2-3 specific, actionable techniques:
-   - Which reality checks to practice based on this dream's patterns
-   - MILD/WILD technique recommendations
-   - Specific pre-sleep intentions to set
-   ${isLucid ? '- How to prolong and stabilize lucidity next time' : '- What to look for as lucidity triggers in future similar dreams'}
-
-Format your response as valid JSON with this exact structure:
-{
-  "dreamSigns": ["sign1", "sign2"],
-  "themes": ["theme1", "theme2"],
-  "emotions": ["emotion1", "emotion2"],
-  "lucidityPotential": "medium",
-  "insights": "Your 2-3 sentence insight here",
-  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
-}`;
-
-    const completion = await openai.chat.completions.create({
-      model: OPENAI_CONFIG.model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert lucid dreaming coach and dream analyst. Provide insightful, practical analysis that helps users achieve lucid dreams. Always respond with valid JSON only.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: OPENAI_CONFIG.temperature,
-      max_tokens: OPENAI_CONFIG.max_tokens,
+    const result = await analyzeDream({
+      dreamText,
+      dreamTitle,
+      isLucid,
     });
 
-    const response = completion.choices[0].message.content;
-    if (!response) {
-      throw new Error('No response from OpenAI');
+    if (result.data.success && result.data.analysis) {
+      return result.data.analysis;
     }
 
-    // Parse the JSON response
-    const analysis = JSON.parse(response) as DreamAnalysis;
-    analysis.analyzedAt = new Date().toISOString();
+    return null;
+  } catch (error: any) {
+    console.error("❌ Error calling Cloud Function:", error);
 
-    return analysis;
-  } catch (error) {
-    console.error('Error analyzing dream with OpenAI:', error);
+    if (error.code === "unauthenticated") {
+      throw new Error("You must be logged in to analyze dreams");
+    }
+
     return null;
   }
 };
 
+// ✅ Save dream analysis to Firebase
 export const saveDreamAnalysis = async (
   userId: string,
   dreamId: string,
   analysis: DreamAnalysis
 ): Promise<void> => {
   try {
+    console.log("💾 Saving analysis to dream:", dreamId);
+
+    const dreamRef = doc(db, "dreams", dreamId);
+
     await setDoc(
-      doc(db, 'dreams', dreamId),
+      dreamRef,
       {
-        analysis,
+        analysis: analysis,
         analyzed: true,
+        analyzedAt: analysis.analyzedAt,
       },
-      { merge: true }
+      {merge: true}
     );
 
-    // Also update user's dream sign patterns
+    console.log("✅ Dream analysis saved");
+
+    // Update user's dream patterns
     await updateUserDreamPatterns(userId, analysis);
   } catch (error) {
-    console.error('Error saving dream analysis:', error);
+    console.error("❌ Error saving dream analysis:", error);
     throw error;
   }
 };
 
+// ✅ Update user dream patterns
 const updateUserDreamPatterns = async (
   userId: string,
   analysis: DreamAnalysis
 ): Promise<void> => {
   try {
-    const patternsDoc = doc(db, 'users', userId, 'data', 'dreamPatterns');
+    const patternsDoc = doc(db, "users", userId, "data", "dreamPatterns");
     const existingPatterns = await getDoc(patternsDoc);
 
-    let patterns: { [key: string]: number } = {};
-    let themeCount: { [key: string]: number } = {};
-    let emotionCount: { [key: string]: number } = {};
+    let patterns: {[key: string]: number} = {};
+    let themeCount: {[key: string]: number} = {};
+    let emotionCount: {[key: string]: number} = {};
 
     if (existingPatterns.exists()) {
       const data = existingPatterns.data();
@@ -151,23 +143,22 @@ const updateUserDreamPatterns = async (
         emotions: emotionCount,
         lastUpdated: new Date().toISOString(),
       },
-      { merge: true }
+      {merge: true}
     );
   } catch (error) {
-    console.error('Error updating dream patterns:', error);
+    console.error("Error updating dream patterns:", error);
   }
 };
 
-export const getUserDreamPatterns = async (userId: string): Promise<{
-  topDreamSigns: Array<{ sign: string; count: number }>;
-  topThemes: Array<{ theme: string; count: number }>;
-  topEmotions: Array<{ emotion: string; count: number }>;
-}> => {
+// ✅ Get user dream patterns
+export const getUserDreamPatterns = async (userId: string) => {
   try {
-    const patternsDoc = await getDoc(doc(db, 'users', userId, 'data', 'dreamPatterns'));
+    const patternsDoc = await getDoc(
+      doc(db, "users", userId, "data", "dreamPatterns")
+    );
 
     if (!patternsDoc.exists()) {
-      return { topDreamSigns: [], topThemes: [], topEmotions: [] };
+      return {topDreamSigns: [], topThemes: [], topEmotions: []};
     }
 
     const data = patternsDoc.data();
@@ -177,23 +168,26 @@ export const getUserDreamPatterns = async (userId: string): Promise<{
 
     // Convert to sorted arrays
     const topDreamSigns = Object.entries(dreamSigns)
-      .map(([sign, count]) => ({ sign, count: count as number }))
+      .map(([sign, count]) => ({sign, count: count as number}))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
     const topThemes = Object.entries(themes)
-      .map(([theme, count]) => ({ theme, count: count as number }))
+      .map(([theme, count]) => ({theme, count: count as number}))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
     const topEmotions = Object.entries(emotions)
-      .map(([emotion, count]) => ({ emotion, count: count as number }))
+      .map(([emotion, count]) => ({emotion, count: count as number}))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    return { topDreamSigns, topThemes, topEmotions };
+    return {topDreamSigns, topThemes, topEmotions};
   } catch (error) {
-    console.error('Error getting dream patterns:', error);
-    return { topDreamSigns: [], topThemes: [], topEmotions: [] };
+    console.error("Error getting dream patterns:", error);
+    return {topDreamSigns: [], topThemes: [], topEmotions: []};
   }
 };
+
+// ✅ Alias for compatibility
+export const analyzeDream = analyzeDreamWithAI;

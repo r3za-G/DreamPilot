@@ -48,8 +48,7 @@ export default {
       eas: {
         projectId: "62c4d091-81b1-461d-9388-6754987a3d7a",
       },
-      revenueCatApiKey: process.env.EXPO_PRIVATE_IOS_REVENUECAT_API_KEY,
-      openAiApiKey: process.env.EXPO_PRIVATE_OPENAI_API_KEY,
+      revenueCatApiKey: process.env.EXPO_PRIVATE_IOS_REVENUECAT_API_KEY,  
     },
   },
 };

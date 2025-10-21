@@ -53,3 +53,12 @@ src/config/openai.ts.local
 app_screenshots/
 assets/app_icons/android
 assets/app_icons/apple-devices
+
+# Functions - already ignored by Firebase
+functions/node_modules/
+functions/lib/
+functions/.env
+
+# Root - check if already there
+.firebaserc
+.env.dreampilot-b8533

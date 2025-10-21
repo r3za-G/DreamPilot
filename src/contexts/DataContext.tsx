@@ -13,7 +13,6 @@ import {
 import { auth, db } from "../../firebaseConfig";
 import { getUserDreamPatterns } from "../services/dreamAnalysisService";
 import { calculateLevel } from "../data/levels";
-import { getUserXP } from "../utils/xpManager";
 import { COLORS } from "../theme/design";
 
 type Dream = {
