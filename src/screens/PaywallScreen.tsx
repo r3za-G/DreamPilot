@@ -106,58 +106,51 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   };
 
   const handlePurchase = async () => {
-    const pkg = selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
+  const pkg = selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
 
-    if (!pkg) {
-      toast.error("Package not available");
-      return;
+  if (!pkg) {
+    toast.error("Package not available");
+    return;
+  }
+
+  try {
+    setPurchasing(true);
+    hapticFeedback.light();
+
+    console.log("🛒 Initiating purchase for:", pkg.product.identifier);
+
+    const success = await purchasePackage(pkg);
+
+    if (success) {
+      console.log("✅ Purchase successful - Premium activated!");
+      hapticFeedback.success();
+      
+      // ✅ Force refresh subscription status
+      await checkSubscriptionStatus();
+      
+      // ✅ Show success toast
+      toast.success("Welcome to Premium! All features unlocked! 🎉", 4000);
+      
+      // ✅ Navigate back (Settings will auto-refresh with focus listener)
+      setTimeout(() => {
+        navigation.goBack();
+      }, 500);
+    } else {
+      console.log("❌ Purchase failed or was cancelled");
+      toast.error("Purchase was not completed");
     }
+  } catch (error: any) {
+    console.error("❌ Purchase error:", error);
+    hapticFeedback.error();
 
-    try {
-      setPurchasing(true);
-      hapticFeedback.light();
-
-      console.log("🛒 Initiating purchase for:", pkg.product.identifier);
-
-      // ✅ USE THE CONTEXT METHOD
-      const success = await purchasePackage(pkg);
-
-      if (success) {
-        console.log("✅ Purchase successful - Premium activated!");
-        hapticFeedback.success();
-        
-        // ✅ FORCE ONE MORE CHECK TO BE SURE
-        await checkSubscriptionStatus();
-        
-        // Show success alert
-        Alert.alert(
-          "Welcome to Premium! 🎉",
-          "All premium features are now unlocked!",
-          [
-            {
-              text: "Start Dreaming",
-              onPress: () => {
-                toast.success("Premium activated!");
-                navigation.goBack();
-              },
-            },
-          ]
-        );
-      } else {
-        console.log("❌ Purchase failed or was cancelled");
-        toast.error("Purchase was not completed");
-      }
-    } catch (error: any) {
-      console.error("❌ Purchase error:", error);
-      hapticFeedback.error();
-
-      if (!error.userCancelled) {
-        toast.error("Purchase failed. Please try again.");
-      }
-    } finally {
-      setPurchasing(false);
+    if (!error.userCancelled) {
+      toast.error("Purchase failed. Please try again.");
     }
-  };
+  } finally {
+    setPurchasing(false);
+  }
+};
+
 
   const handleRestore = async () => {
     try {
@@ -373,18 +366,18 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
         {/* CTA Button */}
         <View style={styles.ctaWrapper}>
           <Button
-            title="Start Free Trial"
+            title={`Get Premium - ${selectedPackage === "yearly" 
+              ? yearlyPackage?.product.priceString 
+              : monthlyPackage?.product.priceString}/year`}
             onPress={handlePurchase}
             loading={purchasing}
             disabled={purchasing}
           />
           <Text style={styles.ctaSubtext}>
-            7 days free, then{" "}
-            {selectedPackage === "yearly"
-              ? yearlyPackage?.product.priceString
-              : monthlyPackage?.product.priceString}
+            Cancel anytime. Auto-renews unless cancelled.
           </Text>
         </View>
+
 
         {/* Restore Purchases */}
         <TouchableOpacity

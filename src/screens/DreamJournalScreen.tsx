@@ -63,14 +63,13 @@ export default function DreamJournalScreen({
     "Flying",
     "People",
     "Running",
-    "House",
     "Nature",
     "Animals",
     "Vehicles",
     "Nightmare",
     "Pleasant",
     "Confusing",
-    "Vivid",
+    "Vivid", 
   ];
 
   useEffect(() => {
@@ -195,155 +194,190 @@ export default function DreamJournalScreen({
   };
 
   const handleSaveDream = async () => {
-    if (!title.trim() || !content.trim()) {
-      hapticFeedback.error();
-      toast.error("Please fill in both title and content");
-      return;
+  // ✅ 1. Check if fields are filled
+  if (!title.trim()) {
+    hapticFeedback.error();
+    toast.error("Please fill in title field");
+    return;
+  }
+  if (!content.trim()) {
+    hapticFeedback.error();
+    toast.error("Please fill in content field");
+    return;
+  }
+
+  // ✅ 2. Check content length for AI analysis
+  const MIN_CONTENT_LENGTH = 50; // Minimum characters for AI analysis
+  const contentLength = content.trim().length;
+
+  if (contentLength < MIN_CONTENT_LENGTH) {
+    hapticFeedback.warning();
+    toast.error(
+      `Dream content too short for AI analysis. Please write at least ${MIN_CONTENT_LENGTH} characters.`,
+      4000
+    );
+    return;
+  }
+
+  // ✅ 3. Check dream limit
+  const canSave = await checkDreamLimit();
+  if (!canSave) {
+    return;
+  }
+
+  try {
+    setLoading(true);
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const now = new Date();
+    const todayDate = now.toISOString().split("T")[0];
+
+    const dreamRef = await addDoc(collection(db, "dreams"), {
+      userId: user.uid,
+      title,
+      content,
+      isLucid,
+      tags,
+      createdAt: now.toISOString(),
+      isDeleted: false,
+    });
+
+    const dreamId = dreamRef.id;
+
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    const userData = userDoc.data();
+    const lastDreamDate = userData?.lastDreamDate || "";
+
+    let newStreak = 1;
+    if (lastDreamDate) {
+      const lastDate = new Date(lastDreamDate);
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDate = yesterday.toISOString().split("T")[0];
+
+      if (lastDreamDate === yesterdayDate) {
+        newStreak = (userData?.currentStreak || 0) + 1;
+      } else if (lastDreamDate === todayDate) {
+        newStreak = userData?.currentStreak || 1;
+      }
     }
 
-    const canSave = await checkDreamLimit();
-    if (!canSave) {
-      return;
+    const userRef = doc(db, "users", user.uid);
+    const updates: any = {
+      totalDreams: increment(1),
+      lastDreamDate: todayDate,
+      currentStreak: newStreak,
+    };
+
+    if (isLucid) {
+      updates.lucidDreams = increment(1);
     }
 
-    try {
-      setLoading(true);
-      const user = auth.currentUser;
-      if (!user) return;
+    await updateDoc(userRef, updates);
 
-      const now = new Date();
-      const todayDate = now.toISOString().split("T")[0];
+    // Award XP and check for level up
+    const xpAmount = isLucid
+      ? XP_REWARDS.LUCID_DREAM
+      : XP_REWARDS.DREAM_LOGGED;
+    const xpReason = isLucid ? "Logged a lucid dream" : "Logged a dream";
+    const result = await awardXP(user.uid, xpAmount, xpReason);
 
-      const dreamRef = await addDoc(collection(db, "dreams"), {
-        userId: user.uid,
-        title,
-        content,
-        isLucid,
-        tags,
-        createdAt: now.toISOString(),
-        isDeleted: false,
-      });
+    await Promise.all([refreshDreams(), refreshUserData()]);
 
-      const dreamId = dreamRef.id;
+    // Start background analysis
+    analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
 
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      const userData = userDoc.data();
-      const lastDreamDate = userData?.lastDreamDate || "";
+    hapticFeedback.success();
 
-      let newStreak = 1;
-      if (lastDreamDate) {
-        const lastDate = new Date(lastDreamDate);
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayDate = yesterday.toISOString().split("T")[0];
-
-        if (lastDreamDate === yesterdayDate) {
-          newStreak = (userData?.currentStreak || 0) + 1;
-        } else if (lastDreamDate === todayDate) {
-          newStreak = userData?.currentStreak || 1;
-        }
-      }
-
-      const userRef = doc(db, "users", user.uid);
-      const updates: any = {
-        totalDreams: increment(1),
-        lastDreamDate: todayDate,
-        currentStreak: newStreak,
-      };
-
-      if (isLucid) {
-        updates.lucidDreams = increment(1);
-      }
-
-      await updateDoc(userRef, updates);
-
-      // ✅ Award XP and check for level up
-      const xpAmount = isLucid
-        ? XP_REWARDS.LUCID_DREAM
-        : XP_REWARDS.DREAM_LOGGED;
-      const xpReason = isLucid ? "Logged a lucid dream" : "Logged a dream";
-      const result = await awardXP(user.uid, xpAmount, xpReason);
-
-      await Promise.all([refreshDreams(), refreshUserData()]);
-
-      // Start background analysis
-      analyzeDreamInBackground(user.uid, dreamRef.id, title, content, isLucid);
-
-      hapticFeedback.success();
-
-      // ✅ Check for level up BEFORE navigating
-      if (result.leveledUp && result.newLevel) {
-        console.log("🎊 Dream caused level up!", result.newLevel);
-        triggerLevelUp(result.newLevel);
-      }
-
-      // Navigate to dream detail
-      navigation.replace("DreamDetail", { dreamId });
-
-      // Show success toast
-      toast.success(
-        `Dream saved! +${xpAmount} XP${
-          newStreak > 1 ? ` • ${newStreak} day streak 🔥` : ""
-        }`,
-        3000
-      );
-    } catch (error) {
-      console.error("Error saving dream:", error);
-      hapticFeedback.error();
-      toast.error("Failed to save dream. Please try again");
-    } finally {
-      setLoading(false);
+    // Check for level up BEFORE navigating
+    if (result.leveledUp && result.newLevel) {
+      console.log("🎊 Dream caused level up!", result.newLevel);
+      triggerLevelUp(result.newLevel);
     }
-  };
+
+    // Navigate to dream detail
+    navigation.replace("DreamDetail", { dreamId });
+
+    // Show success toast
+    toast.success(
+      `Dream saved! +${xpAmount} XP${
+        newStreak > 1 ? ` • ${newStreak} day streak 🔥` : ""
+      }`,
+      3000
+    );
+  } catch (error) {
+    console.error("Error saving dream:", error);
+    hapticFeedback.error();
+    toast.error("Failed to save dream. Please try again");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const analyzeDreamInBackground = async (
-    userId: string,
-    dreamId: string,
-    title: string,
-    content: string,
-    isLucid: boolean
-  ) => {
-    try {
-      console.log("🤖 Starting AI analysis...");
+  userId: string,
+  dreamId: string,
+  title: string,
+  content: string,
+  isLucid: boolean
+) => {
+  try {
+    console.log("🤖 Starting AI analysis...");
+    console.log("📝 Dream content length:", content.length);
+    console.log("📝 Dream title:", title);
 
-      const analysis = await analyzeDream(title, content, isLucid);
+    const analysis = await analyzeDream(content, title, isLucid);
 
-      if (analysis) {
-        console.log("✅ Analysis complete, saving...");
-        await saveDreamAnalysis(userId, dreamId, analysis);
-        console.log("💾 Analysis saved successfully");
+    console.log("📊 Analysis result:", analysis);
 
-        await refreshDreams();
+    if (analysis) {
+      console.log("✅ Analysis complete, saving...");
+      await saveDreamAnalysis(userId, dreamId, analysis);
+      console.log("💾 Analysis saved successfully");
 
-        // ✅ Only show recurring dream sign notification if count >= 3
-        if (analysis.dreamSigns.length > 0) {
+      await refreshDreams();
+
+      // Recurring dream sign notification
+      if (analysis.dreamSigns && analysis.dreamSigns.length > 0) {
+        try {
           const patterns = await getUserDreamPatterns(userId);
 
-          const recurringSign = analysis.dreamSigns.find((sign) =>
-            patterns.topDreamSigns.some(
-              (p) => p.sign.toLowerCase() === sign.toLowerCase() && p.count >= 3
-            )
-          );
-
-          if (recurringSign) {
-            const signData = patterns.topDreamSigns.find(
-              (p) => p.sign.toLowerCase() === recurringSign.toLowerCase()
+          if (patterns && patterns.topDreamSigns) {
+            const recurringSign = analysis.dreamSigns.find((sign) =>
+              patterns.topDreamSigns.some(
+                (p) => p.sign.toLowerCase() === sign.toLowerCase() && p.count >= 3
+              )
             );
 
-            // ✅ Use toast instead of Alert so it doesn't interrupt
-            setTimeout(() => {
-              toast.info(
-                `🎯 Recurring sign detected: "${recurringSign}" (${signData?.count}x). Perfect reality check trigger!`,
-                5000
+            if (recurringSign) {
+              const signData = patterns.topDreamSigns.find(
+                (p) => p.sign.toLowerCase() === recurringSign.toLowerCase()
               );
-            }, 2000);
+
+              setTimeout(() => {
+                toast.info(
+                  `🎯 Recurring sign: "${recurringSign}" (${signData?.count}x)`,
+                  5000
+                );
+              }, 2000);
+            }
           }
+        } catch (patternError) {
+          console.log("⚠️ Pattern check failed (non-critical):", patternError);
         }
       }
-    } catch (error) {
-      console.error("❌ Background analysis error:", error);
+    } else {
+      console.warn("⚠️ Analysis returned null");
     }
-  };
+  } catch (error: any) {
+    console.error("❌ Background analysis error:", error);
+    console.error("❌ Error message:", error.message);
+    console.error("❌ Error code:", error.code);
+  }
+};
+
 
   const renderLimitBanner = () => {
     if (isPremium) return null;
@@ -432,6 +466,15 @@ export default function DreamJournalScreen({
             multiline
             textAlignVertical="top"
           />
+          {/* ✅ Add character counter */}
+          <Text
+            style={[
+              styles.characterCounter,
+              content.trim().length >= 50 && styles.characterCounterValid,
+            ]}
+          >
+            {content.trim().length}/50 characters (minimum for AI analysis)
+          </Text>
 
           <Text style={styles.sectionTitle}>Was this a lucid dream?</Text>
           <View style={styles.lucidContainer}>
@@ -635,4 +678,14 @@ const styles = StyleSheet.create({
   saveButton: {
     marginTop: SPACING.xxxl,
   },
+  characterCounter: {
+  fontSize: TYPOGRAPHY.sizes.xs,
+  color: COLORS.textTertiary,
+  marginTop: SPACING.xs,
+  fontStyle: "italic",
+},
+characterCounterValid: {
+  color: COLORS.success,
+},
+
 });

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -58,6 +58,18 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const { userData, refreshUserData } = useData();
   const toast = useToast();
 
+  useEffect(() => {
+  // ✅ Reload user data when screen gains focus
+  const unsubscribe = navigation.addListener('focus', () => {
+    if (refreshUserData) {
+      refreshUserData();
+    }
+  });
+
+  return unsubscribe;
+}, [navigation]);
+
+
   const openPrivacyPolicy = () => {
     hapticFeedback.light();
     Linking.openURL("https://r3za-g.github.io/dreampilot-privacy/");
@@ -103,116 +115,117 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   };
 
   const handleDeleteWithPassword = async () => {
-    if (!passwordInput.trim()) {
-      hapticFeedback.error();
-      toast.error("Password is required to delete your account");
+  if (!passwordInput.trim()) {
+    hapticFeedback.error();
+    toast.error("Password is required to delete your account");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setShowPasswordModal(false);
+
+    if (!user || !user.email) {
+      toast.error("User not found");
+      setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
-      setShowPasswordModal(false);
+    // 1️⃣ Reauthenticate
+    const credential = EmailAuthProvider.credential(user.email, passwordInput);
+    await reauthenticateWithCredential(user, credential);
+    console.log("✅ User reauthenticated");
 
-      if (!user || !user.email) {
-        toast.error("User not found");
-        setLoading(false);
-        return;
-      }
+    // 2️⃣ Delete Firestore data FIRST (while still authenticated)
+    await deleteUserData(user.uid);
+    console.log("✅ Firestore data deleted");
 
-      const credential = EmailAuthProvider.credential(
-        user.email,
-        passwordInput
+    // 3️⃣ Delete Firebase Auth user LAST
+    await deleteUser(user);
+    console.log("✅ Auth user deleted");
+
+    hapticFeedback.success();
+    toast.success("Account deleted successfully");
+  } catch (error: any) {
+    console.error("Error deleting account:", error);
+    hapticFeedback.error();
+    setShowPasswordModal(true);
+
+    if (
+      error.code === "auth/wrong-password" ||
+      error.code === "auth/invalid-credential" ||
+      error.code === "auth/invalid-email"
+    ) {
+      toast.error("Incorrect password. Please try again");
+    } else if (error.code === "auth/requires-recent-login") {
+      toast.warning("Please logout and login again, then try deleting", 5000);
+    } else {
+      toast.error(
+        `Failed to delete account: ${error.message || "Unknown error"}`
       );
-      await reauthenticateWithCredential(user, credential);
-      await deleteUser(user);
-      await deleteUserData(user.uid);
-      hapticFeedback.success();
-      toast.success("Account deleted successfully");
-    } catch (error: any) {
-      console.error("Error deleting account:", error);
-      hapticFeedback.error();
-      setShowPasswordModal(true);
-
-      if (
-        error.code === "auth/wrong-password" ||
-        error.code === "auth/invalid-credential" ||
-        error.code === "auth/invalid-email"
-      ) {
-        toast.error("Incorrect password. Please try again");
-      } else if (error.code === "auth/requires-recent-login") {
-        toast.warning("Please logout and login again, then try deleting", 5000);
-      } else {
-        toast.error(
-          `Failed to delete account: ${error.message || "Unknown error"}`
-        );
-      }
-    } finally {
-      setLoading(false);
-      setPasswordInput("");
     }
-  };
+  } finally {
+    setLoading(false);
+    setPasswordInput("");
+  }
+};
+
 
   const deleteUserData = async (userId: string) => {
-    try {
-      console.log("🗑️ Starting complete user data deletion for:", userId);
+  try {
+    // 1️⃣ Delete all user's dreams (root collection)
+    console.log("🗑️ Deleting dreams...");
+    const dreamsQuery = query(
+      collection(db, "dreams"),
+      where("userId", "==", userId)
+    );
+    const dreamsSnapshot = await getDocs(dreamsQuery);
+    
+    const deleteDreamPromises = dreamsSnapshot.docs.map((dreamDoc) =>
+      deleteDoc(dreamDoc.ref)
+    );
+    await Promise.all(deleteDreamPromises);
+    console.log(`✅ Deleted ${dreamsSnapshot.size} dreams`);
 
-      // ✅ 1. Delete all dreams
-      console.log("📖 Deleting dreams...");
-      const dreamsQuery = query(
-        collection(db, "dreams"),
-        where("userId", "==", userId)
-      );
-      const dreamsSnapshot = await getDocs(dreamsQuery);
-      const dreamDeletePromises = dreamsSnapshot.docs.map((doc) =>
-        deleteDoc(doc.ref)
-      );
-      await Promise.all(dreamDeletePromises);
-      console.log(`✅ Deleted ${dreamsSnapshot.size} dreams`);
+    // 2️⃣ Delete subcollections under users/{userId}/
+    console.log("🗑️ Deleting user subcollections...");
+    
+    // Delete data subcollection documents
+    const dataSnapshot = await getDocs(collection(db, "users", userId, "data"));
+    await Promise.all(dataSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+    console.log(`✅ Deleted ${dataSnapshot.size} data docs`);
+    
+    // Delete xpHistory
+    const xpSnapshot = await getDocs(collection(db, "users", userId, "xpHistory"));
+    await Promise.all(xpSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+    console.log(`✅ Deleted ${xpSnapshot.size} XP history docs`);
+    
+    // Delete achievements (if exists)
+    const achievementsSnapshot = await getDocs(collection(db, "users", userId, "achievements"));
+    await Promise.all(achievementsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+    console.log(`✅ Deleted ${achievementsSnapshot.size} achievement docs`);
+    
+    // Delete dream patterns (if exists)
+    const patternsSnapshot = await getDocs(collection(db, "users", userId, "dreamPatterns"));
+    await Promise.all(patternsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+    console.log(`✅ Deleted ${patternsSnapshot.size} pattern docs`);
+    
+    // Delete lesson progress (if exists)
+    const lessonsSnapshot = await getDocs(collection(db, "users", userId, "lessonProgress"));
+    await Promise.all(lessonsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+    console.log(`✅ Deleted ${lessonsSnapshot.size} lesson progress docs`);
 
-      // ✅ 2. Delete xpHistory subcollection
-      console.log("📊 Deleting xpHistory...");
-      const xpHistoryRef = collection(db, "users", userId, "xpHistory");
-      const xpHistorySnapshot = await getDocs(xpHistoryRef);
-      const xpDeletePromises = xpHistorySnapshot.docs.map((doc) =>
-        deleteDoc(doc.ref)
-      );
-      await Promise.all(xpDeletePromises);
-      console.log(`✅ Deleted ${xpHistorySnapshot.size} xpHistory entries`);
+    // 3️⃣ Finally delete the user document itself
+    console.log("🗑️ Deleting user document...");
+    await deleteDoc(doc(db, "users", userId));
+    console.log("✅ User document deleted");
 
-      // ✅ 3. Delete data subcollection
-      console.log("💾 Deleting data subcollection...");
-      const dataRef = collection(db, "users", userId, "data");
-      const dataSnapshot = await getDocs(dataRef);
-      const dataDeletePromises = dataSnapshot.docs.map((doc) =>
-        deleteDoc(doc.ref)
-      );
-      await Promise.all(dataDeletePromises);
-      console.log(`✅ Deleted ${dataSnapshot.size} data entries`);
-
-      // ✅ 4. Delete achievements (if you have this)
-      console.log("🏆 Deleting achievements...");
-      const achievementsQuery = query(
-        collection(db, "achievements"),
-        where("userId", "==", userId)
-      );
-      const achievementsSnapshot = await getDocs(achievementsQuery);
-      const achievementsDeletePromises = achievementsSnapshot.docs.map((doc) =>
-        deleteDoc(doc.ref)
-      );
-      await Promise.all(achievementsDeletePromises);
-      console.log(`✅ Deleted ${achievementsSnapshot.size} achievements`);
-
-      // ✅ 5. Delete the main user document last
-      console.log("👤 Deleting user document...");
-      await deleteDoc(doc(db, "users", userId));
-      console.log("✅ User document deleted");
-
-      console.log("🎉 All user data deleted successfully");
-    } catch (error) {
-      console.error("❌ Error deleting user data:", error);
-      throw error;
-    }
-  };
+    console.log("🎉 All user data deleted successfully!");
+  } catch (error) {
+    console.error("❌ Error deleting user data:", error);
+    throw error;
+  }
+};
 
   const toggleNotifications = async (value: boolean) => {
     hapticFeedback.light();

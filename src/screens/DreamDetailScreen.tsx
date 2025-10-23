@@ -55,8 +55,16 @@ export default function DreamDetailScreen({
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+  loadDream();
+  
+  // ✅ Reload when screen gains focus (after editing)
+  const unsubscribe = navigation.addListener('focus', () => {
     loadDream();
-  }, []);
+  });
+
+  return unsubscribe;
+}, [navigation]);
+
 
   const loadDream = async () => {
     try {
@@ -95,8 +103,8 @@ export default function DreamDetailScreen({
       if (!user) return;
 
       const analysis = await analyzeDream(
-        dream.title,
         dream.content,
+        dream.title,
         dream.isLucid
       );
 
@@ -119,48 +127,31 @@ export default function DreamDetailScreen({
   };
 
   const onRefresh = async () => {
-    if (!dream) return;
+  if (!dream) return;
 
-    setRefreshing(true);
-    hapticFeedback.light();
+  setRefreshing(true);
+  hapticFeedback.light();
 
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      if (dream.analysis) {
-        toast.info(
-          "Analysis already exists. Press Re-analyze for fresh insight"
-        );
-        await loadDream();
-        setRefreshing(false);
-        return;
-      }
-
-      // Generate new analysis
-      const analysis = await analyzeDream(
-        dream.title,
-        dream.content,
-        dream.isLucid
-      );
-
-      if (analysis) {
-        await saveDreamAnalysis(user.uid, dreamId, analysis);
-        await loadDream();
-        hapticFeedback.success();
-        toast.success("AI analysis generated! 🧠✨");
-      } else {
-        hapticFeedback.error();
-        toast.error("Failed to analyze dream. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error analyzing dream:", error);
-      hapticFeedback.error();
-      toast.error("Something went wrong. Please try again.");
-    } finally {
-      setRefreshing(false);
+  try {
+    // ✅ Just reload from Firestore - analysis is already there!
+    await loadDream();
+    
+    if (dream.analysis) {
+      toast.success("Dream loaded with AI analysis! 🧠✨");
+    } else {
+      toast.info("AI analysis in progress... Check back in a moment!");
     }
-  };
+    
+    hapticFeedback.success();
+  } catch (error) {
+    console.error("Error loading dream:", error);
+    hapticFeedback.error();
+    toast.error("Failed to load dream");
+  } finally {
+    setRefreshing(false);
+  }
+};
+
 
   const deleteDream = () => {
     hapticFeedback.warning();

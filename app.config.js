@@ -50,5 +50,11 @@ export default {
       },
       revenueCatApiKey: process.env.EXPO_PRIVATE_IOS_REVENUECAT_API_KEY,  
     },
-  },
+      compilerOptions: {
+        paths: {
+         "@firebase/auth": ["./node_modules/@firebase/auth/dist/index.rn.d.ts"]
+        }
+      },
+      extends: "expo/tsconfig.base" 
+  }
 };

@@ -1,7 +1,9 @@
 import {initializeApp} from "firebase/app";
 import {getFirestore} from "firebase/firestore";
 import {getStorage} from "firebase/storage";
-import {getAuth} from "firebase/auth";
+// @ts-ignore - RN persistence is available at runtime
+import {initializeAuth, getReactNativePersistence} from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {getFunctions} from "firebase/functions";
 
 const firebaseConfig = {
@@ -20,7 +22,12 @@ const app = initializeApp(firebaseConfig);
 // Initialize services
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const auth = getAuth(app);
+
+// ✅ Initialize Auth with persistence
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
+
 export const functions = getFunctions(app);
 
 export default app;

@@ -35,15 +35,22 @@ export const analyzeDream = onCall<AnalyzeDreamRequest>(
 
     const {dreamText, dreamTitle, isLucid = false} = request.data;
 
-    if (!dreamText || dreamText.length < 10) {
-      throw new HttpsError("invalid-argument", "Dream text too short");
+    // ✅ Fix: Only validate dreamText (content), not title
+    if (!dreamText || dreamText.trim().length < 10) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Dream content must be at least 10 characters"
+      );
     }
+
+    // Title can be any length (even empty)
+    const title = dreamTitle?.trim() || "Untitled Dream";
 
     try {
       // eslint-disable-next-line max-len
       const prompt = `You are an expert lucid dreaming coach. Analyze this dream:
 
-Title: "${dreamTitle}"
+Title: "${title}"
 Content: "${dreamText}"
 Was Lucid: ${isLucid}
 

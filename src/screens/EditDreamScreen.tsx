@@ -8,7 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  Modal,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { auth, db } from "../../firebaseConfig";
@@ -17,10 +17,11 @@ import {
   analyzeDream,
   saveDreamAnalysis,
 } from "../services/dreamAnalysisService";
+import { Ionicons } from "@expo/vector-icons";
 import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
-import { useToast } from "../contexts/ToastContext"; // ✅ Add this import
+import { useToast } from "../contexts/ToastContext";
 
 type EditDreamScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -32,7 +33,7 @@ export default function EditDreamScreen({
   route,
 }: EditDreamScreenProps) {
   const { dreamId, dream } = route.params;
-  const toast = useToast(); // ✅ Add this hook
+  const toast = useToast();
 
   const [title, setTitle] = useState(dream.title);
   const [content, setContent] = useState(dream.content);
@@ -40,19 +41,22 @@ export default function EditDreamScreen({
   const [tags, setTags] = useState<string[]>(dream.tags || []);
   const [loading, setLoading] = useState(false);
 
+  // ✅ Modal states
+  const [showReanalyzeModal, setShowReanalyzeModal] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+
   const commonTags = [
-    "🌊 Water",
-    "✈️ Flying",
-    "👥 People",
-    "🏃 Running",
-    "🏠 House",
-    "🌳 Nature",
-    "🐕 Animals",
-    "🚗 Vehicles",
-    "😨 Nightmare",
-    "😊 Pleasant",
-    "🤔 Confusing",
-    "🎨 Vivid",
+    "Water",
+    "Flying",
+    "People",
+    "Running",
+    "Nature",
+    "Animals",
+    "Vehicles",
+    "Nightmare",
+    "Pleasant",
+    "Confusing",
+    "Vivid",
   ];
 
   const toggleTag = (tag: string) => {
@@ -65,23 +69,36 @@ export default function EditDreamScreen({
   };
 
   const handleUpdateDream = async () => {
-    if (!title.trim() || !content.trim()) {
-      hapticFeedback.error();
-      toast.error("Please fill in both title and content"); // ✅ Toast
-      return;
-    }
+  if (!title.trim() || !content.trim()) {
+    hapticFeedback.error();
+    toast.error("Please fill in both title and content");
+    return;
+  }
 
-    const hasChanges =
-      title !== dream.title ||
-      content !== dream.content ||
-      isLucid !== dream.isLucid ||
-      JSON.stringify(tags) !== JSON.stringify(dream.tags);
+  // ✅ Add minimum length validation
+  const MIN_CONTENT_LENGTH = 50;
+  const contentLength = content.trim().length;
 
-    if (!hasChanges) {
-      hapticFeedback.warning();
-      toast.warning("No changes made to this dream"); // ✅ Toast
-      return;
-    }
+  if (contentLength < MIN_CONTENT_LENGTH) {
+    hapticFeedback.warning();
+    toast.error(
+      `Dream content too short for AI analysis. Need ${MIN_CONTENT_LENGTH} characters.`,
+      4000
+    );
+    return;
+  }
+
+  const hasChanges =
+    title !== dream.title ||
+    content !== dream.content ||
+    isLucid !== dream.isLucid ||
+    JSON.stringify(tags) !== JSON.stringify(dream.tags);
+
+  if (!hasChanges) {
+    hapticFeedback.warning();
+    toast.warning("No changes made to this dream");
+    return;
+  }
 
     try {
       setLoading(true);
@@ -97,53 +114,50 @@ export default function EditDreamScreen({
       });
 
       hapticFeedback.success();
-      toast.success("Dream updated! ✅"); // ✅ Toast
+      toast.success("Dream updated! ✅");
 
-      // ✅ Keep Alert for re-analyze confirmation (needs user choice)
-      Alert.alert(
-        "Re-analyze Dream?",
-        "Would you like to re-analyze this dream with AI for updated insights?",
-        [
-          {
-            text: "Not Now",
-            style: "cancel",
-            onPress: () => navigation.goBack(),
-          },
-          {
-            text: "Re-analyze",
-            onPress: async () => {
-              try {
-                setLoading(true);
-                const analysis = await analyzeDream(title, content, isLucid);
-
-                if (analysis) {
-                  await saveDreamAnalysis(user.uid, dreamId, analysis);
-                  hapticFeedback.success();
-                  toast.success("Dream re-analyzed! Fresh insights ready 🤖"); // ✅ Toast
-                  navigation.goBack();
-                } else {
-                  toast.error("Failed to analyze dream"); // ✅ Toast
-                  navigation.goBack();
-                }
-              } catch (error) {
-                console.error("Error re-analyzing:", error);
-                hapticFeedback.error();
-                toast.error("Analysis failed. Please try again"); // ✅ Toast
-                navigation.goBack();
-              } finally {
-                setLoading(false);
-              }
-            },
-          },
-        ]
-      );
+      // ✅ Show re-analyze modal
+      setShowReanalyzeModal(true);
     } catch (error) {
       console.error("Error updating dream:", error);
       hapticFeedback.error();
-      toast.error("Failed to update dream. Please try again"); // ✅ Toast
+      toast.error("Failed to update dream. Please try again");
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Handle re-analyze confirmation
+  const handleReanalyzeConfirm = async () => {
+    setShowReanalyzeModal(false);
+
+    try {
+      setLoading(true);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const analysis = await analyzeDream(content, title, isLucid);
+
+      if (analysis) {
+        await saveDreamAnalysis(user.uid, dreamId, analysis);
+        hapticFeedback.success();
+        toast.success("Dream re-analyzed! Fresh insights ready 🤖");
+      } else {
+        toast.error("Failed to analyze dream");
+      }
+    } catch (error) {
+      console.error("Error re-analyzing:", error);
+      hapticFeedback.error();
+      toast.error("Analysis failed. Please try again");
+    } finally {
+      setLoading(false);
+      navigation.goBack();
+    }
+  };
+
+  const handleReanalyzeSkip = () => {
+    setShowReanalyzeModal(false);
+    navigation.goBack();
   };
 
   const handleCancel = () => {
@@ -155,29 +169,18 @@ export default function EditDreamScreen({
 
     if (hasChanges) {
       hapticFeedback.warning();
-      // ✅ Keep Alert for discard confirmation (destructive action)
-      Alert.alert(
-        "Discard Changes?",
-        "You have unsaved changes. Are you sure you want to discard them?",
-        [
-          {
-            text: "Keep Editing",
-            style: "cancel",
-          },
-          {
-            text: "Discard",
-            style: "destructive",
-            onPress: () => {
-              hapticFeedback.light();
-              navigation.goBack();
-            },
-          },
-        ]
-      );
+      setShowDiscardModal(true);
     } else {
       hapticFeedback.light();
       navigation.goBack();
     }
+  };
+
+  // ✅ Handle discard confirmation
+  const handleDiscardConfirm = () => {
+    setShowDiscardModal(false);
+    hapticFeedback.light();
+    navigation.goBack();
   };
 
   return (
@@ -211,6 +214,15 @@ export default function EditDreamScreen({
             multiline
             textAlignVertical="top"
           />
+          {/* ✅ Add character counter */}
+          <Text
+            style={[
+              styles.characterCounter,
+              content.trim().length >= 50 && styles.characterCounterValid,
+            ]}
+          >
+            {content.trim().length}/50 characters (minimum for AI analysis)
+          </Text>
 
           <Text style={styles.sectionTitle}>Was this a lucid dream?</Text>
           <View style={styles.lucidContainer}>
@@ -289,6 +301,82 @@ export default function EditDreamScreen({
           </View>
         </View>
       </ScrollView>
+
+      {/* ✅ Re-analyze Modal */}
+      <Modal
+        visible={showReanalyzeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReanalyzeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="sparkles"
+              size={48}
+              color={COLORS.primary}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Re-analyze Dream?</Text>
+            <Text style={styles.modalText}>
+              Would you like to re-analyze this dream with AI for updated
+              insights?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Not Now"
+                onPress={handleReanalyzeSkip}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Re-analyze"
+                onPress={handleReanalyzeConfirm}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ✅ Discard Changes Modal */}
+      <Modal
+        visible={showDiscardModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDiscardModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="warning"
+              size={48}
+              color={COLORS.warning}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Discard Changes?</Text>
+            <Text style={styles.modalText}>
+              You have unsaved changes. Are you sure you want to discard them?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <Button
+                title="Keep Editing"
+                onPress={() => setShowDiscardModal(false)}
+                variant="ghost"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Discard"
+                onPress={handleDiscardConfirm}
+                variant="danger"
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -393,4 +481,57 @@ const styles = StyleSheet.create({
   saveButton: {
     flex: 1,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xxl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    alignItems: "center",
+  },
+  modalIcon: {
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.sizes.xxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: SPACING.md,
+    width: "100%",
+    marginTop: SPACING.md,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  characterCounter: {
+  fontSize: TYPOGRAPHY.sizes.xs,
+  color: COLORS.textTertiary,
+  marginTop: SPACING.xs,
+  fontStyle: "italic",
+  },
+  characterCounterValid: {
+    color: COLORS.success,
+  },
+
 });

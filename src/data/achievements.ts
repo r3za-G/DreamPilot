@@ -135,7 +135,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     title: 'Graduated',
     description: 'Complete all lessons',
     icon: '🎓',
-    requirement: { type: 'lessons', count: 5 },
+    requirement: { type: 'lessons', count: 20 },
     rarity: 'rare',
   },
 ];

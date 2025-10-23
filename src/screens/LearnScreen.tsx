@@ -372,25 +372,27 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
           </View>
 
           <View style={styles.lessonsSection}>
-            {filteredLessons.map((lesson, index) => {
-              const isCompleted = completedLessons.includes(lesson.id);
-              const previousLessonId = index > 0 ? LESSONS[index - 1].id : null;
-              const isPreviousCompleted = previousLessonId
-                ? completedLessons.includes(previousLessonId)
-                : true;
-              const isSequentiallyLocked = index > 0 && !isPreviousCompleted;
+            {filteredLessons.map((lesson) => {
+            // ✅ Find the original index from LESSONS array
+            const originalIndex = LESSONS.findIndex(l => l.id === lesson.id);
+            
+            const isCompleted = completedLessons.includes(lesson.id);
+            const previousLessonId = originalIndex > 0 ? LESSONS[originalIndex - 1].id : null;
+            const isPreviousCompleted = previousLessonId
+              ? completedLessons.includes(previousLessonId)
+              : true;
+            const isSequentiallyLocked = originalIndex > 0 && !isPreviousCompleted;
 
-              const isPremiumLesson = index >= 5;
-              const isPremiumLocked = isPremiumLesson && !isPremium;
+            const isPremiumLesson = originalIndex >= 5;
+            const isPremiumLocked = isPremiumLesson && !isPremium;
 
-              const isLocked = isSequentiallyLocked || isPremiumLocked;
-
+            const isLocked = isSequentiallyLocked || isPremiumLocked;
               return (
                 <TouchableOpacity
                   key={lesson.id}
                   onPress={() => {
                     if (!isSequentiallyLocked) {
-                      handleLessonPress(lesson, index);
+                      handleLessonPress(lesson, originalIndex);
                     }
                   }}
                   disabled={isSequentiallyLocked}
@@ -427,7 +429,7 @@ export default function LearnScreen({ navigation }: LearnScreenProps) {
                               color={COLORS.textTertiary}
                             />
                           ) : (
-                            <Text style={styles.lessonNumber}>{index + 1}</Text>
+                            <Text style={styles.lessonNumber}>{originalIndex + 1}</Text>
                           )}
                         </View>
                       </View>
