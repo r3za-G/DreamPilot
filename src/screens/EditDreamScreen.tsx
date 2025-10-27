@@ -22,6 +22,7 @@ import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
 import { useToast } from "../contexts/ToastContext";
+import { useData } from "../contexts/DataContext";
 
 type EditDreamScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -44,6 +45,8 @@ export default function EditDreamScreen({
   // ✅ Modal states
   const [showReanalyzeModal, setShowReanalyzeModal] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const { isPremium } = useData(); 
+  
 
   const commonTags = [
     "Water",
@@ -127,33 +130,48 @@ export default function EditDreamScreen({
     }
   };
 
-  // ✅ Handle re-analyze confirmation
-  const handleReanalyzeConfirm = async () => {
-    setShowReanalyzeModal(false);
+  // ✅ UPDATED: Handle rate limit error
+const handleReanalyzeConfirm = async () => {
+  setShowReanalyzeModal(false);
 
-    try {
-      setLoading(true);
-      const user = auth.currentUser;
-      if (!user) return;
+  try {
+    setLoading(true);
+    const user = auth.currentUser;
+    if (!user) return;
 
-      const analysis = await analyzeDream(content, title, isLucid);
+    const analysis = await analyzeDream(content, title, isLucid, isPremium);
 
-      if (analysis) {
-        await saveDreamAnalysis(user.uid, dreamId, analysis);
-        hapticFeedback.success();
-        toast.success("Dream re-analyzed! Fresh insights ready 🤖");
-      } else {
-        toast.error("Failed to analyze dream");
-      }
-    } catch (error) {
-      console.error("Error re-analyzing:", error);
-      hapticFeedback.error();
-      toast.error("Analysis failed. Please try again");
-    } finally {
-      setLoading(false);
+    if (analysis) {
+      await saveDreamAnalysis(user.uid, dreamId, analysis);
+      hapticFeedback.success();
+      toast.success("Dream re-analyzed! Fresh insights ready 🤖");
+      navigation.goBack();
+    } else {
+      toast.error("Failed to analyze dream");
       navigation.goBack();
     }
-  };
+  } catch (error: any) {
+    console.error("Error re-analyzing:", error);
+    
+    // ✅ NEW: Handle rate limit error
+    if (error.message === "RATE_LIMIT_EXCEEDED") {
+      hapticFeedback.warning();
+      toast.info(
+        "⏰ You've hit your daily AI analysis limit (5/day). Your changes are saved - try analyzing tomorrow!",
+        6000
+      );
+    } else {
+      hapticFeedback.error();
+      toast.error("Analysis failed. Your changes are saved.");
+    }
+    
+    // Navigate back regardless
+    navigation.goBack();
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleReanalyzeSkip = () => {
     setShowReanalyzeModal(false);

@@ -1,12 +1,7 @@
 import {httpsCallable} from "firebase/functions";
-import {functions, db, auth} from "../../firebaseConfig";
+import {functions, db} from "../../firebaseConfig";
 import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  limit,
+
   doc,
   setDoc,
   getDoc,
@@ -28,11 +23,12 @@ interface AnalyzeDreamResponse {
   analysis: DreamAnalysis;
 }
 
-// ✅ Cloud Function for AI analysis
+// In dreamAnalysisService.ts
 export const analyzeDreamWithAI = async (
   dreamText: string,
   dreamTitle: string,
-  isLucid?: boolean
+  isLucid?: boolean,
+  isPremium?: boolean
 ): Promise<DreamAnalysis | null> => {
   if (!dreamText || dreamText.trim().length < 10) {
     console.warn("⚠️ Dream text too short");
@@ -43,7 +39,7 @@ export const analyzeDreamWithAI = async (
     console.log("🔮 Analyzing dream with Cloud Function...");
 
     const analyzeDream = httpsCallable<
-      {dreamText: string; dreamTitle: string; isLucid?: boolean},
+      {dreamText: string; dreamTitle: string; isLucid?: boolean; isPremium?: boolean},
       AnalyzeDreamResponse
     >(functions, "analyzeDream");
 
@@ -51,6 +47,7 @@ export const analyzeDreamWithAI = async (
       dreamText,
       dreamTitle,
       isLucid,
+      isPremium,
     });
 
     if (result.data.success && result.data.analysis) {
@@ -61,13 +58,20 @@ export const analyzeDreamWithAI = async (
   } catch (error: any) {
     console.error("❌ Error calling Cloud Function:", error);
 
-    if (error.code === "unauthenticated") {
+    // ✅ Check for rate limit error
+    if (error.code === "functions/resource-exhausted") {
+      throw new Error("RATE_LIMIT_EXCEEDED");
+    }
+
+    if (error.code === "functions/unauthenticated") {
       throw new Error("You must be logged in to analyze dreams");
     }
 
-    return null;
+    // Generic error
+    throw new Error("Failed to analyze dream. Please try again.");
   }
 };
+
 
 // ✅ Save dream analysis to Firebase
 export const saveDreamAnalysis = async (

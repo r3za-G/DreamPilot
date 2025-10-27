@@ -25,6 +25,7 @@ import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
 import { useToast } from "../contexts/ToastContext";
 
+
 type DreamDetailScreenProps = {
   navigation: NativeStackNavigationProp<any>;
   route: any;
@@ -53,6 +54,8 @@ export default function DreamDetailScreen({
   const [showReanalyzeModal, setShowReanalyzeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const { isPremium } = useData(); 
+
 
   useEffect(() => {
   loadDream();
@@ -89,42 +92,55 @@ export default function DreamDetailScreen({
     setShowReanalyzeModal(true);
   };
 
-  // ✅ NEW: Confirm reanalyze
-  const confirmReanalyze = async () => {
-    setShowReanalyzeModal(false);
-    // ✅ Add null check
-    if (!dream) {
-      toast.error("Dream not found");
-      return;
+  // ✅ UPDATED: Handle rate limit error
+const confirmReanalyze = async () => {
+  setShowReanalyzeModal(false);
+  
+  if (!dream) {
+    toast.error("Dream not found");
+    return;
+  }
+  
+  try {
+    setReanalyzing(true);
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const analysis = await analyzeDream(
+      dream.content,
+      dream.title,
+      dream.isLucid,
+      isPremium
+    );
+
+    if (analysis) {
+      await saveDreamAnalysis(user.uid, dreamId, analysis);
+      await loadDream();
+      hapticFeedback.success();
+      toast.success("Dream re-analysed! Fresh insights generated");
+    } else {
+      hapticFeedback.error();
+      toast.error("Failed to analyse dream. Please try again.");
     }
-    try {
-      setReanalyzing(true);
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const analysis = await analyzeDream(
-        dream.content,
-        dream.title,
-        dream.isLucid
+  } catch (error: any) {
+    console.error("Error re-analysing dream:", error);
+    
+    // ✅ NEW: Handle rate limit error
+    if (error.message === "RATE_LIMIT_EXCEEDED") {
+      hapticFeedback.warning();
+      toast.info(
+        "⏰ You've hit your daily AI analysis limit (5/day). Try again tomorrow!",
+        5000
       );
-
-      if (analysis) {
-        await saveDreamAnalysis(user.uid, dreamId, analysis);
-        await loadDream();
-        hapticFeedback.success();
-        toast.success("Dream re-analysed! Fresh insights generated");
-      } else {
-        hapticFeedback.error();
-        toast.error("Failed to analyse dream. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error re-analysing dream:", error);
+    } else {
       hapticFeedback.error();
       toast.error("Something went wrong. Please try again.");
-    } finally {
-      setReanalyzing(false);
     }
-  };
+  } finally {
+    setReanalyzing(false);
+  }
+};
+
 
   const onRefresh = async () => {
   if (!dream) return;

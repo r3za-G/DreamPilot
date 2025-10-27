@@ -34,11 +34,6 @@ const PREMIUM_FEATURES = [
     description: "Master lucid dreaming techniques",
   },
   {
-    icon: "analytics-outline",
-    title: "Unlimited AI Analysis",
-    description: "Deep insights for every dream",
-  },
-  {
     icon: "bar-chart-outline",
     title: "Advanced Analytics",
     description: "Track patterns & progress",
@@ -47,11 +42,6 @@ const PREMIUM_FEATURES = [
     icon: "flame-outline",
     title: "Full Streak Calendar",
     description: "Visualise your consistency",
-  },
-  {
-    icon: "star-outline",
-    title: "Premium Features",
-    description: "Custom reality checks & more",
   },
 ];
 
@@ -291,7 +281,7 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
                   <View>
                     <Text style={styles.pricingTitle}>Annual</Text>
                     <Text style={styles.pricingPrice}>
-                      {yearlyPackage.product.priceString}/year
+                      {yearlyPackage.product.priceString} / year
                     </Text>
                   </View>
                   <Ionicons
@@ -340,7 +330,7 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
                   <View>
                     <Text style={styles.pricingTitle}>Monthly</Text>
                     <Text style={styles.pricingPrice}>
-                      {monthlyPackage.product.priceString}/month
+                      {monthlyPackage.product.priceString} / month
                     </Text>
                     <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
                   </View>

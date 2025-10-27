@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -74,42 +73,33 @@ export default function DreamJournalScreen({
 
   useEffect(() => {
     loadTipPreference();
-    loadMonthlyDreamCount();
+    loadTotalDreamCount();
   }, [dreams, isPremium]);
 
-  const loadMonthlyDreamCount = async () => {
-    if (isPremium) {
-      setMonthlyDreamCount(0);
-      return;
-    }
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
+  const [totalDreamCount, setTotalDreamCount] = useState(0);
 
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-      );
+const loadTotalDreamCount = async () => {
+  if (isPremium) {
+    setTotalDreamCount(0);
+    return;
+  }
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
 
-      const dreamsQuery = query(
-        collection(db, "dreams"),
-        where("userId", "==", user.uid),
-        where("createdAt", ">=", startOfMonth.toISOString()),
-        where("createdAt", "<=", endOfMonth.toISOString())
-      );
+    // ✅ Count ALL dreams (not just this month)
+    const dreamsQuery = query(
+      collection(db, "dreams"),
+      where("userId", "==", user.uid)
+    );
 
-      const snapshot = await getDocs(dreamsQuery);
-      setMonthlyDreamCount(snapshot.size);
-    } catch (error) {
-      console.error("Error loading monthly dream count:", error);
-    }
-  };
+    const snapshot = await getDocs(dreamsQuery);
+    setTotalDreamCount(snapshot.size);
+  } catch (error) {
+    console.error("Error loading dream count:", error);
+  }
+};
+
 
   const loadTipPreference = async () => {
     try {
@@ -142,56 +132,45 @@ export default function DreamJournalScreen({
   };
 
   const checkDreamLimit = async (): Promise<boolean> => {
-    if (isPremium) return true;
+  if (isPremium) return true;
 
-    try {
-      const user = auth.currentUser;
-      if (!user) return false;
+  try {
+    const user = auth.currentUser;
+    if (!user) return false;
 
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
+    // ✅ NEW: Check TOTAL dream count (lifetime), not monthly
+    const dreamsQuery = query(
+      collection(db, "dreams"),
+      where("userId", "==", user.uid)
+    );
+
+    const snapshot = await getDocs(dreamsQuery);
+    const totalDreamCount = snapshot.size;
+
+    const FREE_DREAM_LIMIT = 3; // ✅ Changed from 10/month to 3 total
+
+    if (totalDreamCount >= FREE_DREAM_LIMIT) {
+      hapticFeedback.warning();
+      toast.error(
+        `You've used all ${FREE_DREAM_LIMIT} free dreams. Upgrade to Premium for unlimited dreams!`,
+        5000
       );
-
-      const dreamsQuery = query(
-        collection(db, "dreams"),
-        where("userId", "==", user.uid),
-        where("createdAt", ">=", startOfMonth.toISOString()),
-        where("createdAt", "<=", endOfMonth.toISOString())
-      );
-
-      const snapshot = await getDocs(dreamsQuery);
-      const monthlyDreamCount = snapshot.size;
-
-      if (monthlyDreamCount >= 10) {
-        hapticFeedback.warning();
-        Alert.alert(
-          "🔒 Free Limit Reached",
-          `You've created ${monthlyDreamCount} dreams this month. Upgrade to Premium for unlimited dreams!`,
-          [
-            { text: "Maybe Later", style: "cancel" },
-            {
-              text: "Upgrade to Premium",
-              onPress: () => navigation.navigate("Paywall"),
-              style: "default",
-            },
-          ]
-        );
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Error checking dream limit:", error);
-      return true;
+      
+      // Navigate to paywall
+      setTimeout(() => {
+        navigation.navigate("Paywall");
+      }, 1000);
+      
+      return false;
     }
-  };
+
+    return true;
+  } catch (error) {
+    console.error("Error checking dream limit:", error);
+    return true; // Fail open on errors
+  }
+};
+
 
   const handleSaveDream = async () => {
   // ✅ 1. Check if fields are filled
@@ -325,12 +304,8 @@ export default function DreamJournalScreen({
 ) => {
   try {
     console.log("🤖 Starting AI analysis...");
-    console.log("📝 Dream content length:", content.length);
-    console.log("📝 Dream title:", title);
 
-    const analysis = await analyzeDream(content, title, isLucid);
-
-    console.log("📊 Analysis result:", analysis);
+    const analysis = await analyzeDream(content, title, isLucid, isPremium);
 
     if (analysis) {
       console.log("✅ Analysis complete, saving...");
@@ -373,43 +348,56 @@ export default function DreamJournalScreen({
     }
   } catch (error: any) {
     console.error("❌ Background analysis error:", error);
-    console.error("❌ Error message:", error.message);
-    console.error("❌ Error code:", error.code);
+
+    // ✅ NEW: Handle rate limit error gracefully
+    if (error.message === "RATE_LIMIT_EXCEEDED") {
+      setTimeout(() => {
+        toast.info(
+          "⏰ You've hit your daily AI analysis limit (5/day). Your dream is saved - you can analyse it tomorrow!",
+          6000
+        );
+      }, 1500);
+    } else {
+      // Generic error - don't show to user (analysis failure is non-critical)
+      console.error("❌ Error code:", error.code);
+    }
   }
 };
 
 
+
   const renderLimitBanner = () => {
-    if (isPremium) return null;
+  if (isPremium) return null;
 
-    const remaining = 10 - monthlyDreamCount;
+  const FREE_DREAM_LIMIT = 3;
+  const remaining = FREE_DREAM_LIMIT - totalDreamCount;
 
-    if (remaining <= 3 && remaining > 0) {
-      return (
-        <TouchableOpacity
-          style={styles.limitBanner}
-          onPress={() => {
-            hapticFeedback.light();
-            navigation.navigate("Paywall");
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="information-circle"
-            size={20}
-            color={COLORS.warning}
-          />
-          <Text style={styles.limitBannerText}>
-            {remaining} {remaining === 1 ? "dream" : "dreams"} remaining this
-            month
-          </Text>
-          <Text style={styles.limitBannerLink}>Upgrade →</Text>
-        </TouchableOpacity>
-      );
-    }
+  if (remaining <= FREE_DREAM_LIMIT && remaining > 0) {
+    return (
+      <TouchableOpacity
+        style={styles.limitBanner}
+        onPress={() => {
+          hapticFeedback.light();
+          navigation.navigate("Paywall");
+        }}
+        activeOpacity={0.7}
+      >
+        <Ionicons
+          name="information-circle"
+          size={20}
+          color={COLORS.warning}
+        />
+        <Text style={styles.limitBannerText}>
+          {remaining} free {remaining === 1 ? "dream" : "dreams"} remaining
+        </Text>
+        <Text style={styles.limitBannerLink}>Upgrade →</Text>
+      </TouchableOpacity>
+    );
+  }
 
-    return null;
-  };
+  return null;
+};
+
 
   return (
     <KeyboardAvoidingView
