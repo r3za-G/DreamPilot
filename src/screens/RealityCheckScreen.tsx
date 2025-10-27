@@ -323,7 +323,7 @@ export default function RealityCheckScreen({
               <View style={styles.settingLeft}>
                 <Ionicons name="shuffle" size={22} color={COLORS.primary} />
                 <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Randomize Timing</Text>
+                  <Text style={styles.settingLabel}>Randomise Timing</Text>
                   <Text style={styles.settingDescription}>
                     Vary reminder times by ±30 minutes to prevent habituation
                   </Text>

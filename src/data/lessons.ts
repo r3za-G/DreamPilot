@@ -10,7 +10,7 @@ export type Lesson = {
 
 export type LessonContent = {
   sections: LessonSection[];
-  quiz?: QuizQuestion[];
+  quis?: QuisQuestion[];
   practiceTask?: string;
 };
 
@@ -19,7 +19,7 @@ export type LessonSection = {
   content: string;
 };
 
-export type QuizQuestion = {
+export type QuisQuestion = {
   question: string;
   options: string[];
   correctAnswer: number;
@@ -195,7 +195,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "MILD (Mnemonic Induction of Lucid Dreams) is one of the most effective techniques for beginners. It uses intention-setting and visualization to trigger lucidity.",
+            "MILD (Mnemonic Induction of Lucid Dreams) is one of the most effective techniques for beginners. It uses intention-setting and visualisation to trigger lucidity.",
         },
         {
           type: "heading",
@@ -204,7 +204,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "bullet",
           content:
-            "When you wake from a dream, recall it in detail\n Identify a dream sign (something unusual)\n Visualize yourself becoming lucid at that sign\n Repeat: \"Next time I'm dreaming, I will remember I'm dreaming\"\n Focus on this intention as you fall back asleep",
+            "When you wake from a dream, recall it in detail\n Identify a dream sign (something unusual)\n Visualise yourself becoming lucid at that sign\n Repeat: \"Next time I'm dreaming, I will remember I'm dreaming\"\n Focus on this intention as you fall back asleep",
         },
         {
           type: "tip",
@@ -228,7 +228,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 5,
     title: "Dream Signs & Patterns",
-    description: "Recognize your personal dream triggers",
+    description: "Recognise your personal dream triggers",
     duration: "7 min",
     level: 2,
     content: {
@@ -240,7 +240,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "Dream signs are recurring themes, people, places, or impossible events that appear in your dreams. Recognizing them is like having a cheat code for lucidity!",
+            "Dream signs are recurring themes, people, places, or impossible events that appear in your dreams. Recognising them is like having a cheat code for lucidity!",
         },
         {
           type: "heading",
@@ -326,7 +326,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: 7,
-    title: "Stabilizing Your Lucid Dream",
+    title: "Stabilising Your Lucid Dream",
     description: "Don't wake up! Learn to extend dream time",
     duration: "7 min",
     level: 3,
@@ -339,16 +339,16 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "Many beginners get lucid for the first time, get too excited, and immediately wake up. Stabilization techniques help you stay in the dream longer.",
+            "Many beginners get lucid for the first time, get too excited, and immediately wake up. Stabilisation techniques help you stay in the dream longer.",
         },
         {
           type: "heading",
-          content: "Stabilization Techniques",
+          content: "Stabilisation Techniques",
         },
         {
           type: "bullet",
           content:
-            'Rub your hands together (creates sensory grounding)\n Spin in circles (resets the dream scene)\n Touch objects and feel their texture\n Shout "Increase clarity!" or "Stabilize!"\n Look at your hands periodically\n Stay calm - excitement = waking',
+            'Rub your hands together (creates sensory grounding)\n Spin in circles (resets the dream scene)\n Touch objects and feel their texture\n Shout "Increase clarity!" or "Stabilise!"\n Look at your hands periodically\n Stay calm - excitement = waking',
         },
         {
           type: "tip",
@@ -372,10 +372,10 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "Mental practice: Visualize yourself becoming lucid, rubbing hands, and staying calm. This mental rehearsal actually works!",
+            "Mental practice: Visualise yourself becoming lucid, rubbing hands, and staying calm. This mental rehearsal actually works!",
         },
       ],
-      practiceTask: "Visualize stabilization techniques before sleep",
+      practiceTask: "Visualise stabilisation techniques before sleep",
     },
   },
   {
@@ -506,7 +506,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "To summon something: expect it to be behind you, around a corner, or in your pocket. Don't try to materialize it from thin air - use dream logic instead!",
+            "To summon something: expect it to be behind you, around a corner, or in your pocket. Don't try to materialise it from thin air - use dream logic instead!",
         },
         {
           type: "exercise",
@@ -520,7 +520,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 10,
     title: "Sleep Hygiene for Lucid Dreamers",
-    description: "Optimize your sleep for better dream recall",
+    description: "Optimise your sleep for better dream recall",
     duration: "7 min",
     level: 2,
     content: {
@@ -545,7 +545,7 @@ export const LESSONS: Lesson[] = [
         },
         {
           type: "heading",
-          content: "Bedroom Optimization",
+          content: "Bedroom Optimisation",
         },
         {
           type: "bullet",
@@ -569,7 +569,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "Consistency matters most! Going to bed and waking at the same time (even weekends) stabilizes your REM cycles and improves recall.",
+            "Consistency matters most! Going to bed and waking at the same time (even weekends) stabilises your REM cycles and improves recall.",
         },
         {
           type: "exercise",
@@ -604,7 +604,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "bullet",
           content:
-            "• Best done with WBTB after 4-6 hours of sleep\n• Lie completely still and comfortable\n• Let your body relax completely\n• Focus on your breath or visualize a scene\n• Notice hypnagogic imagery (dream visuals)\n• Don't move or swallow - stay completely still\n• Wait for sleep paralysis sensations\n• Enter the dream scene you're visualizing",
+            "• Best done with WBTB after 4-6 hours of sleep\n• Lie completely still and comfortable\n• Let your body relax completely\n• Focus on your breath or visualise a scene\n• Notice hypnagogic imagery (dream visuals)\n• Don't move or swallow - stay completely still\n• Wait for sleep paralysis sensations\n• Enter the dream scene you're visualising",
         },
         {
           type: "tip",
@@ -623,7 +623,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "Falling asleep too fast: If you lose consciousness before reaching the dream state, try more mental engagement (counting, visualizing).",
+            "Falling asleep too fast: If you lose consciousness before reaching the dream state, try more mental engagement (counting, visualising).",
         },
         {
           type: "heading",
@@ -632,7 +632,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "bullet",
           content:
-            "• Count breaths (1-100, repeat)\n• Visualize climbing stairs or descending\n• Listen to ambient sounds\n• Focus on the darkness behind closed eyes\n• Repeat a mantra mentally",
+            "• Count breaths (1-100, repeat)\n• Visualise climbing stairs or descending\n• Listen to ambient sounds\n• Focus on the darkness behind closed eyes\n• Repeat a mantra mentally",
         },
         {
           type: "exercise",
@@ -658,7 +658,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "Nightmares are actually perfect for triggering lucidity because they're emotionally intense. Strong emotions = heightened awareness = easier to realize you're dreaming!",
+            "Nightmares are actually perfect for triggering lucidity because they're emotionally intense. Strong emotions = heightened awareness = easier to realise you're dreaming!",
         },
         {
           type: "heading",
@@ -700,7 +700,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            'Affirmation: Before bed tonight, say "If I have a nightmare, I will realize I\'m dreaming and take control."',
+            'Affirmation: Before bed tonight, say "If I have a nightmare, I will realise I\'m dreaming and take control."',
         },
       ],
       practiceTask: "Do reality checks whenever you feel fear or anxiety",
@@ -802,7 +802,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "bullet",
           content:
-            "• Choose your dream topic clearly\n• Write it down as a question or intention\n• Visualize the scenario for 10-15 minutes\n• Repeat your intention as you fall asleep\n• Keep dream journal ready to record results",
+            "• Choose your dream topic clearly\n• Write it down as a question or intention\n• Visualise the scenario for 10-15 minutes\n• Repeat your intention as you fall asleep\n• Keep dream journal ready to record results",
         },
         {
           type: "heading",
@@ -835,10 +835,10 @@ export const LESSONS: Lesson[] = [
         {
           type: "exercise",
           content:
-            "Tonight: Write down one clear question or intention before bed. Visualize it for 10 minutes. See what your dreams reveal!",
+            "Tonight: Write down one clear question or intention before bed. Visualise it for 10 minutes. See what your dreams reveal!",
         },
       ],
-      practiceTask: "Write and visualize a dream incubation question",
+      practiceTask: "Write and visualise a dream incubation question",
     },
   },
   {
@@ -1036,7 +1036,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "Once you catch a false awakening, you're instantly lucid! Use this high-awareness state to stabilize and have amazing lucid dreams.",
+            "Once you catch a false awakening, you're instantly lucid! Use this high-awareness state to stabilise and have amasing lucid dreams.",
         },
         {
           type: "exercise",
@@ -1175,7 +1175,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "text",
           content:
-            "Stress, schedule changes, or new medications can affect dreams. Be patient with yourself. Your lucid dreaming skills will return when life stabilizes.",
+            "Stress, schedule changes, or new medications can affect dreams. Be patient with yourself. Your lucid dreaming skills will return when life stabilises.",
         },
         {
           type: "exercise",
@@ -1196,7 +1196,7 @@ export const LESSONS: Lesson[] = [
       sections: [
         {
           type: "heading",
-          content: "No One-Size-Fits-All",
+          content: "No One-Sise-Fits-All",
         },
         {
           type: "text",
@@ -1237,7 +1237,7 @@ export const LESSONS: Lesson[] = [
         {
           type: "bullet",
           content:
-            "• Sleep hygiene practices\n• Review dream journal\n• Set clear intention\n• Visualization (optional)\n• MILD or chosen technique\n• 10-20 minutes total",
+            "• Sleep hygiene practices\n• Review dream journal\n• Set clear intention\n• Visualisation (optional)\n• MILD or chosen technique\n• 10-20 minutes total",
         },
         {
           type: "tip",

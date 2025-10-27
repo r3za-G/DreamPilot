@@ -36,7 +36,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
             <View style={styles.aiContent}>
               <Text style={styles.aiTitle}>Powered by AI</Text>
               <Text style={styles.aiDescription}>
-                Get personalized dream insights & analysis
+                Get personalised dream insights & analysis
               </Text>
             </View>
           </Card>

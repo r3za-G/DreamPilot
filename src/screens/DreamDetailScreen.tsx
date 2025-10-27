@@ -112,13 +112,13 @@ export default function DreamDetailScreen({
         await saveDreamAnalysis(user.uid, dreamId, analysis);
         await loadDream();
         hapticFeedback.success();
-        toast.success("Dream re-analyzed! Fresh insights generated");
+        toast.success("Dream re-analysed! Fresh insights generated");
       } else {
         hapticFeedback.error();
-        toast.error("Failed to analyze dream. Please try again.");
+        toast.error("Failed to analyse dream. Please try again.");
       }
     } catch (error) {
-      console.error("Error re-analyzing dream:", error);
+      console.error("Error re-analysing dream:", error);
       hapticFeedback.error();
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -313,7 +313,7 @@ export default function DreamDetailScreen({
                   color={COLORS.primary}
                 />
                 <Text style={styles.reanalyzeText}>
-                  {reanalyzing ? "Analyzing..." : "Re-analyze"}
+                  {reanalyzing ? "Analysing..." : "Re-analyse"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -484,7 +484,7 @@ export default function DreamDetailScreen({
                 style={styles.modalButton}
               />
               <Button
-                title="Re-analyze"
+                title="Re-analyse"
                 onPress={confirmReanalyze}
                 style={styles.modalButton}
               />

@@ -46,7 +46,7 @@ const PREMIUM_FEATURES = [
   {
     icon: "flame-outline",
     title: "Full Streak Calendar",
-    description: "Visualize your consistency",
+    description: "Visualise your consistency",
   },
   {
     icon: "star-outline",
