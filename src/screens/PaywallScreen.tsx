@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,33 +14,35 @@ import Button from "../components/Button";
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from "../theme/design";
 import { hapticFeedback } from "../utils/haptics";
 import { useToast } from "../contexts/ToastContext";
-import { useSubscription } from "../contexts/SubscriptionContext"; // ✅ Import this
+import { useSubscription } from "../contexts/SubscriptionContext";
+import { scheduleTrialReminder } from "../utils/notificationManager";
 
 type PaywallScreenProps = {
   navigation: NativeStackNavigationProp<any>;
   route: any;
 };
 
+// ✅ REWRITTEN: Outcome-focused benefits, not feature lists
 const PREMIUM_FEATURES = [
   {
     icon: "infinite-outline",
-    title: "Unlimited Dreams",
-    description: "Log as many dreams as you want",
+    title: "Never Lose a Dream",
+    description: "Log unlimited dreams forever",
+  },
+  {
+    icon: "sparkles-outline", // Changed from "infinite" for AI
+    title: "Unlimited AI Analysis",
+    description: "Decode every dream—no limits",
   },
   {
     icon: "school-outline",
-    title: "20+ Expert Lessons",
-    description: "Master lucid dreaming techniques",
+    title: "Master Lucid Dreaming",
+    description: "Access all 20 expert lessons",
   },
   {
-    icon: "bar-chart-outline",
-    title: "Advanced Analytics",
-    description: "Track patterns & progress",
-  },
-  {
-    icon: "flame-outline",
-    title: "Full Streak Calendar",
-    description: "Visualise your consistency",
+    icon: "trending-up-outline", // Changed from bar-chart for better visual
+    title: "Track Your Progress",
+    description: "See patterns and milestones",
   },
 ];
 
@@ -52,9 +53,13 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   const [monthlyPackage, setMonthlyPackage] = useState<any>(null);
   const [yearlyPackage, setYearlyPackage] = useState<any>(null);
   const toast = useToast();
-  
-  // ✅ USE THE CONTEXT
-  const { purchasePackage, restorePurchases, getOfferings, checkSubscriptionStatus } = useSubscription();
+
+  const {
+    purchasePackage,
+    restorePurchases,
+    getOfferings,
+    checkSubscriptionStatus,
+  } = useSubscription();
 
   useEffect(() => {
     loadOfferings();
@@ -65,15 +70,19 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
       setLoading(true);
       const offerings = await getOfferings();
 
-      if (offerings?.current && offerings.current.availablePackages.length > 0) {
+      if (
+        offerings?.current &&
+        offerings.current.availablePackages.length > 0
+      ) {
         const packages = offerings.current.availablePackages;
 
-        // Find monthly and yearly packages
         const monthly = packages.find(
-          (pkg: any) => pkg.identifier === "$rc_monthly" || pkg.packageType === "MONTHLY"
+          (pkg: any) =>
+            pkg.identifier === "$rc_monthly" || pkg.packageType === "MONTHLY"
         );
         const yearly = packages.find(
-          (pkg: any) => pkg.identifier === "$rc_annual" || pkg.packageType === "ANNUAL"
+          (pkg: any) =>
+            pkg.identifier === "$rc_annual" || pkg.packageType === "ANNUAL"
         );
 
         setMonthlyPackage(monthly || null);
@@ -96,51 +105,42 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
   };
 
   const handlePurchase = async () => {
-  const pkg = selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
+    const pkg = selectedPackage === "yearly" ? yearlyPackage : monthlyPackage;
 
-  if (!pkg) {
-    toast.error("Package not available");
-    return;
-  }
-
-  try {
-    setPurchasing(true);
-    hapticFeedback.light();
-
-    console.log("🛒 Initiating purchase for:", pkg.product.identifier);
-
-    const success = await purchasePackage(pkg);
-
-    if (success) {
-      console.log("✅ Purchase successful - Premium activated!");
-      hapticFeedback.success();
-      
-      // ✅ Force refresh subscription status
-      await checkSubscriptionStatus();
-      
-      // ✅ Show success toast
-      toast.success("Welcome to Premium! All features unlocked! 🎉", 4000);
-      
-      // ✅ Navigate back (Settings will auto-refresh with focus listener)
-      setTimeout(() => {
-        navigation.goBack();
-      }, 500);
-    } else {
-      console.log("❌ Purchase failed or was cancelled");
-      toast.error("Purchase was not completed");
+    if (!pkg) {
+      toast.error("Package not available");
+      return;
     }
-  } catch (error: any) {
-    console.error("❌ Purchase error:", error);
-    hapticFeedback.error();
 
-    if (!error.userCancelled) {
-      toast.error("Purchase failed. Please try again.");
+    try {
+      setPurchasing(true);
+      hapticFeedback.light();
+
+      const success = await purchasePackage(pkg);
+
+      if (success) {
+        await checkSubscriptionStatus();
+
+        // ✅ ADD THIS: Schedule trial reminder
+        await scheduleTrialReminder();
+
+        toast.success("Welcome to Premium! 7-day free trial started! 🎉", 4000);
+
+        setTimeout(() => {
+          navigation.goBack();
+        }, 500);
+      }
+    } catch (error: any) {
+      console.error("❌ Purchase error:", error);
+      hapticFeedback.error();
+
+      if (!error.userCancelled) {
+        toast.error("Purchase failed. Please try again.");
+      }
+    } finally {
+      setPurchasing(false);
     }
-  } finally {
-    setPurchasing(false);
-  }
-};
-
+  };
 
   const handleRestore = async () => {
     try {
@@ -149,7 +149,6 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
 
       console.log("🔄 Restoring purchases...");
 
-      // ✅ USE THE CONTEXT METHOD
       const restored = await restorePurchases();
 
       if (restored) {
@@ -171,7 +170,6 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
     }
   };
 
-  // Show loading state while fetching offerings
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -181,7 +179,6 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
     );
   }
 
-  // Show error if no packages available
   if (!monthlyPackage && !yearlyPackage) {
     return (
       <View style={styles.loadingContainer}>
@@ -220,19 +217,18 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
           >
             <Ionicons name="close" size={28} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>PREMIUM</Text>
-          </View>
-          <Text style={styles.headerTitle}>Unlock Your Dream Potential</Text>
+
+          {/* ✅ REWRITTEN: Clear, bold, specific headline */}
+          <Text style={styles.headerTitle}>Master Lucid Dreaming</Text>
           <Text style={styles.headerSubtitle}>
-            Join thousands mastering lucid dreaming
+            Everything you need to start controlling your dreams
           </Text>
         </View>
 
-        {/* Features Grid */}
+        {/* ✅ REWRITTEN: Vertical list instead of 2x2 grid for better mobile UX */}
         <View style={styles.featuresContainer}>
           {PREMIUM_FEATURES.map((feature, index) => (
-            <Card key={index} style={styles.featureCard}>
+            <View key={index} style={styles.featureRow}>
               <View style={styles.featureIconContainer}>
                 <Ionicons
                   name={feature.icon as any}
@@ -240,18 +236,18 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
                   color={COLORS.primary}
                 />
               </View>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
-              <Text style={styles.featureDescription}>
-                {feature.description}
-              </Text>
-            </Card>
+              <View style={styles.featureTextContainer}>
+                <Text style={styles.featureTitle}>{feature.title}</Text>
+                <Text style={styles.featureDescription}>
+                  {feature.description}
+                </Text>
+              </View>
+            </View>
           ))}
         </View>
 
         {/* Pricing Cards */}
         <View style={styles.pricingContainer}>
-          <Text style={styles.sectionTitle}>Choose Your Plan</Text>
-
           {/* Yearly Plan */}
           {yearlyPackage && (
             <TouchableOpacity
@@ -265,23 +261,23 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
               <Card
                 style={{
                   ...styles.pricingCard,
-                  borderColor:
-                    selectedPackage === "yearly" ? COLORS.success : COLORS.border,
-                  borderWidth: 2,
-                  backgroundColor:
-                    selectedPackage === "yearly"
-                      ? "#1a1a3a"
-                      : COLORS.backgroundSecondary,
+                  ...(selectedPackage === "yearly" &&
+                    styles.pricingCardSelected),
                 }}
               >
                 <View style={styles.popularBadge}>
                   <Text style={styles.popularText}>BEST VALUE</Text>
                 </View>
                 <View style={styles.pricingHeader}>
-                  <View>
-                    <Text style={styles.pricingTitle}>Annual</Text>
+                  <View style={styles.pricingContent}>
+                    <Text style={styles.pricingTitle}>Yearly</Text>
                     <Text style={styles.pricingPrice}>
-                      {yearlyPackage.product.priceString} / year
+                      ${(yearlyPackage.product.price / 12).toFixed(2)}
+                      <Text style={styles.pricingPeriod}>/month</Text>
+                    </Text>
+
+                    <Text style={styles.pricingSubtext}>
+                      {yearlyPackage.product.priceString} billed annually
                     </Text>
                   </View>
                   <Ionicons
@@ -313,26 +309,22 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
               activeOpacity={0.7}
             >
               <Card
-                style={{
-                  ...styles.pricingCard,
-                  borderColor:
-                    selectedPackage === "monthly"
-                      ? COLORS.primary
-                      : COLORS.border,
-                  borderWidth: 2,
-                  backgroundColor:
-                    selectedPackage === "monthly"
-                      ? "#1a1a3a"
-                      : COLORS.backgroundSecondary,
-                }}
+                style={
+                  selectedPackage === "monthly"
+                    ? {
+                        ...styles.pricingCard,
+                        ...styles.pricingCardSelectedMonthly,
+                      }
+                    : styles.pricingCard
+                }
               >
                 <View style={styles.pricingHeader}>
-                  <View>
+                  <View style={styles.pricingContent}>
                     <Text style={styles.pricingTitle}>Monthly</Text>
                     <Text style={styles.pricingPrice}>
-                      {monthlyPackage.product.priceString} / month
+                      {monthlyPackage.product.priceString}
+                      <Text style={styles.pricingPeriod}>/month</Text>
                     </Text>
-                    <Text style={styles.pricingPerMonth}>Cancel anytime</Text>
                   </View>
                   <Ionicons
                     name={
@@ -353,21 +345,23 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
           )}
         </View>
 
-        {/* CTA Button */}
+        {/* ✅ REWRITTEN: Better CTA copy */}
         <View style={styles.ctaWrapper}>
           <Button
-            title={`Get Premium - ${selectedPackage === "yearly" 
-              ? yearlyPackage?.product.priceString 
-              : monthlyPackage?.product.priceString}/year`}
+            title={purchasing ? "Processing..." : "Start 7-Day Free Trial"}
             onPress={handlePurchase}
             loading={purchasing}
             disabled={purchasing}
           />
+          {/* ✅ UPDATED: Show trial terms */}
           <Text style={styles.ctaSubtext}>
-            Cancel anytime. Auto-renews unless cancelled.
+            Then{" "}
+            {selectedPackage === "yearly"
+              ? `${yearlyPackage.product.priceString}/year`
+              : `${monthlyPackage.product.priceString}/month`}
+            • We'll remind you before charging
           </Text>
         </View>
-
 
         {/* Restore Purchases */}
         <TouchableOpacity
@@ -381,9 +375,8 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
 
         {/* Fine Print */}
         <Text style={styles.finePrint}>
-          Cancel anytime. Payment will be charged to your App Store account.
-          Subscription automatically renews unless auto-renew is turned off at
-          least 24 hours before the end of the current period.
+          Payment charged to App Store account. Subscription auto-renews unless
+          cancelled 24 hours before period ends.
         </Text>
 
         <View style={styles.footer} />
@@ -419,7 +412,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: SPACING.xxxl,
+    padding: SPACING.xl,
     paddingTop: SPACING.xxxl * 2,
     alignItems: "center",
   },
@@ -430,69 +423,56 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: SPACING.xs,
   },
-  badge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.round,
-    marginBottom: SPACING.md,
-  },
-  badgeText: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.textPrimary,
-  },
   headerTitle: {
-    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontSize: TYPOGRAPHY.sizes.xxxl + 4, // Slightly larger for impact
     fontWeight: TYPOGRAPHY.weights.bold,
     color: COLORS.textPrimary,
     textAlign: "center",
     marginBottom: SPACING.sm,
   },
   headerSubtitle: {
-    fontSize: TYPOGRAPHY.sizes.lg,
+    fontSize: TYPOGRAPHY.sizes.md,
     color: COLORS.textSecondary,
     textAlign: "center",
+    lineHeight: 20,
   },
+  // ✅ REWRITTEN: Vertical list layout (more scannable on mobile)
   featuresContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     padding: SPACING.xl,
-    gap: SPACING.md,
+    paddingTop: SPACING.lg,
   },
-  featureCard: {
-    width: "48%",
-    padding: SPACING.lg,
+  featureRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: SPACING.lg,
   },
   featureIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.background,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${COLORS.primary}15`, // 15% opacity
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: SPACING.sm,
+    marginRight: SPACING.md,
+  },
+  featureTextContainer: {
+    flex: 1,
+    paddingTop: 2,
   },
   featureTitle: {
     fontSize: TYPOGRAPHY.sizes.md,
     fontWeight: TYPOGRAPHY.weights.semibold,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.xs / 2,
   },
   featureDescription: {
-    fontSize: TYPOGRAPHY.sizes.xs,
+    fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.textSecondary,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   pricingContainer: {
     padding: SPACING.xl,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.sizes.xxl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.lg,
-    textAlign: "center",
+    paddingTop: SPACING.md,
   },
   pricingCardWrapper: {
     marginBottom: SPACING.md,
@@ -500,10 +480,21 @@ const styles = StyleSheet.create({
   pricingCard: {
     padding: SPACING.lg,
     position: "relative",
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.backgroundSecondary,
+  },
+  pricingCardSelected: {
+    borderColor: COLORS.success,
+    backgroundColor: "#1a1a3a",
+  },
+  pricingCardSelectedMonthly: {
+    borderColor: COLORS.primary,
+    backgroundColor: "#1a1a3a",
   },
   popularBadge: {
     position: "absolute",
-    top: -10,
+    top: -12, // ✅ FIXED: Better positioning
     right: SPACING.lg,
     backgroundColor: COLORS.success,
     paddingHorizontal: SPACING.md,
@@ -519,28 +510,36 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: SPACING.sm,
+  },
+  pricingContent: {
+    flex: 1,
   },
   pricingTitle: {
-    fontSize: TYPOGRAPHY.sizes.xl,
-    fontWeight: TYPOGRAPHY.weights.bold,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.semibold,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  pricingPrice: {
-    fontSize: TYPOGRAPHY.sizes.xxl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.primary,
     marginBottom: SPACING.xs / 2,
   },
-  pricingPerMonth: {
-    fontSize: TYPOGRAPHY.sizes.md,
+  pricingPrice: {
+    fontSize: TYPOGRAPHY.sizes.xxxl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.primary,
+  },
+  pricingPeriod: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.regular,
     color: COLORS.textSecondary,
   },
+  pricingSubtext: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs / 2,
+  },
   saveBadge: {
-    fontSize: TYPOGRAPHY.sizes.md,
+    fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.success,
     fontWeight: TYPOGRAPHY.weights.semibold,
+    marginTop: SPACING.sm,
   },
   ctaWrapper: {
     paddingHorizontal: SPACING.xl,
