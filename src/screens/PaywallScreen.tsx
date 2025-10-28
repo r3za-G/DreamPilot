@@ -415,28 +415,34 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     paddingTop: SPACING.xxxl * 2,
     alignItems: "center",
+    paddingHorizontal: SPACING.xxl, // ✅ More horizontal padding
   },
   closeButton: {
     position: "absolute",
-    top: SPACING.xxxl * 2,
+    top: SPACING.xxxl * 1.8, // ✅ Adjusted position
     right: SPACING.lg,
     zIndex: 10,
     padding: SPACING.xs,
+    backgroundColor: "rgba(0, 0, 0, 0.3)", // ✅ Optional: add subtle background
+    borderRadius: RADIUS.round,
   },
   headerTitle: {
-    fontSize: TYPOGRAPHY.sizes.xxxl + 4, // Slightly larger for impact
+    fontSize: TYPOGRAPHY.sizes.xxxl + 4,
     fontWeight: TYPOGRAPHY.weights.bold,
     color: COLORS.textPrimary,
     textAlign: "center",
     marginBottom: SPACING.sm,
+    marginTop: SPACING.lg, // ✅ Push down from X button
+    paddingHorizontal: SPACING.xl, // ✅ Prevent text wrapping near edges
   },
   headerSubtitle: {
     fontSize: TYPOGRAPHY.sizes.md,
     color: COLORS.textSecondary,
     textAlign: "center",
     lineHeight: 20,
+    paddingHorizontal: SPACING.lg, // ✅ Add padding
   },
-  // ✅ REWRITTEN: Vertical list layout (more scannable on mobile)
+
   featuresContainer: {
     padding: SPACING.xl,
     paddingTop: SPACING.lg,
