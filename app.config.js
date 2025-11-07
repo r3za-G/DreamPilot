@@ -4,7 +4,7 @@ export default {
   expo: {
     name: "Dream Pilot",
     slug: "dream-pilot",
-    version: "1.0.1",
+    version: "1.0.2",
     orientation: "portrait",
     icon: "./assets/app_icons/icon.png",
     userInterfaceStyle: "light",
