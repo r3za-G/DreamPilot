@@ -170,6 +170,10 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
     }
   };
 
+  const getCurrencySymbol = (priceString: string) => {
+    return priceString.replace(/[\d.,\s]/g, '').trim();
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -272,7 +276,7 @@ export default function PaywallScreen({ navigation }: PaywallScreenProps) {
                   <View style={styles.pricingContent}>
                     <Text style={styles.pricingTitle}>Yearly</Text>
                     <Text style={styles.pricingPrice}>
-                      {yearlyPackage.product.currencySymbol}
+                      {getCurrencySymbol(yearlyPackage.product.priceString)}
                       {(yearlyPackage.product.price / 12).toFixed(2)}
                       <Text style={styles.pricingPeriod}>/month</Text>
                     </Text>
